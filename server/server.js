@@ -23,6 +23,6 @@ mongoose
 
 // API Endpoint'leri için yönlendirme (auth rotası aşağıda oluşturulacak)
 app.use('/api/auth', require('./routes/auth'));
-
+app.use('/api/protected', require('./routes/protected'));
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
