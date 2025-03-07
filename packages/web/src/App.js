@@ -2,8 +2,12 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
-import ProfilePage from './pages/ProfilePage';
+import MainPage from './pages/MainPage';
+import GamePage from './pages/GamePage';
+import BingoPage from './pages/BingoPage';
+import LeaderboardPage from './pages/LeaderboardPage';
 import ProtectedRoute from './components/ProtectedRoute';
+
 function App() {
   return (
     <Router>
@@ -14,14 +18,44 @@ function App() {
         <Route path="/register" element={<RegisterPage />} />
 
         <Route
-          path="/profile"
+          path="/home"
           element={
             <ProtectedRoute>
-              <ProfilePage />
+              <MainPage />
             </ProtectedRoute>
           }
         />
-        {}
+
+        {/* Liderlik Tablosu */}
+        <Route
+          path="/leaderboard"
+          element={
+            <ProtectedRoute>
+              <LeaderboardPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Tombala sayfası için özel rota */}
+        <Route
+          path="/games/bingo"
+          element={
+            <ProtectedRoute>
+              <BingoPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Diğer oyun sayfaları için genel rota */}
+        <Route
+          path="/games/:gameId"
+          element={
+            <ProtectedRoute>
+              <GamePage />
+            </ProtectedRoute>
+          }
+        />
+        
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </Router>
