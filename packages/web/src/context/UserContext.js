@@ -1,29 +1,34 @@
 // src/context/UserContext.js
 import React, { createContext, useState, useEffect } from 'react';
+import { jwtDecode } from 'jwt-decode';
 
 export const UserContext = createContext();
 
 export const UserProvider = ({ children }) => {
   const [user, setUser] = useState(null);
 
-  // Uygulama başlarken localStorage'da kayıtlı kullanıcı varsa onu al.
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
+    const token = localStorage.getItem('token');
+    if (token) {
+      try {
+        const decoded = jwtDecode(token);
+        if (decoded.exp * 1000 < Date.now()) {
+          localStorage.removeItem('token');
+          setUser(null);
+        }
+      } catch (error) {
+        console.error('Token decoding error:', error);
+      }
     }
   }, []);
 
   const login = (userData) => {
     setUser(userData);
-    // Kullanıcı bilgisini localStorage'a kaydet
-    localStorage.setItem('user', JSON.stringify(userData));
   };
 
   const logout = () => {
     setUser(null);
-    // LocalStorage'daki kullanıcı bilgisini temizle
-    localStorage.removeItem('user');
+    localStorage.removeItem('token');
   };
 
   return (
