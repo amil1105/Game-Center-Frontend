@@ -6,59 +6,82 @@ import MainPage from './pages/MainPage';
 import GamePage from './pages/GamePage';
 import BingoPage from './pages/BingoPage';
 import LeaderboardPage from './pages/LeaderboardPage';
+import ProfilePage from './pages/ProfilePage';
+import SettingsPage from './pages/SettingsPage';
+import { UserProvider } from './context/UserContext';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
   return (
-    <Router>
-      <Routes>
-        {/* Varsayılan olarak "/" adresine gidildiğinde, /login'e yönlendir */}
-        <Route path="/" element={<Navigate to="/login" replace />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
+    <UserProvider>
+      <Router>
+        <Routes>
+          {/* Varsayılan olarak "/" adresine gidildiğinde, /login'e yönlendir */}
+          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
 
-        <Route
-          path="/home"
-          element={
-            <ProtectedRoute>
-              <MainPage />
-            </ProtectedRoute>
-          }
-        />
+          <Route
+            path="/home"
+            element={
+              <ProtectedRoute>
+                <MainPage />
+              </ProtectedRoute>
+            }
+          />
 
-        {/* Liderlik Tablosu */}
-        <Route
-          path="/leaderboard"
-          element={
-            <ProtectedRoute>
-              <LeaderboardPage />
-            </ProtectedRoute>
-          }
-        />
+          {/* Liderlik Tablosu */}
+          <Route
+            path="/leaderboard"
+            element={
+              <ProtectedRoute>
+                <LeaderboardPage />
+              </ProtectedRoute>
+            }
+          />
 
-        {/* Tombala sayfası için özel rota */}
-        <Route
-          path="/games/bingo"
-          element={
-            <ProtectedRoute>
-              <BingoPage />
-            </ProtectedRoute>
-          }
-        />
+          {/* Tombala sayfası için özel rota */}
+          <Route
+            path="/games/bingo"
+            element={
+              <ProtectedRoute>
+                <BingoPage />
+              </ProtectedRoute>
+            }
+          />
 
-        {/* Diğer oyun sayfaları için genel rota */}
-        <Route
-          path="/games/:gameId"
-          element={
-            <ProtectedRoute>
-              <GamePage />
-            </ProtectedRoute>
-          }
-        />
-        
-        <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
-    </Router>
+          {/* Diğer oyun sayfaları için genel rota */}
+          <Route
+            path="/games/:gameId"
+            element={
+              <ProtectedRoute>
+                <GamePage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <SettingsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+      </Router>
+    </UserProvider>
   );
 }
 

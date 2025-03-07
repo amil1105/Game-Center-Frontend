@@ -55,22 +55,6 @@ const GameCard = styled.div`
   &:hover {
     transform: translateY(-5px);
     box-shadow: 0 10px 20px rgba(0,0,0,0.2);
-    
-    &::after {
-      opacity: 1;
-    }
-  }
-  
-  &::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(180deg, rgba(74,125,255,0.1) 0%, rgba(74,125,255,0) 100%);
-    opacity: 0;
-    transition: opacity 0.3s;
   }
 `;
 
@@ -80,10 +64,14 @@ const GameImage = styled.div`
   background-color: #1a1b38;
   border-radius: 10px;
   margin-bottom: 15px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 2.5rem;
+  position: relative;
+  overflow: hidden;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
 `;
 
 const GameTitle = styled.h3`
@@ -176,13 +164,13 @@ function MainPage() {
         navigate('/leaderboard');
         break;
       case 'profile':
-        // Profile sayfası henüz hazır değil
+        navigate('/profile');
         break;
       case 'games':
-        // Oyunlar sayfası henüz hazır değil
+        navigate('/games/all');
         break;
       case 'settings':
-        // Ayarlar sayfası henüz hazır değil
+        navigate('/settings');
         break;
       default:
         break;
@@ -194,42 +182,84 @@ function MainPage() {
       id: 'bingo', 
       title: 'Tombala', 
       description: 'Klasik Türk Tombalası',
-      icon: '🎯',
+      image: '/img/game/bingo.jpg',
       isActive: true
     },
     { 
-      id: 'pvp', 
-      title: 'PvP Game', 
-      description: 'Rekabetçi oyun modu',
-      icon: '⚔️',
-      isActive: false
-    },
-    { 
-      id: 'roulette', 
-      title: 'Rulet', 
-      description: 'Klasik kumar oyunu',
-      icon: '🎲',
-      isActive: false
-    },
-    { 
-      id: 'jackpot', 
-      title: 'Jackpot', 
-      description: 'Büyük ödül şansı',
-      icon: '🎰',
-      isActive: false
-    },
-    { 
-      id: 'slots', 
-      title: 'Slots', 
-      description: 'Slot makinesi oyunları',
-      icon: '7️⃣',
+      id: 'mines', 
+      title: 'Mines', 
+      description: 'Mayın tarlası oyunu',
+      image: '/img/game/mines.svg',
       isActive: false
     },
     { 
       id: 'crash', 
       title: 'Crash', 
       description: 'Heyecan verici crash oyunu',
-      icon: '📈',
+      image: '/img/game/crash.png',
+      isActive: false
+    },
+    { 
+      id: 'wheel', 
+      title: 'Wheel', 
+      description: 'Şans çarkı oyunu',
+      image: '/img/game/wheel.svg',
+      isActive: false
+    },
+    { 
+      id: 'dice', 
+      title: 'Dice', 
+      description: 'Zar atma oyunu',
+      image: '/img/game/dice1.png',
+      isActive: false
+    },
+    { 
+      id: 'coinflip', 
+      title: 'Coinflip', 
+      description: 'Yazı tura oyunu',
+      image: '/img/game/coinflip.svg',
+      isActive: false
+    },
+    { 
+      id: 'hilo', 
+      title: 'HiLo', 
+      description: 'Yüksek mi alçak mı',
+      image: '/img/game/hilo.svg',
+      isActive: false
+    },
+    { 
+      id: 'blackjack', 
+      title: 'Blackjack', 
+      description: '21 kart oyunu',
+      image: '/img/game/blackjack.svg',
+      isActive: false
+    },
+    { 
+      id: 'tower', 
+      title: 'Tower', 
+      description: 'Kule tırmanma oyunu',
+      image: '/img/game/tower.svg',
+      isActive: false
+    },
+    { 
+      id: 'roulette', 
+      title: 'Roulette', 
+      description: 'Klasik rulet oyunu',
+      image: '/img/game/roulette.svg',
+      isActive: false
+    },
+    { 
+      id: 'stairs', 
+      title: 'Stairs', 
+      description: 'Merdiven tırmanma oyunu',
+      image: '/img/game/stairs.svg',
+      isActive: false
+    },
+    { 
+      id: 'keno', 
+      title: 'Keno', 
+      description: 'Sayısal tahmin oyunu',
+      image: '/img/game/keno.svg',
       isActive: false
     }
   ];
@@ -303,14 +333,14 @@ function MainPage() {
           {games.map(game => (
             <GameCard 
               key={game.id} 
-              onClick={() => handleGameClick(game.id)}
+              onClick={() => game.isActive ? handleGameClick(game.id) : null}
               style={{
-                opacity: game.isActive ? 1 : 0.5,
-                cursor: game.isActive ? 'pointer' : 'not-allowed'
+                opacity: game.isActive ? 1 : 0.7,
+                cursor: game.isActive ? 'pointer' : 'pointer'
               }}
             >
               <GameImage>
-                {game.icon}
+                <img src={game.image} alt={game.title} />
               </GameImage>
               <GameTitle>{game.title}</GameTitle>
               <GameDescription>{game.description}</GameDescription>

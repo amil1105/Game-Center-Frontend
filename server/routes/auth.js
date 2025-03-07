@@ -45,11 +45,23 @@ router.post('/login', async (req, res) => {
     if (!isMatch) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
-    // JWT Token oluştur
-    const payload = { userId: user._id };
-    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
+    // JWT Token oluştur (8 saat)
+    const payload = {
+      userId: user._id,
+      email: user.email
+    };
+    const token = jwt.sign(
+      payload,
+      process.env.JWT_SECRET,
+      { expiresIn: '8h' }
+    );
 
-    res.json({ token, user: { email: user.email } });
+    res.json({
+      token,
+      user: {
+        email: user.email
+      }
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
