@@ -1,10 +1,11 @@
 // src/pages/MainPage.js
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UserContext } from '../context/UserContext';
 import styled from 'styled-components';
 import { FaHome, FaTrophy, FaUsers, FaGamepad, FaCog } from 'react-icons/fa';
 import { BiChat } from 'react-icons/bi';
+import { BACKEND_URL } from '../api/auth';
 
 const MainContainer = styled.div`
   display: flex;
@@ -145,9 +146,22 @@ const Balance = styled.div`
 `;
 
 function MainPage() {
-  const { user, logout } = useContext(UserContext);
+  const { user, logout, checkAuth } = useContext(UserContext);
   const navigate = useNavigate();
   const [activeMenu, setActiveMenu] = useState('home');
+  
+  // Sayfa yüklendiğinde kullanıcı bilgilerini yenile
+  useEffect(() => {
+    checkAuth();
+  }, []);
+  
+  // Kullanıcı verilerini konsola yazdır (hata ayıklama için)
+  useEffect(() => {
+    if (user) {
+      console.log('Current user data in MainPage:', user);
+      console.log('Profile image URL:', user.profileImage);
+    }
+  }, [user]);
 
   const handleLogout = () => {
     logout();
@@ -210,7 +224,7 @@ function MainPage() {
       id: 'dice', 
       title: 'Dice', 
       description: 'Zar atma oyunu',
-      image: '/img/game/dice1.png',
+      image: '/img/game/dice.png',
       isActive: false
     },
     { 
@@ -306,9 +320,21 @@ function MainPage() {
       <Content>
         <Header>
           <UserInfo>
-            <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email}`} alt="avatar" />
+            <img 
+              className="profile-image"
+              src={user?.profileImage || `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="40" height="40"><rect width="100" height="100" fill="%232a2c4e"/><text x="50" y="50" font-size="50" text-anchor="middle" dominant-baseline="middle" font-family="Arial" fill="white">${user?.username ? user.username.charAt(0).toUpperCase() : 'U'}</text></svg>`} 
+              alt="avatar" 
+              onLoad={() => console.log('Profile image loaded successfully:', user?.profileImage)}
+              onError={(e) => {
+                console.log('Error loading profile image:', e.target.src);
+                e.target.onerror = null;
+                const initial = user?.username ? user.username.charAt(0).toUpperCase() : 'U';
+                e.target.src = `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="40" height="40"><rect width="100" height="100" fill="%232a2c4e"/><text x="50" y="50" font-size="50" text-anchor="middle" dominant-baseline="middle" font-family="Arial" fill="white">${initial}</text></svg>`;
+              }}
+              style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }}
+            />
             <div>
-              <h3>{user?.email}</h3>
+              <h3>{user?.username || user?.email}</h3>
             </div>
           </UserInfo>
           <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>

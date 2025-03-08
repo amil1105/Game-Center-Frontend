@@ -1,6 +1,6 @@
 // src/pages/RegisterPage.js
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { FaUser, FaEnvelope, FaLock, FaGoogle } from 'react-icons/fa';
 import { FaTelegramPlane } from 'react-icons/fa';
@@ -306,7 +306,7 @@ function RegisterPage() {
     if (username && email && password) {
       try {
         setIsLoading(true);
-        await registerUser(username, email, password);
+        await registerUser(email, password, username);
         navigate('/login');
       } catch (error) {
         alert(error.response?.data?.message || 'Kayıt başarısız');

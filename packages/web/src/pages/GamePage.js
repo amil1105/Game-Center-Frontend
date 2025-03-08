@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
+import axios from 'axios';
+import { toast } from 'react-hot-toast';
 
 const GameContainer = styled.div`
   padding: 40px;
@@ -125,6 +127,12 @@ const PlayButton = styled.button`
 function GamePage() {
   const { gameId } = useParams();
   const navigate = useNavigate();
+  const [lobbies, setLobbies] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [user, setUser] = useState(null);
+  const [selectedGame, setSelectedGame] = useState('all');
+  const [activeTab, setActiveTab] = useState('all');
 
   const categories = [
     { id: 'all', name: 'Tüm Oyunlar' },
@@ -201,6 +209,152 @@ function GamePage() {
     }
   };
 
+  const fetchLobbies = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setError('Oturum açmanız gerekiyor');
+        return;
+      }
+
+      const response = await axios.get('http://localhost:5000/api/lobbies', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (!Array.isArray(response.data)) {
+        throw new Error('Geçersiz veri formatı');
+      }
+
+      setLobbies(response.data);
+      setError(null);
+    } catch (error) {
+      console.error('Lobiler yüklenirken hata:', error);
+      if (error.response?.status === 401) {
+        setError('Oturum süreniz doldu. Lütfen tekrar giriş yapın.');
+        localStorage.removeItem('token');
+        navigate('/login');
+      } else if (error.response?.status === 404) {
+        setError('Lobi servisi bulunamadı. Lütfen daha sonra tekrar deneyin.');
+      } else {
+        setError('Lobiler yüklenirken bir hata oluştu');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateLobby = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        toast.error('Oturum açmanız gerekiyor');
+        return;
+      }
+
+      if (!user) {
+        toast.error('Kullanıcı bilgileri yüklenemedi');
+        return;
+      }
+
+      // Kullanıcının aktif lobisi var mı kontrol et
+      const response = await axios.get('http://localhost:5000/api/lobbies', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      const existingLobby = response.data.find(
+        lobby => lobby.creator._id === user._id && lobby.status !== 'finished'
+      );
+
+      if (existingLobby) {
+        toast.error('Zaten aktif bir lobiniz var');
+        return;
+      }
+
+      const lobbyData = {
+        name: `Lobi ${Math.floor(Math.random() * 1000)}`,
+        game: gameId,
+        maxPlayers: 2,
+        isPrivate: false,
+        status: 'waiting'
+      };
+
+      const result = await axios.post('http://localhost:5000/api/lobbies', lobbyData, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      toast.success('Lobi başarıyla oluşturuldu');
+      fetchLobbies();
+    } catch (error) {
+      console.error('Lobi oluşturulurken hata:', error);
+      toast.error('Lobi oluşturulurken bir hata oluştu');
+    }
+  };
+
+  const handleDeleteLobby = async (lobbyId) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        toast.error('Oturum açmanız gerekiyor');
+        return;
+      }
+
+      await axios.delete(`http://localhost:5000/api/lobbies/${lobbyId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      toast.success('Lobi başarıyla silindi');
+      fetchLobbies();
+    } catch (error) {
+      console.error('Lobi silinirken hata:', error);
+      toast.error('Lobi silinirken bir hata oluştu');
+    }
+  };
+
+  const handleJoinLobby = async (lobbyId) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        toast.error('Oturum açmanız gerekiyor');
+        return;
+      }
+
+      await axios.post(`http://localhost:5000/api/lobbies/${lobbyId}/join`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      toast.success('Lobiye başarıyla katıldınız');
+      fetchLobbies();
+    } catch (error) {
+      console.error('Lobiye katılırken hata:', error);
+      toast.error('Lobiye katılırken bir hata oluştu');
+    }
+  };
+
+  const handleTabClick = (tab) => {
+    setActiveTab(tab);
+    setSelectedGame(tab);
+  };
+
+  useEffect(() => {
+    // Kullanıcı bilgilerini al
+    const fetchUser = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        const response = await axios.get('http://localhost:5000/api/auth/me', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setUser(response.data);
+      } catch (error) {
+        console.error('Kullanıcı bilgileri alınamadı:', error);
+      }
+    };
+
+    fetchUser();
+  }, []);
+
   return (
     <GameContainer>
       <Header>
@@ -212,8 +366,8 @@ function GamePage() {
         {categories.map(category => (
           <Tab 
             key={category.id} 
-            active={category.id === gameId}
-            onClick={() => navigate(`/games/${category.id}`)}
+            active={category.id === selectedGame}
+            onClick={() => handleTabClick(category.id)}
           >
             {category.name}
           </Tab>
