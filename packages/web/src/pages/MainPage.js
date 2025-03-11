@@ -224,7 +224,7 @@ function MainPage() {
       id: 'dice', 
       title: 'Dice', 
       description: 'Zar atma oyunu',
-      image: '/img/game/dice.png',
+      image: '/img/game/dice.svg',
       isActive: false
     },
     { 
@@ -322,14 +322,14 @@ function MainPage() {
           <UserInfo>
             <img 
               className="profile-image"
-              src={user?.profileImage || `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="40" height="40"><rect width="100" height="100" fill="%232a2c4e"/><text x="50" y="50" font-size="50" text-anchor="middle" dominant-baseline="middle" font-family="Arial" fill="white">${user?.username ? user.username.charAt(0).toUpperCase() : 'U'}</text></svg>`} 
+              src={user?.profileImage || `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="40" height="40"><rect width="100" height="100" fill="#2a2c4e"/><text x="50" y="50" font-size="50" text-anchor="middle" dominant-baseline="middle" font-family="Arial" fill="white">' + (user?.username ? user.username.charAt(0).toUpperCase() : 'U') + '</text></svg>')}`} 
               alt="avatar" 
               onLoad={() => console.log('Profile image loaded successfully:', user?.profileImage)}
               onError={(e) => {
                 console.log('Error loading profile image:', e.target.src);
                 e.target.onerror = null;
                 const initial = user?.username ? user.username.charAt(0).toUpperCase() : 'U';
-                e.target.src = `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="40" height="40"><rect width="100" height="100" fill="%232a2c4e"/><text x="50" y="50" font-size="50" text-anchor="middle" dominant-baseline="middle" font-family="Arial" fill="white">${initial}</text></svg>`;
+                e.target.src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="40" height="40"><rect width="100" height="100" fill="#2a2c4e"/><text x="50" y="50" font-size="50" text-anchor="middle" dominant-baseline="middle" font-family="Arial" fill="white">' + initial + '</text></svg>')}`;
               }}
               style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }}
             />

@@ -569,14 +569,14 @@ function SettingsPage() {
               <ImagePreview>
                 <img 
                   className="profile-image"
-                  src={formData.profileImage || `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="150" height="150"><rect width="100" height="100" fill="%232a2c4e"/><text x="50" y="50" font-size="50" text-anchor="middle" dominant-baseline="middle" font-family="Arial" fill="white">${formData.username ? formData.username.charAt(0).toUpperCase() : 'U'}</text></svg>`} 
+                  src={formData.profileImage || `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="150" height="150"><rect width="100" height="100" fill="#2a2c4e"/><text x="50" y="50" font-size="50" text-anchor="middle" dominant-baseline="middle" font-family="Arial" fill="white">' + (formData.username ? formData.username.charAt(0).toUpperCase() : 'U') + '</text></svg>')}`} 
                   alt="Profil" 
                   onLoad={() => console.log('Settings page profile image loaded successfully:', formData.profileImage)}
                   onError={(e) => {
                     console.log('Error loading image in settings page:', e.target.src);
                     e.target.onerror = null;
                     const initial = formData.username ? formData.username.charAt(0).toUpperCase() : 'U';
-                    e.target.src = `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="150" height="150"><rect width="100" height="100" fill="%232a2c4e"/><text x="50" y="50" font-size="50" text-anchor="middle" dominant-baseline="middle" font-family="Arial" fill="white">${initial}</text></svg>`;
+                    e.target.src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="150" height="150"><rect width="100" height="100" fill="#2a2c4e"/><text x="50" y="50" font-size="50" text-anchor="middle" dominant-baseline="middle" font-family="Arial" fill="white">' + initial + '</text></svg>')}`;
                   }}
                 />
                 <UploadOverlay className="upload-overlay" onClick={handleProfileImageClick}>
