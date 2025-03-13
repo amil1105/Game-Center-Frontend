@@ -1,20 +1,58 @@
 import React, { useState, useEffect, useRef, useContext } from 'react';
-import styled from 'styled-components';
+import styled, { keyframes } from 'styled-components';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
-import { FaUser, FaGlobe, FaBell, FaPalette, FaImage, FaUpload, FaCamera } from 'react-icons/fa';
+import { FaUser, FaGlobe, FaBell, FaPalette, FaImage, FaUpload, FaCamera, FaArrowLeft } from 'react-icons/fa';
 import { getUserProfile, updateUserSettings, uploadProfileImage, BACKEND_URL } from '../api/auth';
 import { UserContext } from '../context/UserContext';
+import { useNavigate } from 'react-router-dom';
+
+// Animasyonlar
+const fadeIn = keyframes`
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+`;
+
+const pulse = keyframes`
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+`;
+
+const shine = keyframes`
+  0% {
+    background-position: -100px;
+  }
+  40%, 100% {
+    background-position: 140px;
+  }
+`;
 
 const SettingsContainer = styled.div`
   padding: 40px;
   color: white;
-  background-color: #0a0b1e;
+  background: linear-gradient(135deg, #0f1033 0%, #0a0b1e 100%);
   min-height: 100vh;
+  animation: ${fadeIn} 0.5s ease-out;
 `;
 
 const Header = styled.div`
   margin-bottom: 40px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
   
   h1 {
     font-size: 2rem;
@@ -23,6 +61,22 @@ const Header = styled.div`
   
   p {
     color: #6c7293;
+  }
+`;
+
+const BackButton = styled.button`
+  background: rgba(74, 125, 255, 0.1);
+  border: none;
+  color: #4a7dff;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 12px;
+  border-radius: 12px;
+  transition: all 0.3s;
+
+  &:hover {
+    background: rgba(74, 125, 255, 0.2);
+    transform: translateX(-5px);
   }
 `;
 
@@ -54,14 +108,18 @@ const NavItem = styled.div`
   align-items: center;
   gap: 10px;
   transition: all 0.3s;
-  background: ${props => props.$active ? '#4a7dff' : 'transparent'};
+  background: ${props => props.$active ? 'linear-gradient(145deg, #4a7dff 0%, #6a5aff 100%)' : 'transparent'};
+  transform: translateX(${props => props.$active ? '5px' : '0'});
+  box-shadow: ${props => props.$active ? '0 5px 15px rgba(74, 125, 255, 0.2)' : 'none'};
 
   &:hover {
-    background: ${props => props.$active ? '#4a7dff' : 'rgba(74, 125, 255, 0.1)'};
+    background: ${props => props.$active ? 'linear-gradient(145deg, #4a7dff 0%, #6a5aff 100%)' : 'rgba(74, 125, 255, 0.1)'};
+    transform: translateX(5px);
   }
 
   svg {
     font-size: 1.2rem;
+    color: ${props => props.$active ? 'white' : '#4a7dff'};
   }
 `;
 
@@ -69,6 +127,20 @@ const SettingsContent = styled.div`
   background: linear-gradient(145deg, #1e2044 0%, #171934 100%);
   border-radius: 15px;
   padding: 30px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  animation: ${fadeIn} 0.5s ease-out;
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #4a7dff 0%, #ff53f0 100%);
+  }
 `;
 
 const FormGroup = styled.div`
@@ -84,8 +156,8 @@ const FormGroup = styled.div`
 const Input = styled.input`
   width: 100%;
   padding: 12px;
-  background: #1a1b38;
-  border: 1px solid #2a2c4e;
+  background: rgba(26, 27, 38, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   color: white;
   font-size: 1rem;
@@ -94,22 +166,32 @@ const Input = styled.input`
   &:focus {
     outline: none;
     border-color: #4a7dff;
+    background: rgba(74, 125, 255, 0.1);
+    box-shadow: 0 0 0 3px rgba(74, 125, 255, 0.1);
   }
 `;
 
 const Select = styled.select`
   width: 100%;
   padding: 12px;
-  background: #1a1b38;
-  border: 1px solid #2a2c4e;
+  background: rgba(26, 27, 38, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   color: white;
   font-size: 1rem;
   transition: all 0.3s;
+  cursor: pointer;
 
   &:focus {
     outline: none;
     border-color: #4a7dff;
+    background: rgba(74, 125, 255, 0.1);
+    box-shadow: 0 0 0 3px rgba(74, 125, 255, 0.1);
+  }
+
+  option {
+    background: #1a1b38;
+    color: white;
   }
 `;
 
@@ -159,23 +241,49 @@ const Switch = styled.label`
 `;
 
 const SaveButton = styled.button`
-  background-color: #4a7dff;
+  background: linear-gradient(145deg, #4a7dff 0%, #6a5aff 100%);
   color: white;
   border: none;
   padding: 12px 24px;
   border-radius: 8px;
   font-size: 1rem;
   cursor: pointer;
-  transition: background-color 0.3s;
+  transition: all 0.3s;
   margin-top: 20px;
+  position: relative;
+  overflow: hidden;
 
   &:hover {
-    background-color: #3d6ae8;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(74, 125, 255, 0.3);
   }
 
   &:disabled {
-    background-color: #2a2c4e;
+    background: #2a2c4e;
     cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(
+      to right,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0.3) 50%,
+      rgba(255, 255, 255, 0) 100%
+    );
+    transform: translateX(-100%);
+    transition: transform 0.6s ease;
+  }
+
+  &:hover::before {
+    transform: translateX(100%);
   }
 `;
 
@@ -188,8 +296,9 @@ const ImagePreview = styled.div`
   overflow: hidden;
   position: relative;
   border: 4px solid #2a2c4e;
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
   transition: all 0.3s ease;
+  animation: ${pulse} 3s infinite;
 
   img {
     width: 100%;
@@ -306,6 +415,7 @@ function SettingsPage() {
   
   const fileInputRef = useRef(null);
   const { updateUserData } = useContext(UserContext);
+  const navigate = useNavigate();
 
   // URL parametrelerinden sekme değerini kontrol et
   useEffect(() => {
@@ -684,8 +794,13 @@ function SettingsPage() {
   return (
     <SettingsContainer>
       <Header>
-        <h1>Ayarlar</h1>
-        <p>Hesap ayarlarınızı buradan yönetebilirsiniz</p>
+        <BackButton onClick={() => navigate('/home')}>
+          <FaArrowLeft />
+        </BackButton>
+        <div>
+          <h1>Ayarlar</h1>
+          <p>Hesap ayarlarınızı buradan yönetebilirsiniz</p>
+        </div>
       </Header>
 
       <SettingsGrid>

@@ -2,9 +2,9 @@
 import React, { useContext, useEffect, useState } from 'react';
 import styled, { keyframes } from 'styled-components';
 import { UserContext } from '../context/UserContext';
-import { FaTrophy, FaGamepad, FaChartLine, FaCalendarAlt, FaCog, FaBell } from 'react-icons/fa';
+import { FaTrophy, FaGamepad, FaChartLine, FaCalendarAlt, FaCog, FaBell, FaArrowLeft } from 'react-icons/fa';
 import { BACKEND_URL } from '../api/auth';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 // Animasyonlar
 const fadeIn = keyframes`
@@ -355,9 +355,44 @@ const AchievementCard = styled.div`
   }
 `;
 
+const Header = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 40px;
+`;
+
+const BackButton = styled.button`
+  background: rgba(74, 125, 255, 0.1);
+  border: none;
+  color: #4a7dff;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 12px;
+  border-radius: 12px;
+  transition: all 0.3s;
+
+  &:hover {
+    background: rgba(74, 125, 255, 0.2);
+    transform: translateX(-5px);
+  }
+`;
+
+const HeaderContent = styled.div`
+  h1 {
+    font-size: 2rem;
+    margin-bottom: 10px;
+  }
+  
+  p {
+    color: #6c7293;
+  }
+`;
+
 function ProfilePage() {
   const { user } = useContext(UserContext);
   const [userData, setUserData] = useState(null);
+  const navigate = useNavigate();
   
   useEffect(() => {
     // Komponentin yüklenmesi sırasında kullanıcı verilerini UserContext'ten al
@@ -403,6 +438,16 @@ function ProfilePage() {
 
   return (
     <ProfileContainer>
+      <Header>
+        <BackButton onClick={() => navigate('/home')}>
+          <FaArrowLeft />
+        </BackButton>
+        <HeaderContent>
+          <h1>Profil</h1>
+          <p>Profil bilgilerinizi ve istatistiklerinizi görüntüleyin</p>
+        </HeaderContent>
+      </Header>
+      
       <ProfileWrapper>
         <ProfileSidebar>
           <ProfileCard>
