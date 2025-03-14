@@ -18,37 +18,38 @@ export const UserProvider = ({ children }) => {
     if (token) {
       try {
         const decoded = jwtDecode(token);
-        console.log('Decoded token:', decoded);
-        
         // Token'ın süresi dolmuş mu kontrol et (8 saat)
         if (decoded.exp * 1000 < Date.now()) {
-          console.log('Token expired');
           localStorage.removeItem('token');
           setUser(null);
         } else {
           // Token geçerliyse API'den kullanıcı bilgilerini al
           try {
-            console.log('Fetching user profile with token');
             const userData = await getUserProfile(token);
-            console.log('User data received:', userData);
             
             // Profil resminin önbelleğe alınmamasını sağlamak için timestamp ekle
-            // Ve backend URL'sini ekle
             if (userData && userData.profileImage) {
               const timestamp = new Date().getTime();
               // Eğer tam URL yoksa, backend URL'sini ekle
               if (!userData.profileImage.includes('http')) {
                 userData.profileImage = `${BACKEND_URL}${userData.profileImage}?t=${timestamp}`;
               } else {
-                userData.profileImage = `${userData.profileImage}?t=${timestamp}`;
+                // URL'de zaten timestamp varsa, onu güncelle
+                const baseUrl = userData.profileImage.split('?')[0];
+                userData.profileImage = `${baseUrl}?t=${timestamp}`;
               }
-              console.log('Updated profile image with timestamp:', userData.profileImage);
             }
             
-            setUser(userData);
+            // _id'yi id olarak da ekle
+            const userWithId = {
+              ...userData,
+              id: userData._id
+            };
+            
+            setUser(userWithId);
             
             // Daha sonra erişim için userData'yı localStorage'a kaydet
-            localStorage.setItem('userData', JSON.stringify(userData));
+            localStorage.setItem('userData', JSON.stringify(userWithId));
           } catch (error) {
             console.error('User data fetch error:', error);
             // API'den alınamazsa decoded'dan basic bilgileri al
@@ -63,8 +64,6 @@ export const UserProvider = ({ children }) => {
         localStorage.removeItem('token');
         setUser(null);
       }
-    } else {
-      console.log('No token found');
     }
     setLoading(false);
   };
@@ -81,9 +80,15 @@ export const UserProvider = ({ children }) => {
       }
     }
     
-    setUser(userData);
+    // _id'yi id olarak da ekle
+    const userWithId = {
+      ...userData,
+      id: userData._id
+    };
+    
+    setUser(userWithId);
     // Kullanıcı bilgilerini localStorage'a da kaydet
-    localStorage.setItem('userData', JSON.stringify(userData));
+    localStorage.setItem('userData', JSON.stringify(userWithId));
   };
 
   const logout = () => {
@@ -105,8 +110,14 @@ export const UserProvider = ({ children }) => {
       }
     }
     
+    // _id'yi id olarak da ekle
+    const newDataWithId = {
+      ...newData,
+      id: newData._id
+    };
+    
     setUser(prev => {
-      const updated = { ...prev, ...newData };
+      const updated = { ...prev, ...newDataWithId };
       localStorage.setItem('userData', JSON.stringify(updated));
       return updated;
     });

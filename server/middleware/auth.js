@@ -2,8 +2,8 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
 module.exports = async function(req, res, next) {
-  // Token'ı al (header'dan)
-  const token = req.header('Authorization')?.replace('Bearer ', '');
+  // Token'ı al (header'dan) - hem Authorization hem de x-auth-token'ı kontrol et
+  let token = req.header('Authorization')?.replace('Bearer ', '') || req.header('x-auth-token');
 
   if (!token) {
     return res.status(401).json({ error: 'Yetkilendirme hatası: Token bulunamadı' });

@@ -2,10 +2,11 @@ import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled, { keyframes, css } from 'styled-components';
 import { 
-  FaArrowLeft, FaTrophy, FaMedal, FaSearch,
+  FaTrophy, FaMedal, FaSearch, FaArrowLeft,
   FaGamepad, FaChartLine, FaCalendarAlt, FaFireAlt, FaStar, FaCrown, FaUser
 } from 'react-icons/fa';
 import { UserContext } from '../context/UserContext';
+import MainLayout from '../components/Layout/MainLayout';
 
 // Animasyonlar
 const fadeIn = keyframes`
@@ -53,14 +54,8 @@ const float = keyframes`
 `;
 
 const PageContainer = styled.div`
-  background: linear-gradient(135deg, #0f1033 0%, #0a0b1e 100%);
-  min-height: 100vh;
   color: white;
   padding: 40px;
-  
-  @media (max-width: 768px) {
-    padding: 20px;
-  }
 `;
 
 const PageContent = styled.div`
@@ -88,21 +83,7 @@ const HeaderLeft = styled.div`
   gap: 20px;
 `;
 
-const BackButton = styled.button`
-  background: rgba(74, 125, 255, 0.1);
-  border: none;
-  color: #4a7dff;
-  font-size: 20px;
-  cursor: pointer;
-  padding: 12px;
-  border-radius: 12px;
-  transition: all 0.3s;
 
-  &:hover {
-    background: rgba(74, 125, 255, 0.2);
-    transform: translateX(-5px);
-  }
-`;
 
 const Title = styled.h1`
   font-size: 2.5rem;
@@ -610,79 +591,102 @@ function LeaderboardPage() {
   };
 
   return (
-    <PageContainer>
-      <PageContent>
-        <Header>
-          <HeaderLeft>
-            <BackButton onClick={() => navigate('/home')}>
-              <FaArrowLeft />
-            </BackButton>
-            <Title>
-              <FaTrophy />
-              Liderlik Tablosu
-            </Title>
-          </HeaderLeft>
+    <MainLayout>
+      <PageContainer>
+        <PageContent>
+          <Header>
+            <HeaderLeft>
+             
+              <Title>
+                <FaTrophy />
+                Liderlik Tablosu
+              </Title>
+            </HeaderLeft>
+            
+            <HeaderRight>
+              <SearchBar>
+                <FaSearch />
+                <SearchInput 
+                  type="text" 
+                  placeholder="Oyuncu ara..." 
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </SearchBar>
+            </HeaderRight>
+          </Header>
           
-          <HeaderRight>
-            <SearchBar>
-              <FaSearch />
-              <SearchInput 
-                type="text" 
-                placeholder="Oyuncu ara..." 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </SearchBar>
-          </HeaderRight>
-        </Header>
-        
-        <CategoriesContainer>
-          <CategoryButton 
-            $active={selectedCategory === 'all'} 
-            onClick={() => setSelectedCategory('all')}
-          >
-            Tümü
-          </CategoryButton>
-          <CategoryButton 
-            $active={selectedCategory === 'genel'} 
-            onClick={() => setSelectedCategory('genel')}
-          >
-            Genel
-          </CategoryButton>
-          <CategoryButton 
-            $active={selectedCategory === 'kart'} 
-            onClick={() => setSelectedCategory('kart')}
-          >
-            Kart Oyunları
-          </CategoryButton>
-          <CategoryButton 
-            $active={selectedCategory === 'zar'} 
-            onClick={() => setSelectedCategory('zar')}
-          >
-            Zar Oyunları
-          </CategoryButton>
-          <CategoryButton 
-            $active={selectedCategory === 'tombala'} 
-            onClick={() => setSelectedCategory('tombala')}
-          >
-            Tombala
-          </CategoryButton>
-          <CategoryButton 
-            $active={selectedCategory === 'diğer'} 
-            onClick={() => setSelectedCategory('diğer')}
-          >
-            Diğer Oyunlar
-          </CategoryButton>
-        </CategoriesContainer>
-        
-        <LeaderboardWrapper>
-          <LeaderboardContainer>
-            {selectedCategory === 'all' && (
-              <TopThreeContainer>
-                {topThreePlayers.map((player, index) => (
-                  <TopPlayerCard key={player.id} $rank={index + 1}>
-                    {index === 0 && <CrownIcon><FaCrown /></CrownIcon>}
-                    <TopPlayerAvatar $rank={index + 1}>
+          <CategoriesContainer>
+            <CategoryButton 
+              $active={selectedCategory === 'all'} 
+              onClick={() => setSelectedCategory('all')}
+            >
+              Tümü
+            </CategoryButton>
+            <CategoryButton 
+              $active={selectedCategory === 'genel'} 
+              onClick={() => setSelectedCategory('genel')}
+            >
+              Genel
+            </CategoryButton>
+            <CategoryButton 
+              $active={selectedCategory === 'kart'} 
+              onClick={() => setSelectedCategory('kart')}
+            >
+              Kart Oyunları
+            </CategoryButton>
+            <CategoryButton 
+              $active={selectedCategory === 'zar'} 
+              onClick={() => setSelectedCategory('zar')}
+            >
+              Zar Oyunları
+            </CategoryButton>
+            <CategoryButton 
+              $active={selectedCategory === 'tombala'} 
+              onClick={() => setSelectedCategory('tombala')}
+            >
+              Tombala
+            </CategoryButton>
+            <CategoryButton 
+              $active={selectedCategory === 'diğer'} 
+              onClick={() => setSelectedCategory('diğer')}
+            >
+              Diğer Oyunlar
+            </CategoryButton>
+          </CategoriesContainer>
+          
+          <LeaderboardWrapper>
+            <LeaderboardContainer>
+              {selectedCategory === 'all' && (
+                <TopThreeContainer>
+                  {topThreePlayers.map((player, index) => (
+                    <TopPlayerCard key={player.id} $rank={index + 1}>
+                      {index === 0 && <CrownIcon><FaCrown /></CrownIcon>}
+                      <TopPlayerAvatar $rank={index + 1}>
+                        <img 
+                          src={getProfileImage(player)} 
+                          alt={player.name} 
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${player.avatar}`;
+                          }}
+                        />
+                        <TopPlayerRank $rank={index + 1}>{index + 1}</TopPlayerRank>
+                      </TopPlayerAvatar>
+                      <TopPlayerName $rank={index + 1}>{player.name}</TopPlayerName>
+                      <TopPlayerScore $rank={index + 1}>{player.score.toLocaleString()} Puan</TopPlayerScore>
+                    </TopPlayerCard>
+                  ))}
+                </TopThreeContainer>
+              )}
+              
+              <LeaderboardList>
+                {filteredLeaderboard.map((player, index) => (
+                  <LeaderboardItem key={player.id}>
+                    <Rank $rank={leaderboardData.findIndex(p => p.id === player.id) + 1}>
+                      {leaderboardData.findIndex(p => p.id === player.id) + 1}
+                    </Rank>
+                    <PlayerInfo>
                       <img 
                         src={getProfileImage(player)} 
                         alt={player.name} 
@@ -691,128 +695,105 @@ function LeaderboardPage() {
                           e.target.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${player.avatar}`;
                         }}
                       />
-                      <TopPlayerRank $rank={index + 1}>{index + 1}</TopPlayerRank>
-                    </TopPlayerAvatar>
-                    <TopPlayerName $rank={index + 1}>{player.name}</TopPlayerName>
-                    <TopPlayerScore $rank={index + 1}>{player.score.toLocaleString()} Puan</TopPlayerScore>
-                  </TopPlayerCard>
+                      <PlayerDetails>
+                        <PlayerName>{player.name}</PlayerName>
+                        <PlayerStats>{player.games} Oyun • %{player.winRate} Kazanma</PlayerStats>
+                      </PlayerDetails>
+                    </PlayerInfo>
+                    <Score>{player.score.toLocaleString()} Puan</Score>
+                  </LeaderboardItem>
                 ))}
-              </TopThreeContainer>
-            )}
+              </LeaderboardList>
+            </LeaderboardContainer>
             
-            <LeaderboardList>
-              {filteredLeaderboard.map((player, index) => (
-                <LeaderboardItem key={player.id}>
-                  <Rank $rank={leaderboardData.findIndex(p => p.id === player.id) + 1}>
-                    {leaderboardData.findIndex(p => p.id === player.id) + 1}
-                  </Rank>
-                  <PlayerInfo>
-                    <img 
-                      src={getProfileImage(player)} 
-                      alt={player.name} 
-                      onError={(e) => {
-                        e.target.onerror = null;
-                        e.target.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${player.avatar}`;
-                      }}
-                    />
-                    <PlayerDetails>
-                      <PlayerName>{player.name}</PlayerName>
-                      <PlayerStats>{player.games} Oyun • %{player.winRate} Kazanma</PlayerStats>
-                    </PlayerDetails>
-                  </PlayerInfo>
-                  <Score>{player.score.toLocaleString()} Puan</Score>
-                </LeaderboardItem>
-              ))}
-            </LeaderboardList>
-          </LeaderboardContainer>
-          
-          <SideContent>
-            <SideCard>
-              <SideCardTitle>
-                <FaChartLine /> İstatistikler
-              </SideCardTitle>
-              <CategoryStats>
-                <CategoryItem>
-                  <h4>250+</h4>
-                  <p>Aktif Oyuncu</p>
-                </CategoryItem>
-                <CategoryItem>
-                  <h4>1.2M</h4>
-                  <p>Toplam Oyun</p>
-                </CategoryItem>
-                <CategoryItem>
-                  <h4>120K</h4>
-                  <p>Haftalık Oyun</p>
-                </CategoryItem>
-                <CategoryItem>
-                  <h4>%54</h4>
-                  <p>Ort. Kazanma</p>
-                </CategoryItem>
-              </CategoryStats>
-            </SideCard>
-            
-            <SideCard>
-              <SideCardTitle>
-                <FaFireAlt /> Haftanın En İyileri
-              </SideCardTitle>
-              <HighlightCard>
-                <div className="highlight-icon"><FaStar /></div>
-                <h4>Kart Oyunları</h4>
-                <PlayerRow>
-                  <img 
-                    src={getProfileImage(getBestPlayer('kart'))} 
-                    alt={getBestPlayer('kart').name} 
-                  />
-                  <span className="player-name">{getBestPlayer('kart').name}</span>
-                  <span className="player-score">{getBestPlayer('kart').score.toLocaleString()}</span>
-                </PlayerRow>
-              </HighlightCard>
-              
-              <HighlightCard style={{ marginTop: '15px' }}>
-                <div className="highlight-icon"><FaStar /></div>
-                <h4>Zar Oyunları</h4>
-                <PlayerRow>
-                  <img 
-                    src={getProfileImage(getBestPlayer('zar'))} 
-                    alt={getBestPlayer('zar').name} 
-                  />
-                  <span className="player-name">{getBestPlayer('zar').name}</span>
-                  <span className="player-score">{getBestPlayer('zar').score.toLocaleString()}</span>
-                </PlayerRow>
-              </HighlightCard>
-            </SideCard>
-            
-            {user && (
+            <SideContent>
               <SideCard>
                 <SideCardTitle>
-                  <FaUser /> Senin Sıralamanız
+                  <FaChartLine /> İstatistikler
                 </SideCardTitle>
-                <LeaderboardItem style={{ background: 'rgba(74, 125, 255, 0.1)' }}>
-                  <Rank $rank={4}>4</Rank>
-                  <PlayerInfo>
-                    <img 
-                      src={user.profileImage || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`} 
-                      alt={user.username} 
-                      className="profile-image"
-                      onError={(e) => {
-                        e.target.onerror = null;
-                        const initial = user.username ? user.username.charAt(0).toUpperCase() : 'U';
-                        e.target.src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="150" height="150"><rect width="100" height="100" fill="#2a2c4e"/><text x="50" y="50" font-size="50" text-anchor="middle" dominant-baseline="middle" font-family="Arial" fill="white">' + initial + '</text></svg>')}`;
-                      }}
-                    />
-                    <PlayerDetails>
-                      <PlayerName>{user.username || user.email}</PlayerName>
-                      <PlayerStats>76 Oyun • %55 Kazanma</PlayerStats>
-                    </PlayerDetails>
-                  </PlayerInfo>
-                  <Score>8,500 Puan</Score>
-                </LeaderboardItem>
+                <CategoryStats>
+                  <CategoryItem>
+                    <h4>250+</h4>
+                    <p>Aktif Oyuncu</p>
+                  </CategoryItem>
+                  <CategoryItem>
+                    <h4>1.2M</h4>
+                    <p>Toplam Oyun</p>
+                  </CategoryItem>
+                  <CategoryItem>
+                    <h4>120K</h4>
+                    <p>Haftalık Oyun</p>
+                  </CategoryItem>
+                  <CategoryItem>
+                    <h4>%54</h4>
+                    <p>Ort. Kazanma</p>
+                  </CategoryItem>
+                </CategoryStats>
               </SideCard>
-            )}
-          </SideContent>
-        </LeaderboardWrapper>
-      </PageContent>
-    </PageContainer>
+              
+              <SideCard>
+                <SideCardTitle>
+                  <FaFireAlt /> Haftanın En İyileri
+                </SideCardTitle>
+                <HighlightCard>
+                  <div className="highlight-icon"><FaStar /></div>
+                  <h4>Kart Oyunları</h4>
+                  <PlayerRow>
+                    <img 
+                      src={getProfileImage(getBestPlayer('kart'))} 
+                      alt={getBestPlayer('kart').name} 
+                    />
+                    <span className="player-name">{getBestPlayer('kart').name}</span>
+                    <span className="player-score">{getBestPlayer('kart').score.toLocaleString()}</span>
+                  </PlayerRow>
+                </HighlightCard>
+                
+                <HighlightCard style={{ marginTop: '15px' }}>
+                  <div className="highlight-icon"><FaStar /></div>
+                  <h4>Zar Oyunları</h4>
+                  <PlayerRow>
+                    <img 
+                      src={getProfileImage(getBestPlayer('zar'))} 
+                      alt={getBestPlayer('zar').name} 
+                    />
+                    <span className="player-name">{getBestPlayer('zar').name}</span>
+                    <span className="player-score">{getBestPlayer('zar').score.toLocaleString()}</span>
+                  </PlayerRow>
+                </HighlightCard>
+              </SideCard>
+              
+              {user && (
+                <SideCard>
+                  <SideCardTitle>
+                    <FaUser /> Senin Sıralamanız
+                  </SideCardTitle>
+                  <LeaderboardItem style={{ background: 'rgba(74, 125, 255, 0.1)' }}>
+                    <Rank $rank={4}>4</Rank>
+                    <PlayerInfo>
+                      <img 
+                        src={user.profileImage || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`} 
+                        alt={user.username} 
+                        className="profile-image"
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          const initial = user.username ? user.username.charAt(0).toUpperCase() : 'U';
+                          e.target.src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="150" height="150"><rect width="100" height="100" fill="#2a2c4e"/><text x="50" y="50" font-size="50" text-anchor="middle" dominant-baseline="middle" font-family="Arial" fill="white">' + initial + '</text></svg>')}`;
+                        }}
+                      />
+                      <PlayerDetails>
+                        <PlayerName>{user.username || user.email}</PlayerName>
+                        <PlayerStats>76 Oyun • %55 Kazanma</PlayerStats>
+                      </PlayerDetails>
+                    </PlayerInfo>
+                    <Score>8,500 Puan</Score>
+                  </LeaderboardItem>
+                </SideCard>
+              )}
+            </SideContent>
+          </LeaderboardWrapper>
+        </PageContent>
+      </PageContainer>
+    </MainLayout>
   );
 }
 

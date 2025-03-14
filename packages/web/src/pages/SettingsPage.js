@@ -6,6 +6,7 @@ import { FaUser, FaGlobe, FaBell, FaPalette, FaImage, FaUpload, FaCamera, FaArro
 import { getUserProfile, updateUserSettings, uploadProfileImage, BACKEND_URL } from '../api/auth';
 import { UserContext } from '../context/UserContext';
 import { useNavigate } from 'react-router-dom';
+import MainLayout from '../components/Layout/MainLayout';
 
 // Animasyonlar
 const fadeIn = keyframes`
@@ -43,8 +44,6 @@ const shine = keyframes`
 const SettingsContainer = styled.div`
   padding: 40px;
   color: white;
-  background: linear-gradient(135deg, #0f1033 0%, #0a0b1e 100%);
-  min-height: 100vh;
   animation: ${fadeIn} 0.5s ease-out;
 `;
 
@@ -792,55 +791,47 @@ function SettingsPage() {
   };
 
   return (
-    <SettingsContainer>
-      <Header>
-        <BackButton onClick={() => navigate('/home')}>
-          <FaArrowLeft />
-        </BackButton>
-        <div>
-          <h1>Ayarlar</h1>
-          <p>Hesap ayarlarınızı buradan yönetebilirsiniz</p>
-        </div>
-      </Header>
+    <MainLayout>
+      <SettingsContainer>
+        <SettingsGrid>
+          <SettingsNav>
+            <NavItem 
+              $active={activeTab === 'profile'} 
+              onClick={() => setActiveTab('profile')}
+            >
+              <FaUser /> Profil
+            </NavItem>
+            <NavItem 
+              $active={activeTab === 'language'} 
+              onClick={() => setActiveTab('language')}
+            >
+              <FaGlobe /> Dil ve Bölge
+            </NavItem>
+            <NavItem 
+              $active={activeTab === 'notifications'} 
+              onClick={() => setActiveTab('notifications')}
+            >
+              <FaBell /> Bildirimler
+            </NavItem>
+            <NavItem 
+              $active={activeTab === 'theme'} 
+              onClick={() => setActiveTab('theme')}
+            >
+              <FaPalette /> Görünüm
+            </NavItem>
+          </SettingsNav>
 
-      <SettingsGrid>
-        <SettingsNav>
-          <NavItem 
-            $active={activeTab === 'profile'} 
-            onClick={() => setActiveTab('profile')}
-          >
-            <FaUser /> Profil
-          </NavItem>
-          <NavItem 
-            $active={activeTab === 'language'} 
-            onClick={() => setActiveTab('language')}
-          >
-            <FaGlobe /> Dil ve Bölge
-          </NavItem>
-          <NavItem 
-            $active={activeTab === 'notifications'} 
-            onClick={() => setActiveTab('notifications')}
-          >
-            <FaBell /> Bildirimler
-          </NavItem>
-          <NavItem 
-            $active={activeTab === 'theme'} 
-            onClick={() => setActiveTab('theme')}
-          >
-            <FaPalette /> Görünüm
-          </NavItem>
-        </SettingsNav>
-
-        <SettingsContent>
-          <form onSubmit={handleSubmit}>
-            {renderContent()}
-            <SaveButton type="submit" disabled={loading}>
-              {loading ? 'Kaydediliyor...' : 'Değişiklikleri Kaydet'}
-            </SaveButton>
-          </form>
-        </SettingsContent>
-      </SettingsGrid>
-    </SettingsContainer>
+          <SettingsContent>
+            <form onSubmit={handleSubmit}>
+              {renderContent()}
+              <SaveButton type="submit" disabled={loading}>
+                {loading ? 'Kaydediliyor...' : 'Değişiklikleri Kaydet'}
+              </SaveButton>
+            </form>
+          </SettingsContent>
+        </SettingsGrid>
+      </SettingsContainer>
+    </MainLayout>
   );
 }
 

@@ -2,9 +2,10 @@
 import React, { useContext, useEffect, useState } from 'react';
 import styled, { keyframes } from 'styled-components';
 import { UserContext } from '../context/UserContext';
-import { FaTrophy, FaGamepad, FaChartLine, FaCalendarAlt, FaCog, FaBell, FaArrowLeft } from 'react-icons/fa';
+import { FaTrophy, FaGamepad, FaChartLine, FaCalendarAlt, FaCog, FaBell } from 'react-icons/fa';
 import { BACKEND_URL } from '../api/auth';
 import { Link, useNavigate } from 'react-router-dom';
+import MainLayout from '../components/Layout/MainLayout';
 
 // Animasyonlar
 const fadeIn = keyframes`
@@ -33,8 +34,6 @@ const pulse = keyframes`
 const ProfileContainer = styled.div`
   padding: 40px;
   color: white;
-  background: linear-gradient(135deg, #0f1033 0%, #0a0b1e 100%);
-  min-height: 100vh;
   animation: ${fadeIn} 0.5s ease-out;
 `;
 
@@ -355,40 +354,6 @@ const AchievementCard = styled.div`
   }
 `;
 
-const Header = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  margin-bottom: 40px;
-`;
-
-const BackButton = styled.button`
-  background: rgba(74, 125, 255, 0.1);
-  border: none;
-  color: #4a7dff;
-  font-size: 20px;
-  cursor: pointer;
-  padding: 12px;
-  border-radius: 12px;
-  transition: all 0.3s;
-
-  &:hover {
-    background: rgba(74, 125, 255, 0.2);
-    transform: translateX(-5px);
-  }
-`;
-
-const HeaderContent = styled.div`
-  h1 {
-    font-size: 2rem;
-    margin-bottom: 10px;
-  }
-  
-  p {
-    color: #6c7293;
-  }
-`;
-
 function ProfilePage() {
   const { user } = useContext(UserContext);
   const [userData, setUserData] = useState(null);
@@ -437,123 +402,115 @@ function ProfilePage() {
   ];
 
   return (
-    <ProfileContainer>
-      <Header>
-        <BackButton onClick={() => navigate('/home')}>
-          <FaArrowLeft />
-        </BackButton>
-        <HeaderContent>
-          <h1>Profil</h1>
-          <p>Profil bilgilerinizi ve istatistiklerinizi görüntüleyin</p>
-        </HeaderContent>
-      </Header>
-      
-      <ProfileWrapper>
-        <ProfileSidebar>
-          <ProfileCard>
-            <AvatarWrapper>
-              <AvatarBorder />
-              <Avatar 
-                className="profile-image"
-                src={getProfileImage()} 
-                alt={userData?.username || 'Kullanıcı'} 
-                onError={(e) => {
-                  e.target.onerror = null;
-                  const initial = userData?.username ? userData.username.charAt(0).toUpperCase() : 'U';
-                  e.target.src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="150" height="150"><rect width="100" height="100" fill="#2a2c4e"/><text x="50" y="50" font-size="50" text-anchor="middle" dominant-baseline="middle" font-family="Arial" fill="white">' + initial + '</text></svg>')}`;
-                }}
-              />
-            </AvatarWrapper>
-            
-            <Username>{userData?.username || 'Kullanıcı'}</Username>
-            <Email>{userData?.email || 'kullanıcı@örnek.com'}</Email>
-            
-            <UserStats>
-              <StatItem>
-                <h3>156</h3>
-                <p>Oyun</p>
-              </StatItem>
-              <StatItem>
-                <h3>57%</h3>
-                <p>Kazanma</p>
-              </StatItem>
-            </UserStats>
-            
-            <ProfileActions>
-              <ProfileAction to="/settings">
-                <FaCog /> Hesap Ayarları
-              </ProfileAction>
-              <ProfileAction to="/notifications">
-                <FaBell /> Bildirimler
-              </ProfileAction>
-            </ProfileActions>
-          </ProfileCard>
-        </ProfileSidebar>
-        
-        <ContentArea>
-          <ContentCard>
-            <ContentHeader>
-              <h2><FaChartLine /> İstatistikler</h2>
-            </ContentHeader>
-            
-            <StatsGrid>
-              {stats.map((stat, index) => (
-                <StatCard key={index}>
-                  <h3>{stat.value}</h3>
-                  <p>{stat.label}</p>
-                </StatCard>
-              ))}
-            </StatsGrid>
-          </ContentCard>
+    <MainLayout>
+      <ProfileContainer>
+        <ProfileWrapper>
+          <ProfileSidebar>
+            <ProfileCard>
+              <AvatarWrapper>
+                <AvatarBorder />
+                <Avatar 
+                  className="profile-image"
+                  src={getProfileImage()} 
+                  alt={userData?.username || 'Kullanıcı'} 
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    const initial = userData?.username ? userData.username.charAt(0).toUpperCase() : 'U';
+                    e.target.src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="150" height="150"><rect width="100" height="100" fill="#2a2c4e"/><text x="50" y="50" font-size="50" text-anchor="middle" dominant-baseline="middle" font-family="Arial" fill="white">' + initial + '</text></svg>')}`;
+                  }}
+                />
+              </AvatarWrapper>
+              
+              <Username>{userData?.username || 'Kullanıcı'}</Username>
+              <Email>{userData?.email || 'kullanıcı@örnek.com'}</Email>
+              
+              <UserStats>
+                <StatItem>
+                  <h3>156</h3>
+                  <p>Oyun</p>
+                </StatItem>
+                <StatItem>
+                  <h3>57%</h3>
+                  <p>Kazanma</p>
+                </StatItem>
+              </UserStats>
+              
+              <ProfileActions>
+                <ProfileAction to="/settings">
+                  <FaCog /> Hesap Ayarları
+                </ProfileAction>
+                <ProfileAction to="/notifications">
+                  <FaBell /> Bildirimler
+                </ProfileAction>
+              </ProfileActions>
+            </ProfileCard>
+          </ProfileSidebar>
           
-          <ContentCard>
-            <ContentHeader>
-              <h2><FaGamepad /> Oyun Geçmişi</h2>
-            </ContentHeader>
+          <ContentArea>
+            <ContentCard>
+              <ContentHeader>
+                <h2><FaChartLine /> İstatistikler</h2>
+              </ContentHeader>
+              
+              <StatsGrid>
+                {stats.map((stat, index) => (
+                  <StatCard key={index}>
+                    <h3>{stat.value}</h3>
+                    <p>{stat.label}</p>
+                  </StatCard>
+                ))}
+              </StatsGrid>
+            </ContentCard>
             
-            <GameHistoryList>
-              {gameHistory.map((history, index) => (
-                <HistoryItem key={index}>
-                  <GameInfo>
-                    <div className="game-icon">
-                      {history.icon}
-                    </div>
-                    <div className="game-details">
-                      <h4>{history.game}</h4>
-                      <div className="date">
-                        <FaCalendarAlt />
-                        {history.date}
+            <ContentCard>
+              <ContentHeader>
+                <h2><FaGamepad /> Oyun Geçmişi</h2>
+              </ContentHeader>
+              
+              <GameHistoryList>
+                {gameHistory.map((history, index) => (
+                  <HistoryItem key={index}>
+                    <GameInfo>
+                      <div className="game-icon">
+                        {history.icon}
                       </div>
-                    </div>
-                  </GameInfo>
-                  <ResultIndicator $win={history.result === 'Kazandı'}>
-                    {history.amount}
-                  </ResultIndicator>
-                </HistoryItem>
-              ))}
-            </GameHistoryList>
-          </ContentCard>
-          
-          <ContentCard>
-            <ContentHeader>
-              <h2><FaTrophy /> Başarımlar</h2>
-            </ContentHeader>
+                      <div className="game-details">
+                        <h4>{history.game}</h4>
+                        <div className="date">
+                          <FaCalendarAlt />
+                          {history.date}
+                        </div>
+                      </div>
+                    </GameInfo>
+                    <ResultIndicator $win={history.result === 'Kazandı'}>
+                      {history.amount}
+                    </ResultIndicator>
+                  </HistoryItem>
+                ))}
+              </GameHistoryList>
+            </ContentCard>
             
-            <AchievementGrid>
-              {achievements.map((achievement, index) => (
-                <AchievementCard key={index}>
-                  <div className="achievement-icon">
-                    {achievement.icon}
-                  </div>
-                  <h4>{achievement.name}</h4>
-                  <p>{achievement.description}</p>
-                </AchievementCard>
-              ))}
-            </AchievementGrid>
-          </ContentCard>
-        </ContentArea>
-      </ProfileWrapper>
-    </ProfileContainer>
+            <ContentCard>
+              <ContentHeader>
+                <h2><FaTrophy /> Başarımlar</h2>
+              </ContentHeader>
+              
+              <AchievementGrid>
+                {achievements.map((achievement, index) => (
+                  <AchievementCard key={index}>
+                    <div className="achievement-icon">
+                      {achievement.icon}
+                    </div>
+                    <h4>{achievement.name}</h4>
+                    <p>{achievement.description}</p>
+                  </AchievementCard>
+                ))}
+              </AchievementGrid>
+            </ContentCard>
+          </ContentArea>
+        </ProfileWrapper>
+      </ProfileContainer>
+    </MainLayout>
   );
 }
 

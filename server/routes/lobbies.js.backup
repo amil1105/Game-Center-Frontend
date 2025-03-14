@@ -3,84 +3,21 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const Lobby = require('../models/Lobby');
 const User = require('../models/User');
-const { isValidObjectId } = require('mongoose');
 
 // Tüm lobileri getir
 router.get('/', auth, async (req, res) => {
   try {
-    const {
-      game,
-      isPrivate,
-      isEventLobby,
-      hasPassword,
-      minPlayers,
-      maxPlayers,
-      search,
-      sort = 'createdAt',
-      order = 'desc',
-      limit = 50
-    } = req.query;
-
-    // Filtreleme koşulları
-    const filter = { status: { $ne: 'finished' } };
-
-    // Oyun filtresi
-    if (game) {
-      filter.game = game;
-    }
-
-    // Özel/Açık lobi filtresi
-    if (isPrivate !== undefined) {
-      filter.isPrivate = isPrivate === 'true';
-    }
-
-    // Etkinlik lobisi filtresi
-    if (isEventLobby !== undefined) {
-      filter.isEventLobby = isEventLobby === 'true';
-    }
-
-    // Şifreli lobi filtresi
-    if (hasPassword !== undefined) {
-      filter.password = hasPassword === 'true' ? { $exists: true, $ne: '' } : { $exists: false };
-    }
-
-    // Oyuncu sayısı filtresi
-    if (minPlayers !== undefined || maxPlayers !== undefined) {
-      filter.players = {};
-      if (minPlayers !== undefined) {
-        filter.players.$size = { $gte: parseInt(minPlayers) };
-      }
-      if (maxPlayers !== undefined) {
-        filter.players.$size = { $lte: parseInt(maxPlayers) };
-      }
-    }
-
-    // Arama filtresi
-    if (search) {
-      filter.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { game: { $regex: search, $options: 'i' } }
-      ];
-    }
-
-    // Aktif lobileri getir
-    const lobbies = await Lobby.find(filter)
-      .populate('creator', '_id email username profileImage')
-      .populate('players', '_id email username profileImage')
-      .sort({ [sort]: order === 'desc' ? -1 : 1 })
-      .limit(parseInt(limit));
-
-    // Lobi sayısını getir
-    const totalLobbies = await Lobby.countDocuments(filter);
-
-    res.json({
-      lobbies,
-      total: totalLobbies,
-      hasMore: lobbies.length === parseInt(limit)
-    });
+    const lobbies = await Lobby.find({ 
+      status: { $ne: 'finished' } 
+    })
+    .populate('creator', '_id email username profileImage')
+    .populate('players', '_id email username profileImage')
+    .sort({ createdAt: -1 });
+    
+    res.json(lobbies);
   } catch (error) {
-    console.error('Lobiler listelenirken hata:', error);
-    res.status(500).json({ error: 'Lobiler listelenirken bir hata oluştu' });
+    console.error('Lobileri getirirken hata:', error);
+    res.status(500).json({ error: 'Sunucu hatası' });
   }
 });
 
@@ -102,42 +39,6 @@ router.get('/my', auth, async (req, res) => {
   } catch (error) {
     console.error('Kişisel lobileri getirirken hata:', error);
     res.status(500).json({ error: 'Sunucu hatası' });
-  }
-});
-
-// Lobi detaylarını getir
-router.get('/:id', auth, async (req, res) => {
-  try {
-    const lobby = await Lobby.findById(req.params.id)
-      .populate('creator', '_id email username profileImage')
-      .populate('players', '_id email username profileImage');
-
-    if (!lobby) {
-      return res.status(404).json({ error: 'Lobi bulunamadı' });
-    }
-
-    res.json(lobby);
-  } catch (error) {
-    console.error('Lobi detayları alınırken hata:', error);
-    res.status(500).json({ error: 'Lobi detayları alınırken bir hata oluştu' });
-  }
-});
-
-// Lobi kodu ile lobi ara
-router.get('/code/:code', auth, async (req, res) => {
-  try {
-    const lobby = await Lobby.findOne({ lobbyCode: req.params.code, status: { $ne: 'finished' } })
-      .populate('creator', '_id email username profileImage')
-      .populate('players', '_id email username profileImage');
-
-    if (!lobby) {
-      return res.status(404).json({ error: 'Lobi bulunamadı' });
-    }
-
-    res.json(lobby);
-  } catch (error) {
-    console.error('Lobi kodu ile arama hatası:', error);
-    res.status(500).json({ error: 'Lobi aranırken bir hata oluştu' });
   }
 });
 
@@ -198,8 +99,8 @@ router.post('/', auth, async (req, res) => {
     await lobby.save();
     
     const populatedLobby = await Lobby.findById(lobby._id)
-      .populate('creator', '_id email username profileImage')
-      .populate('players', '_id email username profileImage');
+      .populate('creator', 'email username profileImage')
+      .populate('players', 'email username profileImage');
       
     res.status(201).json(populatedLobby);
   } catch (error) {
@@ -231,7 +132,7 @@ router.post('/:id/join', auth, async (req, res) => {
     }
     
     // Oyuncu zaten lobide mi kontrol et
-    if (lobby.players.some(playerId => playerId.toString() === req.user._id.toString())) {
+    if (lobby.players.includes(req.user._id)) {
       return res.status(400).json({ error: 'Zaten bu lobidensiniz' });
     }
     
@@ -247,8 +148,8 @@ router.post('/:id/join', auth, async (req, res) => {
     await lobby.save();
     
     const updatedLobby = await Lobby.findById(req.params.id)
-      .populate('creator', '_id email username profileImage')
-      .populate('players', '_id email username profileImage');
+      .populate('creator', 'email username profileImage')
+      .populate('players', 'email username profileImage');
       
     res.json(updatedLobby);
   } catch (error) {
@@ -281,8 +182,8 @@ router.post('/:id/leave', auth, async (req, res) => {
     await lobby.save();
     
     const updatedLobby = await Lobby.findById(req.params.id)
-      .populate('creator', '_id email username profileImage')
-      .populate('players', '_id email username profileImage');
+      .populate('creator', 'email username profileImage')
+      .populate('players', 'email username profileImage');
       
     res.json(updatedLobby);
   } catch (error) {
@@ -315,8 +216,8 @@ router.put('/:id/status', auth, async (req, res) => {
     await lobby.save();
     
     const updatedLobby = await Lobby.findById(req.params.id)
-      .populate('creator', '_id email username profileImage')
-      .populate('players', '_id email username profileImage');
+      .populate('creator', 'email username profileImage')
+      .populate('players', 'email username profileImage');
       
     res.json(updatedLobby);
   } catch (error) {
@@ -367,8 +268,8 @@ router.put('/:id', auth, async (req, res) => {
     await lobby.save();
     
     const updatedLobby = await Lobby.findById(id)
-      .populate('creator', '_id email username profileImage')
-      .populate('players', '_id email username profileImage');
+      .populate('creator', 'email username profileImage')
+      .populate('players', 'email username profileImage');
       
     res.json(updatedLobby);
   } catch (error) {
@@ -413,8 +314,8 @@ router.get('/code/:lobbyCode', auth, async (req, res) => {
       lobbyCode, 
       status: { $ne: 'finished' } 
     })
-    .populate('creator', '_id email username profileImage')
-    .populate('players', '_id email username profileImage');
+    .populate('creator', 'email username profileImage')
+    .populate('players', 'email username profileImage');
     
     if (!lobby) {
       return res.status(404).json({ error: 'Lobi bulunamadı veya süresi dolmuş' });
@@ -436,7 +337,7 @@ router.post('/join-by-code', auth, async (req, res) => {
       return res.status(400).json({ error: 'Lobi kodu gereklidir' });
     }
     
-    const lobby = await Lobby.findOne({ lobbyCode, status: { $ne: 'finished' } });
+    const lobby = await Lobby.findOne({ lobbyCode });
     
     if (!lobby) {
       return res.status(404).json({ error: 'Lobi bulunamadı' });
@@ -470,8 +371,8 @@ router.post('/join-by-code', auth, async (req, res) => {
     await lobby.save();
     
     const updatedLobby = await Lobby.findById(lobby._id)
-      .populate('creator', '_id email username profileImage')
-      .populate('players', '_id email username profileImage');
+      .populate('creator', 'email username profileImage')
+      .populate('players', 'email username profileImage');
       
     res.json(updatedLobby);
   } catch (error) {
@@ -479,15 +380,5 @@ router.post('/join-by-code', auth, async (req, res) => {
     res.status(500).json({ error: 'Sunucu hatası' });
   }
 });
-
-// Benzersiz lobi kodu oluşturmak için yardımcı fonksiyon
-function generateLobbyCode(length = 6) {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let code = '';
-  for (let i = 0; i < length; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return code;
-}
 
 module.exports = router; 

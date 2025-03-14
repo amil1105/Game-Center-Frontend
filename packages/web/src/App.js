@@ -3,11 +3,13 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import MainPage from './pages/MainPage';
-import GamePage from './pages/GamePage';
-import BingoPage from './pages/BingoPage';
 import LeaderboardPage from './pages/LeaderboardPage';
 import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
+import GameDetailPage from './pages/GameDetailPage';
+import LobbyJoinPage from './pages/LobbyJoinPage';
+import LobbiesPage from './pages/LobbiesPage';
+import LobbyManagementPage from './pages/LobbyManagementPage';
 import { UserProvider } from './context/UserContext';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -22,10 +24,66 @@ function App() {
           <Route path="/register" element={<RegisterPage />} />
 
           <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <Navigate to="/home" replace />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
             path="/home"
             element={
               <ProtectedRoute>
                 <MainPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/lobbies"
+            element={
+              <ProtectedRoute>
+                <LobbiesPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/lobbies/manage"
+            element={
+              <ProtectedRoute>
+                <LobbyManagementPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Oyun detay sayfası */}
+          <Route
+            path="/games/:gameId"
+            element={
+              <ProtectedRoute>
+                <GameDetailPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Lobi katılım sayfası */}
+          <Route
+            path="/join/lobby/:lobbyCode"
+            element={
+              <ProtectedRoute>
+                <LobbyJoinPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/join"
+            element={
+              <ProtectedRoute>
+                <LobbyJoinPage />
               </ProtectedRoute>
             }
           />
@@ -36,26 +94,6 @@ function App() {
             element={
               <ProtectedRoute>
                 <LeaderboardPage />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* Tombala sayfası için özel rota */}
-          <Route
-            path="/games/bingo"
-            element={
-              <ProtectedRoute>
-                <BingoPage />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* Diğer oyun sayfaları için genel rota */}
-          <Route
-            path="/games/:gameId"
-            element={
-              <ProtectedRoute>
-                <GamePage />
               </ProtectedRoute>
             }
           />
