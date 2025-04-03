@@ -220,8 +220,25 @@ function LobbyJoinPage() {
         password: password || undefined
       });
       
-      // Başarılı katılımdan sonra lobi sayfasına yönlendir
-      navigate(`/game/${response.data.game}/lobby/${response.data._id}`);
+      // Eğer oyun "tombala" (veya bingo) ise, tombala oyun sayfasına yönlendir
+      if (response.data.game === 'tombala' || response.data.game === 'bingo') {
+        // Kullanıcının token bilgisini ve lobi kimliğini parametre olarak ekle
+        const token = localStorage.getItem('token');
+        
+        // .env dosyasından Tombala URL'sini al veya varsayılan değeri kullan
+        const tombalUrl = `${process.env.REACT_APP_TOMBALA_URL || 'http://localhost:5173'}?token=${token}&lobbyId=${response.data._id}`;
+        
+        console.log('Tombala oyununa yönlendiriliyor:', tombalUrl);
+        
+        // Doğrudan mevcut pencerede oyunu başlat
+        window.location.href = tombalUrl;
+        
+        // Artık normal lobi sayfasına yönlendirmeye gerek yok
+        return;
+      } else {
+        // Diğer oyunlar için normal yönlendirme yap
+        navigate(`/game/${response.data.game}/lobby/${response.data._id}`);
+      }
     } catch (error) {
       console.error('Lobiye katılım hatası:', error);
       setError(error.response?.data?.error || 'Lobiye katılırken bir hata oluştu');

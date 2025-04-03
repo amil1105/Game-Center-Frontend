@@ -1,6 +1,6 @@
 // src/pages/LoginPage.js
 import React, { useState, useContext } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { FaEnvelope, FaLock, FaGoogle, FaEye, FaEyeSlash, FaChevronRight } from 'react-icons/fa';
 import { FaTelegramPlane } from 'react-icons/fa';
 import { SiBinance } from 'react-icons/si';
@@ -111,6 +111,7 @@ function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
   // UserContext'i React.useContext ile kullanmak yerine doğrudan değişkene atayalım
   const userContext = React.useContext(UserContext);
@@ -121,15 +122,64 @@ function LoginPage() {
     if (email && password) {
       try {
         setIsLoading(true);
+        console.log("LoginPage: Giriş yapılıyor...", email);
+        
         const data = await loginUser(email, password);
+        console.log("LoginPage: Giriş başarılı, token alındı, bilgiler:", data);
+        
+        // Token'ı localStorage'a kaydet
         localStorage.setItem('token', data.token);
+        
+        // Kullanıcı bilgilerini ayarla
         login(data.user);
-        navigate('/home');
+        
+        // Yönlendirilecek URL'yi belirle
+        let redirectPath = '/home';
+        let lobbyCode = null;
+        
+        // Eğer state varsa ve from bilgisi içeriyorsa, o sayfaya yönlendir
+        if (location.state) {
+          if (location.state.from) {
+            redirectPath = location.state.from;
+            console.log("LoginPage: Kullanıcı şu sayfadan yönlendirildi:", location.state.from);
+          }
+          
+          // Eğer lobbyCode bilgisi varsa, bunu kaydet
+          if (location.state.lobbyCode) {
+            lobbyCode = location.state.lobbyCode;
+            console.log("LoginPage: Lobi kodu bilgisi bulundu:", lobbyCode);
+            
+            // localStorage'a da kaydet (geçici)
+            try {
+              localStorage.setItem('tombala_lobbyId', lobbyCode);
+              localStorage.setItem('tombala_lobbyTimestamp', Date.now());
+            } catch (e) {
+              console.warn("LoginPage: localStorage hatası:", e);
+            }
+          }
+        }
+        
+        console.log("LoginPage: Giriş başarılı, yönlendiriliyor:", redirectPath);
+        
+        // Küçük bir gecikmeyle yönlendir (token ve login işlemlerinin tamamlanması için)
+        setTimeout(() => {
+          navigate(redirectPath);
+        }, 300);
       } catch (error) {
-        alert(error.response?.data?.message || 'Giriş başarısız');
+        console.error("LoginPage: Giriş hatası:", error);
+        let errorMessage = 'Giriş başarısız';
+        
+        if (error.response) {
+          errorMessage = error.response.data?.message || errorMessage;
+          console.error("LoginPage: Sunucu hatası:", error.response.data);
+        }
+        
+        alert(errorMessage);
       } finally {
         setIsLoading(false);
       }
+    } else {
+      alert('Lütfen email ve şifre alanlarını doldurun');
     }
   };
 

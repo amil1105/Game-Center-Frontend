@@ -1275,7 +1275,7 @@ function GameDetailPage() {
                             {lobby.isPrivate && ` • Özel`}
                           </p>
                         </div>
-                        <JoinButton onClick={() => navigate(`/join/lobby/${lobby.lobbyCode}`)}>
+                        <JoinButton onClick={() => navigate(`/lobby/${lobby.lobbyCode}`)}>
                           Katıl
                         </JoinButton>
                       </LobbyItem>
@@ -1437,7 +1437,7 @@ function GameDetailPage() {
               </ShareButtons>
               
               <SubmitButton 
-                onClick={() => navigate(`/join/lobby/${createdLobby.lobbyCode}`)}
+                onClick={() => navigate(`/lobby/${createdLobby.lobbyCode}`)}
                 style={{ marginTop: '20px' }}
               >
                 Lobiye Git

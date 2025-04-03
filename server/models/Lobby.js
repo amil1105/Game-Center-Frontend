@@ -1,5 +1,52 @@
 const mongoose = require('mongoose');
 
+// Tekil bir oyuncu için schema
+const playerSchema = new mongoose.Schema({
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  name: {
+    type: String
+  },
+  isReady: {
+    type: Boolean,
+    default: false
+  },
+  isBot: {
+    type: Boolean,
+    default: false
+  },
+  joinedAt: {
+    type: Date,
+    default: Date.now
+  }
+});
+
+// Mesaj şeması
+const messageSchema = new mongoose.Schema({
+  sender: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: function() {
+      return !this.isSystem; // Eğer sistem mesajı değilse gönderici zorunlu
+    }
+  },
+  text: {
+    type: String,
+    required: true
+  },
+  isSystem: {
+    type: Boolean,
+    default: false
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  }
+});
+
 const lobbySchema = new mongoose.Schema({
   name: {
     type: String,
@@ -16,10 +63,23 @@ const lobbySchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
-  players: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-  }],
+  players: {
+    type: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    }],
+    validate: {
+      validator: function(array) {
+        // Benzersiz kullanıcı ID'leri kontrolü
+        return new Set(array.map(v => v.toString())).size === array.length;
+      },
+      message: 'Oyuncu listesi benzersiz kullanıcı ID\'leri içermelidir'
+    }
+  },
+  // Detaylı oyuncu bilgileri
+  playersDetail: [playerSchema],
+  // Lobi mesajları
+  messages: [messageSchema],
   maxPlayers: {
     type: Number,
     required: true,
@@ -56,6 +116,21 @@ const lobbySchema = new mongoose.Schema({
     enum: ['waiting', 'playing', 'finished'],
     default: 'waiting'
   },
+  // Tombala için çekilen sayılar
+  drawnNumbers: {
+    type: [Number],
+    default: []
+  },
+  // Tombala için son çekilen sayı
+  currentNumber: {
+    type: Number,
+    default: null
+  },
+  // Tombala için kazananlar
+  winners: {
+    type: Array,
+    default: []
+  },
   lobbyCode: {
     type: String,
     unique: true,
@@ -64,11 +139,44 @@ const lobbySchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now,
+    // Normal lobiler için 8 saat sonra otomatik silme (saniye cinsinden)
+    // Etkinlik lobileri için TTL indeksi uygulanmaz
     index: { 
-      expires: 8 * 60 * 60, // 8 saat sonra otomatik silme (saniye cinsinden)
-      partialFilterExpression: { isEventLobby: false } // Etkinlik lobileri için silinmez
+      expires: 8 * 60 * 60, 
+      partialFilterExpression: { isEventLobby: false } 
     }
   }
+});
+
+// Lobi kaydedilmeden önce, playersDetail için benzersizlik kontrolü
+lobbySchema.pre('save', async function(next) {
+  // Oyuncular dizisindeki benzersiz ID'leri kontrol et
+  const playerIds = this.players.map(p => p.toString());
+  const uniquePlayerIds = [...new Set(playerIds)];
+  
+  if (playerIds.length !== uniquePlayerIds.length) {
+    // Tekrarlanan oyuncuları kaldır
+    this.players = uniquePlayerIds.map(id => mongoose.Types.ObjectId(id));
+    console.log('Tekrarlanan oyuncular kaldırıldı');
+  }
+  
+  // PlayerDetail dizisinde aynı kullanıcı ID'si için birden fazla kayıt varsa düzelt
+  if (this.playersDetail && this.playersDetail.length > 0) {
+    const playerDetailMap = new Map();
+    
+    // En son eklenen oyuncu detayını koru
+    for (const detail of this.playersDetail) {
+      if (detail.user) {
+        const userId = detail.user.toString();
+        playerDetailMap.set(userId, detail);
+      }
+    }
+    
+    // Benzersiz oyuncu detaylarını kullan
+    this.playersDetail = Array.from(playerDetailMap.values());
+  }
+  
+  next();
 });
 
 // Benzersiz lobi kodu oluşturmak için yardımcı fonksiyon
@@ -107,6 +215,19 @@ lobbySchema.pre('save', async function(next) {
     
     this.lobbyCode = lobbyCode;
   }
+  
+  // Etkinlik lobisi ise ve başlama tarihi belirtilmişse, durumu kontrol et
+  if (this.isEventLobby && this.eventDetails && this.eventDetails.startDate) {
+    const now = new Date();
+    if (this.eventDetails.startDate <= now && this.eventDetails.endDate > now) {
+      this.status = 'playing';
+    } else if (this.eventDetails.startDate > now) {
+      this.status = 'waiting';
+    } else if (this.eventDetails.endDate <= now) {
+      this.status = 'finished';
+    }
+  }
+  
   next();
 });
 

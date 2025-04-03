@@ -1,0 +1,30 @@
+{
+  "name": "@tombala/common",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "main": "dist/tombala-common.umd.js",
+  "module": "dist/tombala-common.es.js",
+  "exports": {
+    ".": {
+      "import": "./dist/tombala-common.es.js",
+      "require": "./dist/tombala-common.umd.js",
+      "default": "./dist/tombala-common.es.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "vite build --watch",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "axios": "^1.6.7",
+    "seedrandom": "^3.0.5",
+    "socket.io-client": "^4.7.4"
+  },
+  "devDependencies": {
+    "vite": "^5.1.4"
+  }
+}

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import styled from 'styled-components';
 import { UserContext } from '../context/UserContext';
-import { FaEdit, FaTrash, FaClock, FaUsers, FaLock, FaCalendarAlt, FaCoins } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaClock, FaUsers, FaLock, FaCalendarAlt, FaCoins, FaArrowLeft, FaPlay } from 'react-icons/fa';
 import axiosInstance from '../api/axios';
 import MainLayout from '../components/Layout/MainLayout';
 
@@ -83,21 +83,39 @@ const LobbyActions = styled.div`
 `;
 
 const ActionButton = styled.button`
-  background: ${props => props.danger ? 'rgba(255, 59, 59, 0.1)' : 'rgba(124, 77, 255, 0.1)'};
-  color: ${props => props.danger ? '#FF3B3B' : '#7C4DFF'};
+  background: ${props => props.secondary ? 'rgba(255, 255, 255, 0.1)' : 'linear-gradient(145deg, #4a7dff 0%, #7c4dff 100%)'};
+  color: white;
   border: none;
-  padding: 8px 16px;
-  border-radius: 8px;
+  border-radius: 12px;
+  padding: 10px 15px;
+  margin-right: ${props => props.mr ? '10px' : '0'};
+  font-size: 0.9rem;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  gap: 5px;
   transition: all 0.3s;
 
   &:hover {
-    background: ${props => props.danger ? 'rgba(255, 59, 59, 0.2)' : 'rgba(124, 77, 255, 0.2)'};
     transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
   }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+  }
+`;
+
+const StartGameButton = styled(ActionButton)`
+  background: linear-gradient(145deg, #00bcd4 0%, #2196f3 100%);
+  margin-top: 15px;
+  width: 100%;
+  padding: 12px;
+  font-weight: 500;
+  font-size: 1rem;
 `;
 
 const LobbyDetails = styled.div`
@@ -223,6 +241,53 @@ const CreateLobbyButton = styled.button`
   }
 `;
 
+// Etkinlik durumu bileşeni
+const EventStatus = styled.div`
+  background: ${props => {
+    if (props.status === 'waiting') return 'rgba(255, 193, 7, 0.1)';
+    if (props.status === 'playing') return 'rgba(76, 175, 80, 0.1)';
+    return 'rgba(244, 67, 54, 0.1)';
+  }};
+  color: ${props => {
+    if (props.status === 'waiting') return '#FFC107';
+    if (props.status === 'playing') return '#4CAF50';
+    return '#F44336';
+  }};
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 15px;
+`;
+
+// Geri sayım bileşeni
+const Countdown = styled.div`
+  background: rgba(255, 193, 7, 0.1);
+  color: #FFC107;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 15px;
+  animation: pulse 2s infinite;
+
+  @keyframes pulse {
+    0% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.7;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+`;
+
 function LobbyManagementPage() {
   const { user } = useContext(UserContext);
   const navigate = useNavigate();
@@ -328,24 +393,57 @@ function LobbyManagementPage() {
   // Tarih formatlama fonksiyonu
   const formatDate = (dateString) => {
     if (!dateString) return '';
-    try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return 'Geçersiz Tarih';
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat('tr-TR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(date);
+  };
+
+  // Geri sayım hesaplama fonksiyonu
+  const getCountdown = (dateString) => {
+    const targetDate = new Date(dateString);
+    const now = new Date();
+    const diff = targetDate - now;
+    
+    if (diff <= 0) return null;
+    
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    
+    return `${hours}s ${minutes}dk`;
+  };
+
+  // Tombala oyununu başlatma fonksiyonu
+  const handleStartGame = (lobby) => {
+    if (lobby.game === 'tombala' || lobby.game === 'bingo') {
+      // Şu anki kullanıcı veya varsayılan değer
+      const currentUser = user || { id: `guest_${Date.now()}` };
       
-      // Türkçe tarih formatı
-      const options = {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-      };
+      // localStorage üzerinden ek bilgileri saklayalım
+      try {
+        // Oyuncunun kendi ID'sini sakla
+        localStorage.setItem('tombala_playerId', currentUser.id);
+        localStorage.setItem('tombala_lobbyId', lobby._id);
+        localStorage.setItem('tombala_lobbyCode', lobby.lobbyCode);
+        localStorage.setItem('tombala_timestamp', Date.now());
+        localStorage.setItem('tombala_lobbyName', lobby.name || "Tombala Lobisi");
+      } catch (e) {
+        console.warn('localStorage hatası:', e);
+      }
       
-      return new Intl.DateTimeFormat('tr-TR', options).format(date);
-    } catch (error) {
-      console.error('Tarih formatlanırken hata:', error);
-      return 'Geçersiz Tarih';
+      // URL parametreleri ile direct-tombala'ya yönlendir
+      const playerId = currentUser.id;
+      const lobbyName = lobby?.name || 'Tombala Lobisi';
+      
+      // URL parametrelerini oluştur
+      const directTombalaURL = `/direct-tombala/${lobby.lobbyCode}?playerId=${encodeURIComponent(playerId)}&lobbyName=${encodeURIComponent(lobbyName)}`;
+      
+      console.log(`Oyun başlatılıyor, yönlendiriliyor: ${directTombalaURL}`);
+      window.location.href = directTombalaURL;
     }
   };
 
@@ -353,243 +451,241 @@ function LobbyManagementPage() {
     <MainLayout>
       <PageContainer>
         <Header>
-          <Title>Lobi Yönetimi</Title>
+          <HeaderLeft>
+            <BackButton onClick={() => navigate('/lobbies')}>
+              <FaArrowLeft />
+            </BackButton>
+            <Title>Lobilerimi Yönet</Title>
+          </HeaderLeft>
         </Header>
 
-        {loading ? (
-          <div>Yükleniyor...</div>
-        ) : lobbies.length === 0 ? (
-          <NoLobbiesMessage>
-            <h3>Henüz bir lobi oluşturmadınız</h3>
-            <p>Oyun sayfasına giderek yeni bir lobi oluşturabilirsiniz.</p>
-            <CreateLobbyButton onClick={() => navigate('/home')}>
-              <FaUsers />
-              Oyunlara Git
-            </CreateLobbyButton>
-          </NoLobbiesMessage>
+        {editingLobby ? (
+          <EditForm onSubmit={(e) => handleSubmit(e, editingLobby._id)}>
+            <FormGroup>
+              <label>Lobi Adı</label>
+              <Input 
+                name="name"
+                defaultValue={editingLobby.name}
+                required
+              />
+            </FormGroup>
+
+            <FormGroup>
+              <label>Maksimum Oyuncu</label>
+              <Input 
+                name="maxPlayers"
+                type="number"
+                defaultValue={editingLobby.maxPlayers}
+                min="2"
+                max="8"
+                required
+              />
+            </FormGroup>
+
+            <FormGroup>
+              <label>Bahis Miktarı</label>
+              <Input 
+                name="betAmount"
+                type="number"
+                defaultValue={editingLobby.betAmount}
+                min="0"
+                required
+              />
+            </FormGroup>
+
+            <Checkbox>
+              <input 
+                name="isPrivate"
+                type="checkbox"
+                defaultChecked={editingLobby.isPrivate}
+              />
+              <label>Özel Lobi</label>
+            </Checkbox>
+
+            <FormGroup>
+              <label>Şifre (Özel lobi için)</label>
+              <Input 
+                name="password"
+                type="password"
+                defaultValue={editingLobby.password}
+              />
+            </FormGroup>
+
+            <Checkbox>
+              <input 
+                name="isEventLobby"
+                type="checkbox"
+                defaultChecked={editingLobby.isEventLobby}
+                onChange={(e) => {
+                  const form = e.target.form;
+                  const startTimeInput = form.querySelector('input[name="startTime"]');
+                  const endTimeInput = form.querySelector('input[name="endTime"]');
+                  if (startTimeInput && endTimeInput) {
+                    startTimeInput.required = e.target.checked;
+                    endTimeInput.required = e.target.checked;
+                  }
+                }}
+              />
+              <label>Etkinlik Lobisi</label>
+            </Checkbox>
+
+            {(editingLobby.isEventLobby || editingLobby?.isEventLobby) && (
+              <>
+                <FormGroup>
+                  <label>
+                    <FaClock style={{ marginRight: '8px' }} />
+                    Başlangıç Zamanı
+                  </label>
+                  <Input 
+                    name="startTime"
+                    type="datetime-local"
+                    defaultValue={editingLobby?.eventDetails?.startTime}
+                    required={editingLobby.isEventLobby}
+                  />
+                </FormGroup>
+
+                <FormGroup>
+                  <label>
+                    <FaClock style={{ marginRight: '8px' }} />
+                    Bitiş Zamanı
+                  </label>
+                  <Input 
+                    name="endTime"
+                    type="datetime-local"
+                    defaultValue={editingLobby?.eventDetails?.endTime}
+                    required={editingLobby.isEventLobby}
+                  />
+                </FormGroup>
+              </>
+            )}
+
+            <SaveButton type="submit">Kaydet</SaveButton>
+          </EditForm>
         ) : (
-          lobbies.map(lobby => (
-            <LobbyCard key={lobby._id}>
-              {editingLobby?._id === lobby._id ? (
-                <EditForm onSubmit={(e) => handleSubmit(e, lobby._id)}>
-                  <FormGroup>
-                    <label>Lobi Adı</label>
-                    <Input 
-                      name="name"
-                      defaultValue={lobby.name}
-                      required
-                    />
-                  </FormGroup>
-
-                  <FormGroup>
-                    <label>Maksimum Oyuncu</label>
-                    <Input 
-                      name="maxPlayers"
-                      type="number"
-                      defaultValue={lobby.maxPlayers}
-                      min="2"
-                      max="8"
-                      required
-                    />
-                  </FormGroup>
-
-                  <FormGroup>
-                    <label>Bahis Miktarı</label>
-                    <Input 
-                      name="betAmount"
-                      type="number"
-                      defaultValue={lobby.betAmount}
-                      min="0"
-                      required
-                    />
-                  </FormGroup>
-
-                  <Checkbox>
-                    <input 
-                      name="isPrivate"
-                      type="checkbox"
-                      defaultChecked={lobby.isPrivate}
-                    />
-                    <label>Özel Lobi</label>
-                  </Checkbox>
-
-                  <FormGroup>
-                    <label>Şifre (Özel lobi için)</label>
-                    <Input 
-                      name="password"
-                      type="password"
-                      defaultValue={lobby.password}
-                    />
-                  </FormGroup>
-
-                  <Checkbox>
-                    <input 
-                      name="isEventLobby"
-                      type="checkbox"
-                      defaultChecked={lobby.isEventLobby}
-                      onChange={(e) => {
-                        const form = e.target.form;
-                        const startTimeInput = form.querySelector('input[name="startTime"]');
-                        const endTimeInput = form.querySelector('input[name="endTime"]');
-                        if (startTimeInput && endTimeInput) {
-                          startTimeInput.required = e.target.checked;
-                          endTimeInput.required = e.target.checked;
-                        }
-                      }}
-                    />
-                    <label>Etkinlik Lobisi</label>
-                  </Checkbox>
-
-                  {(lobby.isEventLobby || editingLobby?.isEventLobby) && (
-                    <>
-                      <FormGroup>
-                        <label>
-                          <FaClock style={{ marginRight: '8px' }} />
-                          Başlangıç Zamanı
-                        </label>
-                        <Input 
-                          name="startTime"
-                          type="datetime-local"
-                          defaultValue={editingLobby?.eventDetails?.startTime}
-                          required={lobby.isEventLobby}
-                        />
-                      </FormGroup>
-
-                      <FormGroup>
-                        <label>
-                          <FaClock style={{ marginRight: '8px' }} />
-                          Bitiş Zamanı
-                        </label>
-                        <Input 
-                          name="endTime"
-                          type="datetime-local"
-                          defaultValue={editingLobby?.eventDetails?.endTime}
-                          required={lobby.isEventLobby}
-                        />
-                      </FormGroup>
-                    </>
-                  )}
-
-                  <SaveButton type="submit">Kaydet</SaveButton>
-                </EditForm>
-              ) : (
-                <>
-                  <LobbyHeader>
-                    <LobbyInfo>
-                      <h2>{lobby.name}</h2>
-                      <span style={{ 
-                        display: 'inline-block', 
-                        background: 'rgba(124, 77, 255, 0.1)', 
-                        padding: '4px 10px', 
-                        borderRadius: '12px', 
-                        fontSize: '0.8rem',
-                        color: '#7C4DFF',
-                        marginTop: '5px'
-                      }}>
-                        {lobby.game.charAt(0).toUpperCase() + lobby.game.slice(1)}
-                      </span>
-                      <span style={{ 
-                        display: 'inline-block', 
-                        background: lobby.status === 'waiting' ? 'rgba(76, 175, 80, 0.1)' : 'rgba(255, 152, 0, 0.1)', 
-                        padding: '4px 10px', 
-                        borderRadius: '12px', 
-                        fontSize: '0.8rem',
-                        color: lobby.status === 'waiting' ? '#4CAF50' : '#FF9800',
-                        marginLeft: '10px',
-                        marginTop: '5px'
-                      }}>
-                        {lobby.status === 'waiting' ? 'Bekliyor' : 'Oynanıyor'}
-                      </span>
-                    </LobbyInfo>
-                    <LobbyActions>
-                      <ActionButton onClick={() => handleEdit(lobby)}>
-                        <FaEdit />
-                        Düzenle
-                      </ActionButton>
-                      <ActionButton danger onClick={() => handleDelete(lobby._id)}>
-                        <FaTrash />
-                        Sil
-                      </ActionButton>
-                    </LobbyActions>
-                  </LobbyHeader>
-
-                  <LobbyDetails>
-                    <DetailItem>
-                      <FaUsers />
-                      {lobby.players.length} / {lobby.maxPlayers} Oyuncu
-                    </DetailItem>
-                    <DetailItem>
-                      <FaCoins />
-                      {lobby.betAmount} Token
-                    </DetailItem>
-                    {lobby.isPrivate && (
+          <>
+            {loading ? (
+              <div>Lobiler yükleniyor...</div>
+            ) : lobbies.length === 0 ? (
+              <NoLobbiesMessage>
+                <h3>Henüz bir lobiniz yok</h3>
+                <p>Yeni bir lobi oluşturarak oyunculara ev sahipliği yapabilirsiniz.</p>
+                <CreateLobbyButton onClick={() => navigate('/games/bingo')}>
+                  Yeni Lobi Oluştur
+                </CreateLobbyButton>
+              </NoLobbiesMessage>
+            ) : (
+              <>
+                <CreateLobbyButton onClick={() => navigate('/games/bingo')}>
+                  Yeni Lobi Oluştur
+                </CreateLobbyButton>
+                
+                {lobbies.map(lobby => (
+                  <LobbyCard key={lobby._id}>
+                    <LobbyHeader>
+                      <LobbyInfo>
+                        <h2>{lobby.name}</h2>
+                        <p>{lobby.game}</p>
+                      </LobbyInfo>
+                      <LobbyActions>
+                        <ActionButton onClick={() => handleEdit(lobby)}>
+                          <FaEdit />
+                          Düzenle
+                        </ActionButton>
+                        <ActionButton danger onClick={() => handleDelete(lobby._id)}>
+                          <FaTrash />
+                          Sil
+                        </ActionButton>
+                      </LobbyActions>
+                    </LobbyHeader>
+                    
+                    <LobbyDetails>
                       <DetailItem>
-                        <FaLock />
-                        Özel Lobi
+                        <FaUsers />
+                        <span>{lobby.players.length} / {lobby.maxPlayers} Oyuncu</span>
                       </DetailItem>
-                    )}
+                      
+                      {lobby.betAmount > 0 && (
+                        <DetailItem>
+                          <FaCoins />
+                          <span>{lobby.betAmount} Jeton</span>
+                        </DetailItem>
+                      )}
+                      
+                      {lobby.isPrivate && (
+                        <DetailItem>
+                          <FaLock />
+                          <span>Özel Lobi</span>
+                        </DetailItem>
+                      )}
+                      
+                      {lobby.isEventLobby && lobby.eventDetails && (
+                        <>
+                          <DetailItem>
+                            <FaCalendarAlt />
+                            <span>Etkinlik Lobisi</span>
+                          </DetailItem>
+                          
+                          {lobby.eventDetails.startDate && (
+                            <DetailItem>
+                              <FaCalendarAlt />
+                              <span>Başlangıç: {formatDate(lobby.eventDetails.startDate)}</span>
+                            </DetailItem>
+                          )}
+                          
+                          {lobby.eventDetails.endDate && (
+                            <DetailItem>
+                              <FaCalendarAlt />
+                              <span>Bitiş: {formatDate(lobby.eventDetails.endDate)}</span>
+                            </DetailItem>
+                          )}
+                        </>
+                      )}
+                    </LobbyDetails>
+                    
                     {lobby.isEventLobby && lobby.eventDetails && (
                       <>
-                        <DetailItem>
-                          <FaCalendarAlt />
-                          Etkinlik Lobisi
-                        </DetailItem>
-                        {lobby.eventDetails.startDate && (
-                          <DetailItem>
-                            <FaClock />
-                            Başlangıç: {formatDate(lobby.eventDetails.startDate)}
-                          </DetailItem>
+                        {lobby.status === 'waiting' && lobby.eventDetails.startDate && (
+                          (() => {
+                            const now = new Date();
+                            const startDate = new Date(lobby.eventDetails.startDate);
+                            const diff = startDate - now;
+                            const lessThan24Hours = diff > 0 && diff < 24 * 60 * 60 * 1000;
+                            
+                            if (lessThan24Hours) {
+                              return (
+                                <Countdown>
+                                  <FaCalendarAlt />
+                                  Başlamasına: {getCountdown(lobby.eventDetails.startDate)}
+                                </Countdown>
+                              );
+                            }
+                            return null;
+                          })()
                         )}
-                        {lobby.eventDetails.endDate && (
-                          <DetailItem>
-                            <FaClock />
-                            Bitiş: {formatDate(lobby.eventDetails.endDate)}
-                          </DetailItem>
-                        )}
+                        
+                        <EventStatus status={lobby.status}>
+                          <FaClock />
+                          {lobby.status === 'waiting' ? 'Bekliyor' : 
+                           lobby.status === 'playing' ? 'Aktif' : 'Tamamlandı'}
+                        </EventStatus>
                       </>
                     )}
-                    <DetailItem style={{ gridColumn: '1 / -1', marginTop: '10px' }}>
-                      <div style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: '10px',
-                        background: 'rgba(255, 255, 255, 0.05)',
-                        padding: '10px 15px',
-                        borderRadius: '8px',
-                        width: '100%'
-                      }}>
-                        <span>Lobi Kodu:</span>
-                        <span style={{ 
-                          fontWeight: 'bold', 
-                          letterSpacing: '1px',
-                          color: '#7C4DFF'
-                        }}>
-                          {lobby.lobbyCode}
-                        </span>
-                        <button 
-                          style={{
-                            marginLeft: 'auto',
-                            background: 'rgba(124, 77, 255, 0.1)',
-                            border: 'none',
-                            color: '#7C4DFF',
-                            padding: '5px 10px',
-                            borderRadius: '4px',
-                            cursor: 'pointer'
-                          }}
-                          onClick={() => {
-                            navigator.clipboard.writeText(lobby.lobbyCode);
-                            alert('Lobi kodu kopyalandı!');
-                          }}
-                        >
-                          Kopyala
-                        </button>
-                      </div>
-                    </DetailItem>
-                  </LobbyDetails>
-                </>
-              )}
-            </LobbyCard>
-          ))
+                    
+                    <div style={{ marginTop: '20px' }}>
+                      <p>Lobi Kodu: <strong>{lobby.lobbyCode}</strong></p>
+                      <p>Lobi Linki: <strong>{window.location.origin}/join/lobby/{lobby.lobbyCode}</strong></p>
+                    </div>
+
+                    {(lobby.game === 'tombala' || lobby.game === 'bingo') && lobby.status === 'waiting' && (
+                      <StartGameButton onClick={() => handleStartGame(lobby)}>
+                        <FaPlay /> Oyunu Başlat
+                      </StartGameButton>
+                    )}
+                  </LobbyCard>
+                ))}
+              </>
+            )}
+          </>
         )}
       </PageContainer>
     </MainLayout>

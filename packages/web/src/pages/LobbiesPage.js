@@ -178,6 +178,79 @@ const NoLobbies = styled.div`
   font-size: 1.1rem;
 `;
 
+// Tarih formatlama fonksiyonu
+const formatDate = (dateString) => {
+  const date = new Date(dateString);
+  return new Intl.DateTimeFormat('tr-TR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(date);
+};
+
+// Geri sayım hesaplama fonksiyonu
+const getCountdown = (dateString) => {
+  const targetDate = new Date(dateString);
+  const now = new Date();
+  const diff = targetDate - now;
+  
+  if (diff <= 0) return null;
+  
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  
+  return `${hours}s ${minutes}dk`;
+};
+
+// Etkinlik durumu bileşeni
+const EventStatus = styled.div`
+  background: ${props => {
+    if (props.status === 'waiting') return 'rgba(255, 193, 7, 0.1)';
+    if (props.status === 'playing') return 'rgba(76, 175, 80, 0.1)';
+    return 'rgba(244, 67, 54, 0.1)';
+  }};
+  color: ${props => {
+    if (props.status === 'waiting') return '#FFC107';
+    if (props.status === 'playing') return '#4CAF50';
+    return '#F44336';
+  }};
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+`;
+
+// Geri sayım bileşeni
+const Countdown = styled.div`
+  background: rgba(255, 193, 7, 0.1);
+  color: #FFC107;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  animation: pulse 2s infinite;
+
+  @keyframes pulse {
+    0% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.7;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+`;
+
 function LobbiesPage() {
   const navigate = useNavigate();
   const [lobbies, setLobbies] = useState([]);
@@ -249,104 +322,156 @@ function LobbiesPage() {
     navigate(`/join/lobby/${lobby.lobbyCode}`);
   };
 
+  const renderLobbyCards = () => {
+    if (loading) {
+      return <NoLobbies>Lobiler yükleniyor...</NoLobbies>;
+    }
+
+    if (filteredLobbies.length === 0) {
+      return <NoLobbies>Aktif lobi bulunamadı</NoLobbies>;
+    }
+
+    return filteredLobbies.map(lobby => (
+      <LobbyCard key={lobby._id} onClick={() => handleJoinLobby(lobby)}>
+        <LobbyHeader>
+          <LobbyTitle>{lobby.name}</LobbyTitle>
+          <GameBadge>
+            <FaGamepad size={12} />
+            {lobby.game}
+          </GameBadge>
+        </LobbyHeader>
+
+        <LobbyInfo>
+          <InfoRow>
+            <FaUsers size={14} />
+            {lobby.players.length}/{lobby.maxPlayers} Oyuncu
+          </InfoRow>
+          
+          {lobby.betAmount > 0 && (
+            <InfoRow>
+              <FaCoins size={14} />
+              {lobby.betAmount} Jeton
+            </InfoRow>
+          )}
+          
+          {lobby.isPrivate && (
+            <InfoRow>
+              <FaLock size={14} />
+              Özel Lobi
+            </InfoRow>
+          )}
+          
+          {lobby.isEventLobby && lobby.eventDetails && (
+            <>
+              <InfoRow>
+                <FaCalendarAlt size={14} />
+                Etkinlik Lobisi
+              </InfoRow>
+              
+              {lobby.eventDetails.startDate && (
+                <InfoRow>
+                  <FaCalendarAlt size={14} />
+                  Başlangıç: {formatDate(lobby.eventDetails.startDate)}
+                </InfoRow>
+              )}
+              
+              {lobby.status === 'waiting' && lobby.eventDetails.startDate && (
+                (() => {
+                  const now = new Date();
+                  const startDate = new Date(lobby.eventDetails.startDate);
+                  const diff = startDate - now;
+                  const lessThan24Hours = diff > 0 && diff < 24 * 60 * 60 * 1000;
+                  
+                  if (lessThan24Hours) {
+                    return (
+                      <Countdown>
+                        <FaCalendarAlt size={14} />
+                        Başlamasına: {getCountdown(lobby.eventDetails.startDate)}
+                      </Countdown>
+                    );
+                  }
+                  return null;
+                })()
+              )}
+              
+              <EventStatus status={lobby.status}>
+                {lobby.status === 'waiting' ? 'Bekliyor' : 
+                 lobby.status === 'playing' ? 'Aktif' : 'Tamamlandı'}
+              </EventStatus>
+            </>
+          )}
+        </LobbyInfo>
+      </LobbyCard>
+    ));
+  };
+
   return (
     <MainLayout>
       <PageContainer>
         <Header>
-          <Title>Aktif Lobiler</Title>
+          <Title>Lobiler</Title>
           <HeaderActions>
-            <ManageButton
-              variant="contained"
-              onClick={() => navigate('/lobbies/manage')}
+            <ManageButton 
+              variant="contained" 
               startIcon={<SettingsIcon />}
+              onClick={() => navigate('/lobbies/manage')}
             >
               Lobilerimi Yönet
             </ManageButton>
-            <FilterButton
-              variant="outlined"
-              onClick={() => setShowFilters(!showFilters)}
-              startIcon={<FilterListIcon />}
-            >
-              Filtreler
-            </FilterButton>
           </HeaderActions>
         </Header>
 
+        <SearchBar>
+          <SearchInput 
+            type="text" 
+            placeholder="Lobi adı veya oyun ara..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          <FilterButton 
+            variant="contained" 
+            startIcon={<FilterListIcon />}
+            onClick={() => setShowFilters(!showFilters)}
+          >
+            Filtrele
+          </FilterButton>
+        </SearchBar>
+
         {showFilters && (
           <FiltersContainer>
-            <FilterChip
-              active={filters.all}
+            <FilterChip 
+              active={filters.all} 
               onClick={() => handleFilterChange('all')}
             >
               Tümü
             </FilterChip>
-            <FilterChip
-              active={filters.public}
+            <FilterChip 
+              active={filters.public} 
               onClick={() => handleFilterChange('public')}
             >
-              <FaUsers />
+              <FaUsers size={12} />
               Açık Lobiler
             </FilterChip>
-            <FilterChip
-              active={filters.private}
+            <FilterChip 
+              active={filters.private} 
               onClick={() => handleFilterChange('private')}
             >
-              <FaLock />
+              <FaLock size={12} />
               Özel Lobiler
             </FilterChip>
-            <FilterChip
-              active={filters.events}
+            <FilterChip 
+              active={filters.events} 
               onClick={() => handleFilterChange('events')}
             >
-              <FaCalendarAlt />
+              <FaCalendarAlt size={12} />
               Etkinlikler
             </FilterChip>
           </FiltersContainer>
         )}
 
-        {loading ? (
-          <NoLobbies>Lobiler yükleniyor...</NoLobbies>
-        ) : filteredLobbies.length === 0 ? (
-          <NoLobbies>Aktif lobi bulunamadı</NoLobbies>
-        ) : (
-          <LobbiesList>
-            {filteredLobbies.map(lobby => (
-              <LobbyCard key={lobby._id} onClick={() => handleJoinLobby(lobby)}>
-                <LobbyHeader>
-                  <LobbyTitle>{lobby.name}</LobbyTitle>
-                  <GameBadge>
-                    <FaGamepad />
-                    {lobby.game}
-                  </GameBadge>
-                </LobbyHeader>
-                <LobbyInfo>
-                  <InfoRow>
-                    <FaUsers />
-                    {lobby.players.length} / {lobby.maxPlayers} Oyuncu
-                  </InfoRow>
-                  {lobby.betAmount && (
-                    <InfoRow>
-                      <FaCoins />
-                      {lobby.betAmount} Token
-                    </InfoRow>
-                  )}
-                  {lobby.isPrivate && (
-                    <InfoRow>
-                      <FaLock />
-                      Özel Lobi
-                    </InfoRow>
-                  )}
-                  {lobby.isEventLobby && (
-                    <InfoRow>
-                      <FaCalendarAlt />
-                      Etkinlik
-                    </InfoRow>
-                  )}
-                </LobbyInfo>
-              </LobbyCard>
-            ))}
-          </LobbiesList>
-        )}
+        <LobbiesList>
+          {renderLobbyCards()}
+        </LobbiesList>
       </PageContainer>
     </MainLayout>
   );

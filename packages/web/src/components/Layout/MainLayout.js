@@ -93,8 +93,8 @@ const MenuItem = styled.div`
   border-radius: 12px;
   cursor: pointer;
   transition: all 0.3s;
-  color: ${props => props.active ? '#4a7dff' : 'rgba(255, 255, 255, 0.5)'};
-  background: ${props => props.active ? 'rgba(74, 125, 255, 0.1)' : 'transparent'};
+  color: ${props => props.$active ? '#4a7dff' : 'rgba(255, 255, 255, 0.5)'};
+  background: ${props => props.$active ? 'rgba(74, 125, 255, 0.1)' : 'transparent'};
   position: relative;
 
   &:hover {
@@ -108,7 +108,7 @@ const MenuItem = styled.div`
     position: absolute;
     left: 0;
     bottom: 5px;
-    width: ${props => props.active ? '3px' : '0'};
+    width: ${props => props.$active ? '3px' : '0'};
     height: 70%;
     background: linear-gradient(90deg, #4a7dff 0%, #ff53f0 100%);
     border-radius: 0 3px 3px 0;
@@ -165,7 +165,7 @@ const NavLink = styled.a`
   padding: 8px 16px;
   border-radius: 8px;
   position: relative;
-  background: ${props => props.active ? 'rgba(124, 77, 255, 0.1)' : 'transparent'};
+  background: ${props => props.$active ? 'rgba(124, 77, 255, 0.1)' : 'transparent'};
 
   &:hover {
     color: white;
@@ -270,7 +270,7 @@ const ProfileMenu = styled.div`
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
   border: 1px solid rgba(255, 255, 255, 0.05);
   z-index: 99999;
-  display: ${props => props.isOpen ? 'block' : 'none'};
+  display: ${props => props.$isOpen ? 'block' : 'none'};
   margin-top: 5px;
   animation: ${fadeIn} 0.3s ease;
 `;
@@ -333,7 +333,7 @@ const ProfileMenuItem = styled.div`
 
 const ChatToggleButton = styled.button`
   position: fixed;
-  right: ${props => props.isOpen ? '320px' : '20px'};
+  right: ${props => props.$isOpen ? '320px' : '20px'};
   bottom: 20px;
   background: rgba(30, 32, 68, 0.7);
   backdrop-filter: blur(10px);
@@ -358,15 +358,15 @@ const ChatToggleButton = styled.button`
 
   svg {
     transition: transform 0.3s;
-    transform: ${props => props.isOpen ? 'rotate(180deg)' : 'rotate(0)'};
+    transform: ${props => props.$isOpen ? 'rotate(180deg)' : 'rotate(0)'};
   }
 `;
 
 const ChatSidebar = styled.div`
-  width: ${props => props.isOpen ? '300px' : '0'};
+  width: ${props => props.$isOpen ? '300px' : '0'};
   background: rgba(30, 32, 68, 0.7);
   backdrop-filter: blur(10px);
-  padding: ${props => props.isOpen ? '20px' : '0'};
+  padding: ${props => props.$isOpen ? '20px' : '0'};
   border-left: 1px solid rgba(255, 255, 255, 0.05);
   display: flex;
   flex-direction: column;
@@ -677,7 +677,7 @@ function MainLayout({ children }) {
           {games.map(game => (
             <MenuItem 
               key={game.id}
-              active={activeMenu === game.id}
+              $active={activeMenu === game.id}
               onClick={() => handleNavClick(game.id)}
             >
               <div className="icon">
@@ -693,30 +693,35 @@ function MainLayout({ children }) {
           <NavMenu>
             <NavLink 
               className={activeMenu === 'games' ? 'active' : ''} 
+              $active={activeMenu === 'games'}
               onClick={() => handleNavClick('games')}
             >
               Oyunlar
             </NavLink>
             <NavLink 
               className={activeMenu === 'leaderboard' ? 'active' : ''} 
+              $active={activeMenu === 'leaderboard'}
               onClick={() => handleNavClick('leaderboard')}
             >
               Sıralama
             </NavLink>
             <NavLink 
               className={activeMenu === 'lobbies' ? 'active' : ''} 
+              $active={activeMenu === 'lobbies'}
               onClick={() => handleNavClick('lobbies')}
             >
               Lobiler
             </NavLink>
             <NavLink 
               className={activeMenu === 'profile' ? 'active' : ''} 
+              $active={activeMenu === 'profile'}
               onClick={() => handleNavClick('profile')}
             >
               Profil
             </NavLink>
             <NavLink 
               className={activeMenu === 'settings' ? 'active' : ''} 
+              $active={activeMenu === 'settings'}
               onClick={() => handleNavClick('settings')}
             >
               Ayarlar
@@ -739,7 +744,7 @@ function MainLayout({ children }) {
                 }}
               />
               <div style={{ position: 'relative' }}>
-                <ProfileMenu isOpen={isProfileMenuOpen}>
+                <ProfileMenu $isOpen={isProfileMenuOpen}>
                   <ProfileMenuItem onClick={() => handleNavClick('profile')}>
                     <FaUser size={16} />
                     <span>Profilim</span>
@@ -768,13 +773,13 @@ function MainLayout({ children }) {
       </MainContent>
 
       <ChatToggleButton 
-        isOpen={isChatOpen} 
+        $isOpen={isChatOpen} 
         onClick={() => setIsChatOpen(!isChatOpen)}
       >
         <BiChat size={24} />
       </ChatToggleButton>
 
-      <ChatSidebar isOpen={isChatOpen}>
+      <ChatSidebar $isOpen={isChatOpen}>
         <ChatHeader>
           <BiChat size={24} color="#4a7dff" />
           <h3>Online Sohbet</h3>

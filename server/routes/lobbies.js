@@ -4,6 +4,7 @@ const auth = require('../middleware/auth');
 const Lobby = require('../models/Lobby');
 const User = require('../models/User');
 const { isValidObjectId } = require('mongoose');
+const mongoose = require('mongoose');
 
 // Tüm lobileri getir
 router.get('/', auth, async (req, res) => {
@@ -213,51 +214,383 @@ router.post('/', auth, async (req, res) => {
   }
 });
 
-// Lobiye katıl
-router.post('/:id/join', auth, async (req, res) => {
+// Lobiye katılma - yeni endpoint
+router.post('/join', auth, async (req, res) => {
   try {
-    const lobby = await Lobby.findById(req.params.id);
+    const { lobbyCode, playerId, playerName, playerAvatar } = req.body;
+    
+    console.log('Lobiye katılma isteği alındı:', { lobbyCode, playerId });
+    
+    if (!lobbyCode) {
+      return res.status(400).json({ error: 'Lobi kodu gereklidir', success: false });
+    }
+    
+    const lobby = await Lobby.findOne({ lobbyCode });
     
     if (!lobby) {
-      return res.status(404).json({ error: 'Lobi bulunamadı' });
+      return res.status(404).json({ error: 'Lobi bulunamadı', success: false });
     }
     
     if (lobby.status !== 'waiting') {
-      return res.status(400).json({ error: 'Bu lobiye artık katılamazsınız' });
+      return res.status(400).json({ error: 'Bu lobiye artık katılamazsınız', success: false });
     }
     
     if (lobby.players.length >= lobby.maxPlayers) {
-      return res.status(400).json({ error: 'Lobi dolu' });
+      return res.status(400).json({ error: 'Lobi dolu', success: false });
     }
     
-    // Oyuncu zaten lobide mi kontrol et
-    if (lobby.players.some(playerId => playerId.toString() === req.user._id.toString())) {
-      return res.status(400).json({ error: 'Zaten bu lobidensiniz' });
-    }
+    // Kullanıcı ID'sini al
+    const userId = playerId || req.user._id;
     
-    // Gizli lobi ise şifre kontrolü yap
-    if (lobby.isPrivate) {
-      const { password } = req.body;
-      if (password !== lobby.password) {
-        return res.status(401).json({ error: 'Geçersiz şifre' });
+    // Oyuncu zaten lobide mi kontrol et - ObjectId düzgün karşılaştırma için
+    const isAlreadyInLobby = lobby.players.some(id => 
+      id.toString() === userId.toString()
+    );
+    
+    if (!isAlreadyInLobby) {
+      console.log(`Oyuncu lobiye ekleniyor: ${userId}`);
+      lobby.players.push(userId);
+      
+      // PlayersDetail alanına da ekleme yapalım
+      if (lobby.playersDetail) {
+        // Oyuncu detaylı bilgisi zaten var mı kontrol et - ObjectId düzgün karşılaştırma için
+        const playerDetailExists = lobby.playersDetail.some(p => 
+          p.user && p.user.toString() === userId.toString()
+        );
+        
+        if (!playerDetailExists) {
+          lobby.playersDetail.push({
+            user: userId,
+            name: playerName || req.user.username,
+            isReady: false,
+            isBot: false
+          });
+        }
+      } else {
+        // playersDetail alanı yoksa oluştur
+        lobby.playersDetail = [{
+          user: userId,
+          name: playerName || req.user.username,
+          isReady: false,
+          isBot: false
+        }];
       }
+      
+      await lobby.save();
+      console.log('Oyuncu lobiye başarıyla eklendi');
+    } else {
+      console.log(`Oyuncu zaten lobide: ${userId}`);
     }
     
-    lobby.players.push(req.user._id);
-    await lobby.save();
-    
-    const updatedLobby = await Lobby.findById(req.params.id)
+    // Güncel lobi bilgilerini döndür
+    const updatedLobby = await Lobby.findOne({ lobbyCode })
       .populate('creator', '_id email username profileImage')
       .populate('players', '_id email username profileImage');
       
-    res.json(updatedLobby);
+    // Socket.io ile diğer kullanıcılara bildir
+    if (req.app.get('io') && !isAlreadyInLobby) {
+      req.app.get('io').to(lobbyCode).emit('playerJoined', { 
+        userId,
+        username: playerName || req.user.username,
+        lobbyCode
+      });
+    }
+      
+    res.json({
+      success: true,
+      message: isAlreadyInLobby ? 'Zaten lobidesiniz' : 'Lobiye başarıyla katıldınız',
+      lobby: updatedLobby
+    });
   } catch (error) {
-    console.error('Lobiye katılırken hata:', error);
-    res.status(500).json({ error: 'Sunucu hatası' });
+    console.error('Lobiye katılma hatası:', error);
+    res.status(500).json({ 
+      error: 'Lobiye katılırken bir hata oluştu', 
+      details: error.message,
+      success: false 
+    });
   }
 });
 
-// Lobiden ayrıl
+// Oyuncunun hazır durumunu güncelleme
+router.post('/player-ready', auth, async (req, res) => {
+  try {
+    const { lobbyId, isReady } = req.body;
+    
+    console.log('Hazır durumu güncelleme isteği:', req.body);
+    
+    if (!lobbyId) {
+      console.error('Lobi ID eksik:', req.body);
+      return res.status(400).json({ 
+        message: 'Lobi ID eksik',
+        success: false 
+      });
+    }
+    
+    // Kullanıcı ID'sini doğru bir şekilde al
+    const userId = req.user._id.toString();
+    
+    console.log('Kullanıcı ID:', userId);
+    console.log('Ready durumu:', isReady);
+    
+    let lobby;
+    try {
+      // ObjectId doğrulama - geçersiz ID biçimi için hata yakalamak amacıyla try/catch içinde
+      if (!mongoose.Types.ObjectId.isValid(lobbyId)) {
+        return res.status(400).json({
+          message: 'Geçersiz Lobi ID formatı',
+          success: false
+        });
+      }
+      
+      lobby = await Lobby.findById(lobbyId);
+    } catch (err) {
+      console.error('Lobi arama hatası:', err);
+      return res.status(400).json({
+        message: 'Lobi bulunurken hata oluştu',
+        success: false
+      });
+    }
+    
+    if (!lobby) {
+      console.error(`Lobi bulunamadı: ${lobbyId}`);
+      return res.status(404).json({
+        message: 'Lobi bulunamadı',
+        success: false
+      });
+    }
+
+    // Kullanıcının lobide olup olmadığını kontrol et
+    const isPlayerInLobby = lobby.players.some(id => id.toString() === userId);
+    
+    if (!isPlayerInLobby) {
+      console.error(`Kullanıcı lobide değil: ${userId}`);
+      return res.status(403).json({
+        message: 'Bu lobide oyuncu değilsiniz',
+        success: false
+      });
+    }
+
+    // Önce playersDetail dizisinin var olduğunu kontrol et
+    if (!lobby.playersDetail || !Array.isArray(lobby.playersDetail)) {
+      console.log('PlayersDetail dizisi mevcut değil, oluşturuluyor');
+      lobby.playersDetail = [];
+    }
+
+    // Oyuncunun detaylarını bul ve güncelle
+    const playerDetailIndex = lobby.playersDetail.findIndex(
+      player => player.user && player.user.toString() === userId
+    );
+    
+    if (playerDetailIndex === -1) {
+      // Oyuncu detayı yoksa yeni ekle
+      console.log(`Oyuncu detayı bulunamadı, yeni ekleniyor: ${userId}`);
+      lobby.playersDetail.push({
+        user: userId,
+        name: req.user.username || 'Oyuncu',
+        isReady: isReady,
+        isBot: false,
+        joinedAt: new Date()
+      });
+    } else {
+      // Mevcut oyuncu detayını güncelle
+      console.log(`Oyuncu detayı güncelleniyor - Önceki durum: ${lobby.playersDetail[playerDetailIndex].isReady}, Yeni durum: ${isReady}`);
+      lobby.playersDetail[playerDetailIndex].isReady = isReady;
+    }
+    
+    // Doğrudan MongoDB güncelleme işlemi kullanarak daha güvenli bir şekilde güncelle
+    const updateResult = await Lobby.updateOne(
+      { 
+        _id: lobbyId, 
+        "playersDetail.user": new mongoose.Types.ObjectId(userId)
+      },
+      { 
+        $set: { "playersDetail.$.isReady": isReady } 
+      }
+    );
+    
+    console.log('MongoDB güncelleme sonucu:', updateResult);
+    
+    if (updateResult.modifiedCount === 0 && playerDetailIndex === -1) {
+      // Eğer oyuncu detayı yoksa, push işlemi yap
+      await Lobby.updateOne(
+        { _id: lobbyId },
+        { 
+          $push: { 
+            playersDetail: {
+              user: new mongoose.Types.ObjectId(userId),
+              name: req.user.username || 'Oyuncu',
+              isReady: isReady,
+              isBot: false,
+              joinedAt: new Date()
+            } 
+          } 
+        }
+      );
+      console.log('Yeni oyuncu detayı eklendi');
+    }
+    
+    console.log(`Hazır durumu güncellendi - Oyuncu: ${userId}, Durum: ${isReady}`);
+
+    // Socket.io ile diğer oyunculara bildir
+    if (req.app.get('io')) {
+      req.app.get('io').to(lobbyId).emit('playerStatusUpdate', {
+        userId,
+        isReady,
+        lobbyId,
+        updateTime: new Date().toISOString()
+      });
+      
+      // Ayrıca doğrudan bu kullanıcıya kendi durumunu bildir
+      const userSocketId = req.app.get('socketMap') ? req.app.get('socketMap')[userId] : null;
+      if (userSocketId) {
+        req.app.get('io').to(userSocketId).emit('myStatusUpdate', {
+          isReady,
+          updateTime: new Date().toISOString()
+        });
+      }
+    }
+
+    // Güncellenmiş lobiyi döndür - oyuncuları da populate ederek
+    const updatedLobby = await Lobby.findById(lobbyId)
+      .populate('creator', '_id email username profileImage')
+      .populate('players', '_id email username profileImage');
+
+    res.json({ 
+      success: true,
+      message: 'Hazır durumu güncellendi',
+      playerId: userId,
+      isReady: isReady,
+      lobby: updatedLobby
+    });
+  } catch (error) {
+    console.error('Hazır durumu güncellenirken hata:', error);
+    res.status(500).json({ 
+      message: 'Sunucu hatası',
+      error: error.message,
+      success: false
+    });
+  }
+});
+
+// Bot ekleme
+router.post('/add-bot', auth, async (req, res) => {
+  try {
+    const { lobbyId, lobbyCode } = req.body;
+    
+    console.log('Bot ekleme isteği:', req.body);
+    
+    let lobby;
+    
+    // Lobi ID veya lobi kodu ile sorgu yap
+    if (lobbyId) {
+      lobby = await Lobby.findById(lobbyId);
+    } else if (lobbyCode) {
+      lobby = await Lobby.findOne({ lobbyCode });
+    } else {
+      console.error('Lobi bilgisi eksik:', req.body);
+      return res.status(400).json({ 
+        message: 'Lobi ID veya kod eksik',
+        success: false
+      });
+    }
+    
+    if (!lobby) {
+      console.error(`Lobi bulunamadı: ${lobbyId || lobbyCode}`);
+      return res.status(404).json({ 
+        message: 'Lobi bulunamadı',
+        success: false
+      });
+    }
+    
+    // Kullanıcı ID'sini al
+    const userId = req.user.id || req.user._id;
+
+    // Lobiye katılım kontrolü
+    const isUserInLobby = lobby.players.some(id => id.toString() === userId.toString());
+    if (!isUserInLobby) {
+      console.error(`Kullanıcı lobide değil: ${userId}`);
+      return res.status(403).json({ 
+        message: 'Bu işlem için lobide olmanız gerekiyor',
+        success: false
+      });
+    }
+
+    // Bot olmayan oyuncuların sayısını hesapla
+    const realPlayers = lobby.playersDetail ? lobby.playersDetail.filter(p => !p.isBot).length : 1; // En az 1 gerçek oyuncu var
+    
+    // Bot sayısı kontrolü
+    const botCount = lobby.playersDetail ? lobby.playersDetail.filter(p => p.isBot).length : 0;
+    
+    // Eklenebilecek maksimum bot sayısı, lobinin dolabileceği kadar olmalı
+    const maxBots = lobby.maxPlayers - realPlayers;
+    console.log(`Gerçek oyuncu sayısı: ${realPlayers}, Bot sayısı: ${botCount}, Maksimum eklenebilecek bot: ${maxBots}`);
+    
+    if (botCount >= maxBots) {
+      console.error(`Maksimum bot sayısına ulaşıldı: ${botCount}/${maxBots}`);
+      return res.status(400).json({ 
+        message: 'Maksimum bot sayısına ulaşıldı, tüm kullanıcı slotları dolu olacak',
+        success: false
+      });
+    }
+    
+    // Lobide yer var mı kontrol et
+    if (lobby.players.length >= lobby.maxPlayers) {
+      console.error('Lobi dolu');
+      return res.status(400).json({
+        message: 'Lobi dolu, bot eklenemiyor',
+        success: false
+      });
+    }
+
+    // Yeni bot oluştur
+    const botNumber = botCount + 1;
+    const botId = new mongoose.Types.ObjectId(); // Bot için benzersiz ID
+    
+    // Botu players dizisine ekle
+    lobby.players.push(botId);
+    
+    const botPlayer = {
+      user: botId,
+      name: `Bot ${botNumber}`,
+      isBot: true,
+      isReady: true // Botlar otomatik hazır
+    };
+
+    // Bot oyuncusunu playersDetail dizisine ekle
+    if (lobby.playersDetail && Array.isArray(lobby.playersDetail)) {
+      lobby.playersDetail.push(botPlayer);
+    } else {
+      lobby.playersDetail = [botPlayer];
+    }
+    
+    await lobby.save();
+    console.log(`Bot başarıyla eklendi: ${botPlayer.name}`);
+
+    // Socket.io ile diğer oyunculara bildir
+    if (req.app.get('io')) {
+      req.app.get('io').to(lobby._id.toString()).emit('botAdded', {
+        bot: botPlayer,
+        lobbyId: lobby._id
+      });
+    }
+
+    res.json({ 
+      success: true, 
+      message: 'Bot başarıyla eklendi',
+      bot: botPlayer,
+      lobby 
+    });
+  } catch (error) {
+    console.error('Bot eklenirken hata:', error);
+    res.status(500).json({ 
+      message: 'Sunucu hatası',
+      error: error.message,
+      success: false
+    });
+  }
+});
+
+// Lobiden ayrıl (lobi id ile)
 router.post('/:id/leave', auth, async (req, res) => {
   try {
     const lobby = await Lobby.findById(req.params.id);
@@ -266,62 +599,337 @@ router.post('/:id/leave', auth, async (req, res) => {
       return res.status(404).json({ error: 'Lobi bulunamadı' });
     }
     
+    // Kullanıcı ID'sini al
+    const userId = req.user.id || req.user._id;
+    
     // Kullanıcı lobinin yaratıcısı mı kontrol et
-    if (lobby.creator.toString() === req.user._id.toString()) {
+    if (lobby.creator.toString() === userId.toString()) {
       // Lobi sahibi ayrılırsa, lobi silinir
       await Lobby.findByIdAndDelete(req.params.id);
-      return res.json({ message: 'Lobi silindi' });
+      
+      // Socket.io ile diğer kullanıcılara bildir
+      if (req.app.get('io')) {
+        req.app.get('io').to(req.params.id).emit('lobbyDeleted', {
+          lobbyId: req.params.id,
+          message: 'Lobi yaratıcısı ayrıldığı için lobi silindi'
+        });
+      }
+      
+      return res.json({ 
+        success: true,
+        message: 'Lobi silindi', 
+        wasCreator: true 
+      });
     }
     
     // Kullanıcı oyuncu listesinden çıkarılır
     lobby.players = lobby.players.filter(playerId => 
-      playerId.toString() !== req.user._id.toString()
+      playerId.toString() !== userId.toString()
     );
     
+    // Oyuncu detaylarından da çıkarılır
+    if (lobby.playersDetail && lobby.playersDetail.length > 0) {
+      lobby.playersDetail = lobby.playersDetail.filter(player => 
+        !player.user || player.user.toString() !== userId.toString()
+      );
+    }
+    
     await lobby.save();
+    
+    // Socket.io ile diğer kullanıcılara bildir
+    if (req.app.get('io')) {
+      req.app.get('io').to(req.params.id).emit('playerLeft', {
+        playerId: userId,
+        lobbyId: req.params.id
+      });
+    }
     
     const updatedLobby = await Lobby.findById(req.params.id)
       .populate('creator', '_id email username profileImage')
       .populate('players', '_id email username profileImage');
       
-    res.json(updatedLobby);
+    res.json({ 
+      success: true, 
+      message: 'Lobiden başarıyla ayrıldınız',
+      lobby: updatedLobby 
+    });
   } catch (error) {
     console.error('Lobiden ayrılırken hata:', error);
-    res.status(500).json({ error: 'Sunucu hatası' });
+    res.status(500).json({ 
+      error: 'Sunucu hatası', 
+      success: false 
+    });
   }
 });
 
-// Lobinin durumunu güncelle
-router.put('/:id/status', auth, async (req, res) => {
+// Lobi koduna göre lobiden ayrılma
+router.post('/leave-by-code', auth, async (req, res) => {
   try {
-    const lobby = await Lobby.findById(req.params.id);
+    const { lobbyCode } = req.body;
+    
+    console.log('Lobiden ayrılma isteği alındı:', { lobbyCode });
+    
+    if (!lobbyCode) {
+      return res.status(400).json({ 
+        error: 'Lobi kodu gereklidir', 
+        success: false 
+      });
+    }
+    
+    const lobby = await Lobby.findOne({ lobbyCode });
     
     if (!lobby) {
-      return res.status(404).json({ error: 'Lobi bulunamadı' });
+      return res.status(404).json({ 
+        error: 'Lobi bulunamadı', 
+        success: false 
+      });
     }
     
-    // Sadece lobi yaratıcısı durumu değiştirebilir
-    if (lobby.creator.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ error: 'Bu işlem için yetkiniz yok' });
+    // Kullanıcı ID'sini al
+    const userId = req.user.id || req.user._id;
+    
+    // Kullanıcı lobide mi kontrol et
+    const isInLobby = lobby.players.some(id => id.toString() === userId.toString());
+    
+    if (!isInLobby) {
+      return res.status(400).json({ 
+        error: 'Bu lobiye zaten üye değilsiniz', 
+        success: false 
+      });
     }
     
-    const { status } = req.body;
-    
-    if (!['waiting', 'playing', 'finished'].includes(status)) {
-      return res.status(400).json({ error: 'Geçersiz durum' });
+    // Kullanıcı lobinin yaratıcısı mı kontrol et
+    if (lobby.creator.toString() === userId.toString()) {
+      // Lobi sahibi ayrılırsa, lobi silinir
+      await Lobby.findByIdAndDelete(lobby._id);
+      
+      // Socket.io ile diğer kullanıcılara bildir
+      if (req.app.get('io')) {
+        req.app.get('io').to(lobbyCode).emit('lobbyDeleted', {
+          lobbyId: lobby._id,
+          lobbyCode,
+          message: 'Lobi yaratıcısı ayrıldığı için lobi silindi'
+        });
+      }
+      
+      return res.json({ 
+        success: true,
+        message: 'Lobi silindi',
+        wasCreator: true
+      });
     }
     
-    lobby.status = status;
+    // Kullanıcı oyuncu listesinden çıkarılır
+    lobby.players = lobby.players.filter(playerId => 
+      playerId.toString() !== userId.toString()
+    );
+    
+    // Oyuncu detaylarından da çıkarılır
+    if (lobby.playersDetail && lobby.playersDetail.length > 0) {
+      lobby.playersDetail = lobby.playersDetail.filter(player => 
+        !player.user || player.user.toString() !== userId.toString()
+      );
+    }
+    
     await lobby.save();
     
-    const updatedLobby = await Lobby.findById(req.params.id)
+    // Socket.io ile diğer kullanıcılara bildir
+    if (req.app.get('io')) {
+      req.app.get('io').to(lobbyCode).emit('playerLeft', {
+        playerId: userId,
+        lobbyId: lobby._id.toString(),
+        lobbyCode
+      });
+    }
+    
+    // Socket.io ile kullanıcı direk ayrılabilsin
+    if (req.app.get('io')) {
+      // Kullanıcıya özel leaveLobby olayını tetikle - kendi clientını temizlemesi için
+      const io = req.app.get('io');
+      const sockets = await io.in(lobbyCode).fetchSockets();
+      
+      for (const socket of sockets) {
+        const clientData = socket.handshake.auth;
+        
+        // Kullanıcı ID'sine göre socket'i bul
+        if (clientData && clientData.userId && clientData.userId.toString() === userId.toString()) {
+          console.log(`Kullanıcı socketini lobiden çıkar: ${clientData.userId}`);
+          socket.leave(lobbyCode);
+        }
+      }
+    }
+    
+    const updatedLobby = await Lobby.findOne({ lobbyCode })
       .populate('creator', '_id email username profileImage')
       .populate('players', '_id email username profileImage');
       
-    res.json(updatedLobby);
+    res.json({ 
+      success: true, 
+      message: 'Lobiden başarıyla ayrıldınız',
+      lobby: updatedLobby
+    });
+  } catch (error) {
+    console.error('Lobiden ayrılırken hata:', error);
+    res.status(500).json({ 
+      error: 'Sunucu hatası',
+      details: error.message,
+      success: false
+    });
+  }
+});
+
+// Lobi durumunu güncelleme (kimlik doğrulama olmadan da erişilebilir)
+router.patch('/:id', async (req, res) => {
+  try {
+    const { status } = req.body;
+    const validStatuses = ['waiting', 'playing', 'finished'];
+    
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Geçersiz durum değeri' 
+      });
+    }
+    
+    const lobbyId = req.params.id;
+    let lobby;
+    
+    // ID veya kod ile lobi bul
+    if (isValidObjectId(lobbyId)) {
+      lobby = await Lobby.findById(lobbyId);
+    } else {
+      lobby = await Lobby.findOne({ lobbyCode: lobbyId });
+    }
+    
+    if (!lobby) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'Lobi bulunamadı' 
+      });
+    }
+    
+    // Durum güncellemesi
+    lobby.status = status;
+    
+    // Eğer durum 'playing' ise, başlangıç zamanını ayarla
+    if (status === 'playing' && !lobby.startedAt) {
+      lobby.startedAt = new Date();
+    }
+    
+    // Eğer durum 'finished' ise, bitiş zamanını ayarla
+    if (status === 'finished' && !lobby.endedAt) {
+      lobby.endedAt = new Date();
+    }
+    
+    await lobby.save();
+    
+    // Socket.io ile bildirim gönder
+    const io = req.app.get('io');
+    if (io) {
+      io.to(lobby._id.toString()).emit('lobby_status_updated', {
+        lobbyId: lobby._id,
+        lobbyCode: lobby.lobbyCode,
+        status: lobby.status,
+        updatedAt: new Date()
+      });
+      
+      // Ayrıca lobi kodu ile de bildirim gönder
+      if (lobby.lobbyCode) {
+        io.to(lobby.lobbyCode).emit('lobby_status_updated', {
+          lobbyId: lobby._id,
+          lobbyCode: lobby.lobbyCode,
+          status: lobby.status,
+          updatedAt: new Date()
+        });
+      }
+    }
+    
+    res.json({
+      success: true,
+      lobbyId: lobby._id,
+      lobbyCode: lobby.lobbyCode,
+      status: lobby.status,
+      updatedAt: lobby.updatedAt
+    });
   } catch (error) {
     console.error('Lobi durumu güncellenirken hata:', error);
-    res.status(500).json({ error: 'Sunucu hatası' });
+    res.status(500).json({ 
+      success: false,
+      error: 'Lobi durumu güncellenirken bir hata oluştu' 
+    });
+  }
+});
+
+// ID ile erişilemiyorsa lobi kodunu kullan
+router.patch('/code/:code', async (req, res) => {
+  try {
+    const { status } = req.body;
+    const validStatuses = ['waiting', 'playing', 'finished'];
+    
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Geçersiz durum değeri' 
+      });
+    }
+    
+    const lobbyCode = req.params.code;
+    const lobby = await Lobby.findOne({ lobbyCode });
+    
+    if (!lobby) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'Lobi bulunamadı' 
+      });
+    }
+    
+    // Durum güncellemesi
+    lobby.status = status;
+    
+    // Eğer durum 'playing' ise, başlangıç zamanını ayarla
+    if (status === 'playing' && !lobby.startedAt) {
+      lobby.startedAt = new Date();
+    }
+    
+    // Eğer durum 'finished' ise, bitiş zamanını ayarla
+    if (status === 'finished' && !lobby.endedAt) {
+      lobby.endedAt = new Date();
+    }
+    
+    await lobby.save();
+    
+    // Socket.io ile bildirim gönder
+    const io = req.app.get('io');
+    if (io) {
+      io.to(lobby._id.toString()).emit('lobby_status_updated', {
+        lobbyId: lobby._id,
+        lobbyCode: lobby.lobbyCode,
+        status: lobby.status,
+        updatedAt: new Date()
+      });
+      
+      // Ayrıca lobi kodu ile de bildirim gönder
+      io.to(lobby.lobbyCode).emit('lobby_status_updated', {
+        lobbyId: lobby._id,
+        lobbyCode: lobby.lobbyCode,
+        status: lobby.status,
+        updatedAt: new Date()
+      });
+    }
+    
+    res.json({
+      success: true,
+      lobbyId: lobby._id,
+      lobbyCode: lobby.lobbyCode,
+      status: lobby.status,
+      updatedAt: lobby.updatedAt
+    });
+  } catch (error) {
+    console.error('Lobi durumu güncellenirken hata:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Lobi durumu güncellenirken bir hata oluştu' 
+    });
   }
 });
 
@@ -489,5 +1097,236 @@ function generateLobbyCode(length = 6) {
   }
   return code;
 }
+
+// Lobiye mesaj gönderme
+router.post('/:lobbyCode/messages', auth, async (req, res) => {
+  try {
+    const { lobbyCode } = req.params;
+    const { message, senderId } = req.body;
+    
+    console.log('Mesaj gönderme isteği alındı:', { lobbyCode, message, senderId });
+    
+    if (!lobbyCode) {
+      return res.status(400).json({ error: 'Lobi kodu gereklidir', success: false });
+    }
+    
+    if (!message) {
+      return res.status(400).json({ error: 'Mesaj içeriği gereklidir', success: false });
+    }
+    
+    const lobby = await Lobby.findOne({ lobbyCode });
+    
+    if (!lobby) {
+      return res.status(404).json({ error: 'Lobi bulunamadı', success: false });
+    }
+    
+    // Kullanıcı ID'sini al - gönderici farklı belirtilmişse onu kullan
+    const userId = senderId || req.user._id;
+    
+    // Oyuncu lobide mi kontrol et
+    // Sistem mesajları için bu kontrolü atla (sistem mesajlarını herhangi bir kullanıcı gönderebilir)
+    if (userId !== 'system') {
+      const playerInLobby = lobby.players.some(id => id.toString() === userId.toString());
+      
+      if (!playerInLobby) {
+        return res.status(400).json({ error: 'Sadece lobideki oyuncular mesaj gönderebilir', success: false });
+      }
+    }
+    
+    // Yeni mesaj oluştur
+    const newMessage = {
+      sender: userId === 'system' ? null : userId,
+      text: message,
+      isSystem: userId === 'system',
+      createdAt: new Date()
+    };
+    
+    // Mesajı lobby.messages dizisine ekle
+    if (!lobby.messages) {
+      lobby.messages = [];
+    }
+    
+    lobby.messages.push(newMessage);
+    
+    // Mesaj sayısını kontrol et - çok fazla mesaj birikirse eski mesajları temizle
+    if (lobby.messages.length > 100) {
+      // En eski mesajları sil - sadece son 50 mesajı tut
+      lobby.messages = lobby.messages.slice(-50);
+    }
+    
+    await lobby.save();
+    
+    console.log('Mesaj başarıyla kaydedildi');
+    
+    res.json({
+      success: true,
+      message: 'Mesaj başarıyla gönderildi',
+      newMessage
+    });
+  } catch (error) {
+    console.error('Mesaj gönderilirken hata:', error);
+    res.status(500).json({ 
+      error: 'Mesaj gönderilirken bir hata oluştu', 
+      details: error.message,
+      success: false 
+    });
+  }
+});
+
+// Lobi mesajlarını getir
+router.get('/:lobbyCode/messages', auth, async (req, res) => {
+  try {
+    const { lobbyCode } = req.params;
+    
+    if (!lobbyCode) {
+      return res.status(400).json({ error: 'Lobi kodu gereklidir' });
+    }
+    
+    const lobby = await Lobby.findOne({ lobbyCode })
+      .populate('messages.sender', '_id username profileImage');
+    
+    if (!lobby) {
+      return res.status(404).json({ error: 'Lobi bulunamadı' });
+    }
+    
+    // Mesajları tarih sırasına göre sırala
+    const messages = (lobby.messages || []).sort((a, b) => a.createdAt - b.createdAt);
+    
+    res.json({
+      success: true,
+      messages
+    });
+  } catch (error) {
+    console.error('Mesajlar alınırken hata:', error);
+    res.status(500).json({ error: 'Mesajlar alınırken bir hata oluştu' });
+  }
+});
+
+// Lobi durumunu güncelle
+router.post('/update-status', auth, async (req, res) => {
+  try {
+    const { lobbyId, lobbyCode, status } = req.body;
+    
+    if (!lobbyId && !lobbyCode) {
+      return res.status(400).json({ error: 'Lobi ID veya kodu gereklidir' });
+    }
+    
+    if (!status) {
+      return res.status(400).json({ error: 'Durum bilgisi gereklidir' });
+    }
+    
+    // Lobi ID veya kodu ile lobi ara
+    let lobby;
+    if (lobbyId && isValidObjectId(lobbyId)) {
+      lobby = await Lobby.findById(lobbyId);
+    } else if (lobbyCode) {
+      lobby = await Lobby.findOne({ lobbyCode });
+    }
+    
+    if (!lobby) {
+      return res.status(404).json({ error: 'Lobi bulunamadı' });
+    }
+    
+    // Yetkilendirme: Sadece lobi yaratıcısı veya oyuncularından biri statüyü değiştirebilir
+    const isAuthorized = req.user._id.equals(lobby.creator) || 
+      lobby.players.some(playerId => playerId.equals(req.user._id));
+      
+    if (!isAuthorized) {
+      return res.status(403).json({ error: 'Bu işlem için yetkiniz yok' });
+    }
+    
+    // Durumu güncelle
+    lobby.status = status;
+    await lobby.save();
+    
+    // Socket.io ile diğer kullanıcılara bildir
+    const io = req.app.get('io');
+    if (io) {
+      io.to(lobby._id.toString()).emit('lobbyStatusUpdate', {
+        lobbyId: lobby._id,
+        status: lobby.status
+      });
+    }
+    
+    res.json({ success: true, message: 'Lobi durumu güncellendi', status: lobby.status });
+  } catch (error) {
+    console.error('Lobi durumu güncellenirken hata:', error);
+    res.status(500).json({ error: 'Lobi durumu güncellenirken bir hata oluştu' });
+  }
+});
+
+// Lobideki oyuncuları getir
+router.get('/:id/players', async (req, res) => {
+  try {
+    const lobbyId = req.params.id;
+    
+    // ID formatı kontrolü
+    let lobby;
+    if (isValidObjectId(lobbyId)) {
+      // MongoDB ObjectID formatında ise direkt ID ile ara
+      lobby = await Lobby.findById(lobbyId)
+        .populate('players', '_id username email profileImage')
+        .populate('playersDetail');
+    } else {
+      // Lobi kodu formatındaysa lobbyCode olarak ara
+      lobby = await Lobby.findOne({ lobbyCode: lobbyId })
+        .populate('players', '_id username email profileImage')
+        .populate('playersDetail');
+    }
+
+    if (!lobby) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'Lobi bulunamadı' 
+      });
+    }
+
+    // Oyuncuları formatla
+    const formattedPlayers = lobby.players.map(player => {
+      const playerDetail = lobby.playersDetail?.find(
+        pd => pd.user && pd.user.toString() === player._id.toString()
+      );
+      
+      return {
+        id: player._id,
+        name: player.username,
+        email: player.email,
+        profileImage: player.profileImage,
+        isBot: false,
+        status: playerDetail?.status || 'waiting',
+        isReady: playerDetail?.isReady || false,
+        cards: playerDetail?.cards || []
+      };
+    });
+
+    // Varsa bot oyuncuları da ekle
+    const bots = lobby.playersDetail?.filter(pd => pd.isBot) || [];
+    const formattedBots = bots.map(bot => ({
+      id: bot._id,
+      name: bot.name || 'Bot',
+      isBot: true,
+      status: bot.status || 'ready',
+      isReady: true,
+      cards: bot.cards || []
+    }));
+
+    // Tüm oyuncuları birleştir
+    const allPlayers = [...formattedPlayers, ...formattedBots];
+
+    res.json({
+      success: true,
+      players: allPlayers,
+      lobbyId: lobby._id,
+      lobbyCode: lobby.lobbyCode,
+      gameStatus: lobby.status
+    });
+  } catch (error) {
+    console.error('Lobi oyuncuları alınırken hata:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Lobi oyuncuları alınırken bir hata oluştu' 
+    });
+  }
+});
 
 module.exports = router; 
