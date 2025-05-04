@@ -4,8 +4,9 @@ import { UserContext } from '../../context/UserContext';
 import styled, { keyframes } from 'styled-components';
 import { FaHome, FaTrophy, FaUsers, FaGamepad, FaCog, FaDice, FaBomb, FaRocket, 
          FaDharmachakra, FaCoins, FaChartLine, FaPlayCircle, FaChess, FaBuilding,
-         FaCircle, FaArrowUp, FaBullseye, FaAngleLeft, FaUser, FaWallet, FaSignOutAlt } from 'react-icons/fa';
+         FaCircle, FaArrowUp, FaBullseye, FaAngleLeft, FaUser, FaWallet, FaSignOutAlt, FaPaperPlane } from 'react-icons/fa';
 import { BiChat } from 'react-icons/bi';
+import { TextField, InputAdornment, IconButton, Box } from '@mui/material';
 
 // Animasyonlar
 const fadeIn = keyframes`
@@ -40,7 +41,11 @@ const MainContainer = styled.div`
 `;
 
 const Sidebar = styled.div`
-  width: 80px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 70px;
+  height: 100vh;
   background: rgba(30, 32, 68, 0.5);
   backdrop-filter: blur(10px);
   padding: 20px 10px;
@@ -62,6 +67,12 @@ const Logo = styled.div`
   display: flex;
   justify-content: center;
   align-items: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+
+  &:hover {
+    transform: scale(1.05);
+  }
 
   span {
     background: linear-gradient(45deg, #4a7dff 0%, #ff53f0 100%);
@@ -133,9 +144,14 @@ const MainContent = styled.div`
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  margin-left: 80px; /* Sidebar genişliği kadar */
 `;
 
 const TopBar = styled.div`
+  position: fixed;
+  top: 0;
+  left: 80px; /* Sidebar genişliği kadar */
+  right: 0;
   height: 70px;
   background: rgba(30, 32, 68, 0.5);
   backdrop-filter: blur(10px);
@@ -363,18 +379,21 @@ const ChatToggleButton = styled.button`
 `;
 
 const ChatSidebar = styled.div`
+  position: fixed;
+  top: 0;
+  right: 0;
   width: ${props => props.$isOpen ? '300px' : '0'};
+  height: 100vh;
   background: rgba(30, 32, 68, 0.7);
   backdrop-filter: blur(10px);
   padding: ${props => props.$isOpen ? '20px' : '0'};
   border-left: 1px solid rgba(255, 255, 255, 0.05);
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  position: relative;
-  transition: all 0.3s;
+  transition: all 0.3s ease;
   overflow: hidden;
   box-shadow: -5px 0 15px rgba(0, 0, 0, 0.2);
+  z-index: 999;
 `;
 
 const ChatHeader = styled.div`
@@ -407,9 +426,10 @@ const ChatMessages = styled.div`
   flex-direction: column;
   gap: 15px;
   overflow-y: auto;
-  max-height: calc(100vh - 200px);
-  position: relative;
-  z-index: 1;
+  flex-grow: 1;
+  padding-top: 10px;
+  padding-bottom: 160px;
+  scroll-behavior: smooth;
 
   &::-webkit-scrollbar {
     width: 6px;
@@ -432,7 +452,8 @@ const ChatMessage = styled.div`
   padding: 12px;
   border-radius: 12px;
   background: rgba(26, 27, 38, 0.5);
-  transition: all 0.3s;
+  transition: all 0.3s ease;
+  margin: 0 2px;
 
   &:hover {
     background: rgba(74, 125, 255, 0.1);
@@ -471,29 +492,65 @@ const ChatMessage = styled.div`
   }
 `;
 
-const ChatInput = styled.div`
-  position: relative;
-  z-index: 1;
-  margin-top: auto;
+const ChatInput = styled(Box)`
+  position: absolute;
+  bottom: 50px;
+  left: 15px;
+  right: 15px;
+  padding: 15px;
+  background: rgba(30, 32, 68, 0.8);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 15px;
+  z-index: 10;
+  transition: all 0.3s ease;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
 
-  input {
-    width: 100%;
+  &::before {
+    content: '';
+    position: absolute;
+    top: -30px;
+    left: 0;
+    right: 0;
+    height: 30px;
+    background: linear-gradient(to top, rgba(30, 32, 68, 0.7), transparent);
+    pointer-events: none;
+  }
+
+  .MuiOutlinedInput-root {
     background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 12px;
-    padding: 12px 15px;
-    color: white;
-    font-size: 0.95rem;
+    border-radius: 50px;
     transition: all 0.3s ease;
+    
+    &:hover .MuiOutlinedInput-notchedOutline {
+      border-color: rgba(74, 125, 255, 0.5);
+    }
+    
+    &.Mui-focused .MuiOutlinedInput-notchedOutline {
+      border-color: #4a7dff;
+      border-width: 1px;
+      box-shadow: 0 0 0 3px rgba(74, 125, 255, 0.1);
+    }
+  }
 
+  .MuiInputBase-input {
+    color: white;
+    padding: 12px 15px;
+    font-size: 0.95rem;
+    
     &::placeholder {
       color: rgba(255, 255, 255, 0.4);
+      opacity: 1;
     }
+  }
 
-    &:focus {
-      outline: none;
-      border-color: rgba(255, 59, 59, 0.5);
-      background: rgba(255, 255, 255, 0.08);
+  .send-button {
+    color: #4a7dff;
+    transition: all 0.3s ease;
+    
+    &:hover {
+      color: white;
+      background-color: rgba(74, 125, 255, 0.2);
     }
   }
 `;
@@ -502,6 +559,8 @@ const ContentWrapper = styled.div`
   flex: 1;
   overflow-y: auto;
   background: #0B0E17;
+  margin-top: 70px; /* TopBar yüksekliği kadar */
+  min-height: calc(100vh - 70px);
 
   &::-webkit-scrollbar {
     width: 6px;
@@ -560,6 +619,11 @@ function MainLayout({ children }) {
     } else {
       navigate(`/${route}`);
     }
+  };
+
+  const navigateToHome = () => {
+    setActiveMenu('games');
+    navigate('/home');
   };
 
   const games = [
@@ -667,7 +731,7 @@ function MainLayout({ children }) {
   return (
     <MainContainer>
       <Sidebar>
-        <Logo>
+        <Logo onClick={navigateToHome}>
           <span>
             Game<br/>Center
           </span>
@@ -729,10 +793,7 @@ function MainLayout({ children }) {
           </NavMenu>
 
           <UserSection>
-            <Balance>
-              <span>🪙</span>
-              <span className="amount">{user?.balance || 0}</span>
-            </Balance>
+  
             <UserInfo>
               <img 
                 src={user?.profileImage}
@@ -753,7 +814,7 @@ function MainLayout({ children }) {
                     <FaCog size={16} />
                     <span>Ayarlar</span>
                   </ProfileMenuItem>
-                  <ProfileMenuItem onClick={() => handleNavClick('wallet')}>
+                  <ProfileMenuItem onClick={() => handleNavClick('profile')}>
                     <FaWallet size={16} />
                     <span>Cüzdan</span>
                   </ProfileMenuItem>
@@ -819,7 +880,25 @@ function MainLayout({ children }) {
         </ChatMessages>
 
         <ChatInput>
-          <input type="text" placeholder="Mesajınızı yazın..." />
+          <TextField
+            fullWidth
+            placeholder="Mesajınızı yazın..."
+            variant="outlined"
+            size="small"
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton 
+                    className="send-button"
+                    size="small"
+                    edge="end"
+                  >
+                    <FaPaperPlane />
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+          />
         </ChatInput>
       </ChatSidebar>
     </MainContainer>

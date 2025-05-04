@@ -1,12 +1,10 @@
-// src/pages/LoginPage.js
 import React, { useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { FaEnvelope, FaLock, FaGoogle, FaEye, FaEyeSlash, FaChevronRight } from 'react-icons/fa';
+import { Link, useNavigate } from 'react-router-dom';
+import { FaEnvelope, FaChevronRight } from 'react-icons/fa';
 import { FaTelegramPlane } from 'react-icons/fa';
 import { SiBinance } from 'react-icons/si';
-import { BsController, BsTrophy, BsPeople } from 'react-icons/bs';
-import { UserContext } from '../context/UserContext';
-import { loginUser } from '../api/auth';
+import { BsController, BsTrophy, BsPeople, BsArrowLeft } from 'react-icons/bs';
+import { FaGoogle } from 'react-icons/fa';
 import '../styles/Auth.css';
 
 // Material UI imports
@@ -14,10 +12,12 @@ import {
   TextField, 
   Button, 
   IconButton, 
-  InputAdornment,
+  InputAdornment, 
   Typography,
   Box,
-  CircularProgress
+  CircularProgress,
+  Alert,
+  Collapse
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 
@@ -88,6 +88,21 @@ const StyledButton = styled(Button)(({ theme }) => ({
   },
 }));
 
+const BackButton = styled(IconButton)(({ theme }) => ({
+  position: 'absolute',
+  top: '20px',
+  left: '20px',
+  color: 'white',
+  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  borderRadius: '12px',
+  padding: '8px',
+  transition: 'all 0.3s ease',
+  '&:hover': {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    transform: 'translateX(-2px)',
+  },
+}));
+
 const SocialButton = styled(IconButton)(({ theme }) => ({
   width: '60px',
   height: '60px',
@@ -104,86 +119,46 @@ const SocialButton = styled(IconButton)(({ theme }) => ({
   },
 }));
 
-function LoginPage() {
+function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState('');
   const navigate = useNavigate();
-  const location = useLocation();
-
-  // UserContext'i React.useContext ile kullanmak yerine doğrudan değişkene atayalım
-  const userContext = React.useContext(UserContext);
-  const login = userContext ? userContext.login : () => {};
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (email && password) {
-      try {
-        setIsLoading(true);
-        console.log("LoginPage: Giriş yapılıyor...", email);
-        
-        const data = await loginUser(email, password);
-        console.log("LoginPage: Giriş başarılı, token alındı, bilgiler:", data);
-        
-        // Token'ı localStorage'a kaydet
-        localStorage.setItem('token', data.token);
-        
-        // Kullanıcı bilgilerini ayarla
-        login(data.user);
-        
-        // Yönlendirilecek URL'yi belirle
-        let redirectPath = '/home';
-        let lobbyCode = null;
-        
-        // Eğer state varsa ve from bilgisi içeriyorsa, o sayfaya yönlendir
-        if (location.state) {
-          if (location.state.from) {
-            redirectPath = location.state.from;
-            console.log("LoginPage: Kullanıcı şu sayfadan yönlendirildi:", location.state.from);
-          }
-          
-          // Eğer lobbyCode bilgisi varsa, bunu kaydet
-          if (location.state.lobbyCode) {
-            lobbyCode = location.state.lobbyCode;
-            console.log("LoginPage: Lobi kodu bilgisi bulundu:", lobbyCode);
-            
-            // localStorage'a da kaydet (geçici)
-            try {
-              localStorage.setItem('tombala_lobbyId', lobbyCode);
-              localStorage.setItem('tombala_lobbyTimestamp', Date.now());
-            } catch (e) {
-              console.warn("LoginPage: localStorage hatası:", e);
-            }
-          }
-        }
-        
-        console.log("LoginPage: Giriş başarılı, yönlendiriliyor:", redirectPath);
-        
-        // Küçük bir gecikmeyle yönlendir (token ve login işlemlerinin tamamlanması için)
-        setTimeout(() => {
-          navigate(redirectPath);
-        }, 300);
-      } catch (error) {
-        console.error("LoginPage: Giriş hatası:", error);
-        let errorMessage = 'Giriş başarısız';
-        
-        if (error.response) {
-          errorMessage = error.response.data?.message || errorMessage;
-          console.error("LoginPage: Sunucu hatası:", error.response.data);
-        }
-        
-        alert(errorMessage);
-      } finally {
-        setIsLoading(false);
-      }
-    } else {
-      alert('Lütfen email ve şifre alanlarını doldurun');
+    if (!email) {
+      setError('Lütfen email adresinizi girin');
+      return;
     }
+
+    try {
+      setIsLoading(true);
+      setError('');
+
+      // Burada gerçek bir API isteği yapılacak, şimdilik simüle ediyoruz
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Başarı durumunu ayarla
+      setSuccess(true);
+    } catch (error) {
+      setError('İşlem sırasında bir hata oluştu. Lütfen daha sonra tekrar deneyin.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleBackToLogin = () => {
+    navigate('/login');
   };
 
   return (
     <Box className="auth-container">
+      <BackButton onClick={handleBackToLogin} aria-label="Giriş sayfasına dön">
+        <BsArrowLeft size={24} />
+      </BackButton>
+
       <Box 
         className="auth-left-side" 
         style={{ 
@@ -219,13 +194,11 @@ function LoginPage() {
           >
             Game Center
           </Typography>
-          <Box className="auth-bonus">
-            <Typography variant="h2" component="h2">OYUN MERKEZİ PLATFORMU</Typography>
-            <Typography variant="body1" component="p">Gerçek zamanlı çok oyunculu oyunların keyfini çıkarın!</Typography>
-          </Box>
           
-          <Typography variant="h4" component="div" className="auth-welcome-text">Oyun Zamanı!</Typography>
-          <Typography variant="body1" component="div" className="auth-subtitle">Hesabınıza giriş yaparak eğlenceli oyunları keşfedin ve arkadaşlarınızla yarışın.</Typography>
+          <Typography variant="h4" component="div" className="auth-welcome-text">Şifrenizi mi Unuttunuz?</Typography>
+          <Typography variant="body1" component="div" className="auth-subtitle">
+            Endişelenmeyin! Email adresinizi girin ve şifrenizi sıfırlamak için gerekli adımları içeren bir bağlantı göndereceğiz.
+          </Typography>
           
           <Box className="auth-features-list">
             <Box className="auth-feature-item">
@@ -245,73 +218,98 @@ function LoginPage() {
       </Box>
       
       <Box className="auth-right-side">
-        <Box component="form" className="auth-form" onSubmit={handleSubmit} sx={{ width: '100%', maxWidth: '360px' }}>
-          <StyledTextField
-            fullWidth
-            margin="normal"
-            placeholder="Email adresiniz"
-            variant="outlined"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            hiddenLabel
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <FaEnvelope />
-                </InputAdornment>
-              ),
+        <Typography variant="h4" component="h1" sx={{ 
+          color: 'white', 
+          fontWeight: 'bold', 
+          mb: 1 
+        }}>
+          Şifre Sıfırlama
+        </Typography>
+        <Typography variant="body1" sx={{ 
+          color: 'rgba(255, 255, 255, 0.7)', 
+          mb: 4, 
+          maxWidth: '360px' 
+        }}>
+          Hesabınızla ilişkilendirilmiş email adresinizi girin ve şifre sıfırlama bağlantısı alın.
+        </Typography>
+
+        <Collapse in={!!error}>
+          <Alert 
+            severity="error" 
+            sx={{ 
+              mb: 2, 
+              bgcolor: 'rgba(211, 47, 47, 0.1)', 
+              color: '#f48fb1',
+              border: '1px solid rgba(211, 47, 47, 0.2)',
+              width: '100%',
+              maxWidth: '360px'
             }}
-          />
-          
-          <StyledTextField
-            fullWidth
-            margin="normal"
-            placeholder="Şifreniz"
-            variant="outlined"
-            type={showPassword ? "text" : "password"}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            hiddenLabel
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <FaLock />
-                </InputAdornment>
-              ),
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton
-                    aria-label="toggle password visibility"
-                    onClick={() => setShowPassword(!showPassword)}
-                    edge="end"
-                    sx={{ color: 'rgba(255, 255, 255, 0.5)' }}
-                  >
-                    {showPassword ? <FaEyeSlash /> : <FaEye />}
-                  </IconButton>
-                </InputAdornment>
-              ),
-            }}
-          />
-          
-          <Box className="auth-forgot-password" sx={{ alignSelf: 'flex-end', mt: 1, mb: 2 }}>
-            <Link to="/forgot-password">Şifremi Unuttum</Link>
-          </Box>
-          
-          <StyledButton 
-            type="submit" 
-            disabled={isLoading}
-            endIcon={!isLoading && <FaChevronRight />}
           >
-            {isLoading ? (
-              <CircularProgress size={24} color="inherit" />
-            ) : (
-              'Giriş Yap'
-            )}
+            {error}
+          </Alert>
+        </Collapse>
+
+        <Collapse in={success}>
+          <Alert 
+            severity="success" 
+            sx={{ 
+              mb: 2, 
+              bgcolor: 'rgba(46, 125, 50, 0.1)', 
+              color: '#81c784',
+              border: '1px solid rgba(46, 125, 50, 0.2)',
+              width: '100%',
+              maxWidth: '360px'
+            }}
+          >
+            Şifre sıfırlama bağlantısı email adresinize gönderildi. Lütfen gelen kutunuzu kontrol edin.
+          </Alert>
+        </Collapse>
+
+        {!success && (
+          <Box component="form" className="auth-form" onSubmit={handleSubmit} sx={{ width: '100%', maxWidth: '360px' }}>
+            <StyledTextField
+              fullWidth
+              margin="normal"
+              placeholder="Email adresiniz"
+              variant="outlined"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              hiddenLabel
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <FaEnvelope />
+                  </InputAdornment>
+                ),
+              }}
+            />
+            
+            <StyledButton 
+              type="submit" 
+              disabled={isLoading}
+              endIcon={!isLoading && <FaChevronRight />}
+              sx={{ mt: 2 }}
+            >
+              {isLoading ? (
+                <CircularProgress size={24} color="inherit" />
+              ) : (
+                'Şifre Sıfırlama Bağlantısı Gönder'
+              )}
+            </StyledButton>
+          </Box>
+        )}
+
+        {success && (
+          <StyledButton 
+            onClick={handleBackToLogin} 
+            endIcon={<FaChevronRight />}
+            sx={{ width: '100%', maxWidth: '360px', mt: 2 }}
+          >
+            Giriş Sayfasına Dön
           </StyledButton>
-        </Box>
+        )}
 
         <Box className="auth-divider" sx={{ width: '100%', maxWidth: '360px', my: 3, position: 'relative' }}>
           <Typography variant="body2" sx={{ 
@@ -354,5 +352,4 @@ function LoginPage() {
   );
 }
 
-export default LoginPage;
-
+export default ForgotPasswordPage; 

@@ -29,7 +29,13 @@ import {
   Fade,
   Slide,
   Snackbar,
-  Alert
+  Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Menu,
+  MenuItem
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { useSnackbar } from 'notistack';
@@ -51,8 +57,22 @@ import {
   Info as InfoIcon,
   Celebration as CelebrationIcon,
   Send as SendIcon,
-  PlayArrow as PlayIcon
+  PlayArrow as PlayIcon,
+  Share as ShareIcon,
+  Link as LinkIcon,
+  MoreVert as MoreVertIcon,
+  ContentCopy
 } from '@mui/icons-material';
+import { 
+  FaFacebook, 
+  FaTwitter, 
+  FaWhatsapp, 
+  FaTelegram, 
+  FaDiscord, 
+  FaInstagram,
+  FaLink,
+  FaEnvelope
+} from 'react-icons/fa';
 
 // Glow efekti için animasyon
 const glow = (color) => `
@@ -374,40 +394,71 @@ function getPlayerAvatar(player) {
 }
 
 function LobbyPage() {
-  const { lobbyCode } = useParams();
-  const navigate = useNavigate();
+  const { lobbyCode: codeParam } = useParams();
+  const [lobbyCode, setLobbyCode] = useState(codeParam);
   const { user } = useContext(UserContext);
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const navigate = useNavigate();
   const { enqueueSnackbar } = useSnackbar();
-  
-  const [lobby, setLobby] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [lobby, setLobby] = useState(null);
   const [players, setPlayers] = useState([]);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
+  const [isConnected, setIsConnected] = useState(false);
   const [isReady, setIsReady] = useState(false);
-  const [copySuccess, setCopySuccess] = useState(false);
+  const [socketConnected, setSocketConnected] = useState(false);
+  const [hasJoinedLobby, setHasJoinedLobby] = useState(false);
   const [allPlayersReady, setAllPlayersReady] = useState(false);
   const [startCountdown, setStartCountdown] = useState(null);
-  const [hasJoinedLobby, setHasJoinedLobby] = useState(false); // Kullanıcının lobiye katılıp katılmadığını takip eder
+  const [copySuccess, setCopySuccess] = useState(false);
+  const [error, setError] = useState(null);
+  
+  // Sosyal Medya Paylaşım özellikleri için state'ler
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [shareMenuAnchorEl, setShareMenuAnchorEl] = useState(null);
+  const [shareLink, setShareLink] = useState('');
+  const [shareLinkType, setShareLinkType] = useState('code'); // 'code' veya 'url'
+  const [shareSuccessMessage, setShareSuccessMessage] = useState('');
+  
   const messagesEndRef = useRef(null);
+  const socketRef = useRef(null);
+  const pollingRef = useRef(null);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const darkTheme = useMemo(() => createTheme({
+    palette: {
+      mode: 'dark',
+      primary: {
+        main: '#4a7dff',
+      },
+      secondary: {
+        main: '#ff53f0',
+      },
+      background: {
+        default: '#0f1123',
+        paper: '#161a30',
+      },
+    },
+    typography: {
+      fontFamily: '"Poppins", "Roboto", "Helvetica", "Arial", sans-serif',
+    }
+  }), []);
   
   // Socket.io bağlantısı
-  const socket = useMemo(() => {
+  useMemo(() => {
     // Socket.io client oluştur
-    return io('http://localhost:5000', {
+    socketRef.current = io('http://localhost:5000', {
       transports: ['websocket'],
       withCredentials: true
     });
+    return socketRef.current;
   }, []);
   
   // Socket kimlik bilgisi tanımlama
   useEffect(() => {
-    if (socket && user?.id) {
+    if (socketRef.current && user?.id) {
       console.log("Socket kimlik tanımlama gönderiliyor", user.id);
-      socket.emit('identify', user.id);
+      socketRef.current.emit('identify', user.id);
       
       // Socket bağlantısı başarılı olduğunda lobiye katılmaya çalış
       if (lobbyCode) {
@@ -426,11 +477,11 @@ function LobbyPage() {
     }
     
     return () => {
-      if (socket) {
-        socket.disconnect();
+      if (socketRef.current) {
+        socketRef.current.disconnect();
       }
     };
-  }, [socket, user?.id, lobbyCode, lobby]);
+  }, [socketRef.current, user?.id, lobbyCode, lobby]);
   
   // Polling mekanizması için polling intervalini kısaltalım ve zorunlu güncelleme ekleyelim
   const pollingIntervalRef = useRef(null);
@@ -758,8 +809,8 @@ function LobbyPage() {
         addSystemMessage(`${user.username || 'Oyuncu'} lobiye katıldı.`);
         
         // Socket üzerinden diğer oyunculara bildir
-        if (socket) {
-          socket.emit('playerJoined', {
+        if (socketRef.current) {
+          socketRef.current.emit('playerJoined', {
             lobbyCode: lobbyCode,
             player: {
               id: user.id,
@@ -793,7 +844,7 @@ function LobbyPage() {
 
   // useEffect içinde lobiye katılma işlemini çağıralım
   useEffect(() => {
-    if (lobbyCode && user?.id && socket) {
+    if (lobbyCode && user?.id && socketRef.current) {
       console.log("Lobiye katılma işlemi başlatılıyor...");
       // Eğer lobi zaten inceleniyorsa tekrar kaydolmamıza gerek yok
       if (lobby && (lobby.createdBy === user.id || lobby.owner === user.id)) {
@@ -808,7 +859,7 @@ function LobbyPage() {
       registerPlayerToLobby();
     }
     }
-  }, [lobbyCode, user?.id, lobby, hasJoinedLobby, socket]);
+  }, [lobbyCode, user?.id, lobby, hasJoinedLobby, socketRef.current]);
 
   // Hazır durumu değiştirme fonksiyonu
   const toggleReadyStatus = async () => {
@@ -857,7 +908,7 @@ function LobbyPage() {
         console.log("API'ye hazır durumu gönderildi ve başarılı cevap alındı:", response.data);
         
         // Socket üzerinden diğer oyunculara bildirelim
-        if (socket) {
+        if (socketRef.current) {
           // Herkesin görebilmesi için önce socket event'ini gönder
           const socketData = {
             lobbyId: lobby._id,
@@ -868,10 +919,10 @@ function LobbyPage() {
           };
           
           console.log("Socket üzerinden hazır durumu gönderiliyor:", socketData);
-          socket.emit('playerStatusUpdate', socketData);
+          socketRef.current.emit('playerStatusUpdate', socketData);
           
           // Kendimize özel status güncelleme event'i
-          socket.emit('myStatusUpdate', socketData);
+          socketRef.current.emit('myStatusUpdate', socketData);
         }
         
         // 5 saniye sonra client-side güncellemeyi sıfırla
@@ -1625,15 +1676,75 @@ function LobbyPage() {
     }
   }, [isReady, players, startCountdown]);
   
-  // Lobi kodunu kopyala
+  // Lobi kodunu kopyala ve paylaş menüsünü aç
   const handleCopyLobbyCode = () => {
     if (lobbyCode) {
       navigator.clipboard.writeText(lobbyCode);
       setCopySuccess(true);
       setTimeout(() => setCopySuccess(false), 2000);
+      setShareLink(`${window.location.origin}/lobby/${lobbyCode}`);
+      setShareDialogOpen(true);
     }
   };
-  
+
+  // Sosyal medya paylaşım menüsünü aç/kapat
+  const handleShareMenuOpen = (event) => {
+    setShareMenuAnchorEl(event.currentTarget);
+    // Paylaşım linkini oluştur
+    const lobbyURL = `${window.location.origin}/lobby/${lobbyCode}`;
+    setShareLink(lobbyURL);
+  };
+
+  const handleShareMenuClose = () => {
+    setShareMenuAnchorEl(null);
+  };
+
+  // Paylaşım seçenekleri
+  const handleShare = (platform) => {
+    const lobbyName = lobby?.name || 'Tombala Lobisi';
+    const lobbyURL = `${window.location.origin}/lobby/${lobbyCode}`;
+    const shareText = `${lobbyName} lobisine katılmak için davetiyem! 🎮`;
+    
+    let shareURL = '';
+    
+    switch(platform) {
+      case 'facebook':
+        shareURL = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(lobbyURL)}&quote=${encodeURIComponent(shareText)}`;
+        break;
+      case 'twitter':
+        shareURL = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(lobbyURL)}`;
+        break;
+      case 'whatsapp':
+        shareURL = `https://wa.me/?text=${encodeURIComponent(shareText + ' ' + lobbyURL)}`;
+        break;
+      case 'telegram':
+        shareURL = `https://t.me/share/url?url=${encodeURIComponent(lobbyURL)}&text=${encodeURIComponent(shareText)}`;
+        break;
+      case 'email':
+        shareURL = `mailto:?subject=${encodeURIComponent('Lobi Davetiyesi - ' + lobbyName)}&body=${encodeURIComponent(shareText + '\n\n' + lobbyURL)}`;
+        break;
+      case 'copy':
+        navigator.clipboard.writeText(lobbyURL);
+        handleShareMenuClose();
+        setShareSuccessMessage('Link kopyalandı!');
+        setTimeout(() => setShareSuccessMessage(''), 2000);
+        return;
+      default:
+        break;
+    }
+    
+    if (shareURL) {
+      window.open(shareURL, '_blank', 'noopener,noreferrer');
+    }
+    
+    handleShareMenuClose();
+  };
+
+  // Paylaşım diyaloğunu kapat
+  const handleShareDialogClose = () => {
+    setShareDialogOpen(false);
+  };
+
   // Oyunu başlat
   const startGame = () => {
     console.log("Oyun başlatılıyor...");
@@ -1659,8 +1770,8 @@ function LobbyPage() {
             console.log("Lobi durumu başarıyla güncellendi:", response.data);
             
             // Socket üzerinden diğer oyunculara bildirelim
-            if (socket) {
-              socket.emit('lobbyStatusUpdated', {
+            if (socketRef.current) {
+              socketRef.current.emit('lobbyStatusUpdated', {
                 lobbyId: lobby._id,
                 status: 'playing'
               });
@@ -1708,8 +1819,8 @@ function LobbyPage() {
       }
       
       // Oyun başlatılırken socket üzerinden bildirim gönder (eğer socket bağlantısı varsa)
-      if (socket) {
-        socket.emit('gameStarted', {
+      if (socketRef.current) {
+        socketRef.current.emit('gameStarted', {
           lobbyId: lobby?._id || lobbyCode,
           startedBy: currentUser.id,
           status: 'playing' // Status bilgisini de ekleyelim
@@ -1804,8 +1915,8 @@ function LobbyPage() {
         addSystemMessage(`${botName} lobiye katıldı.`);
         
         // Socket üzerinden diğer oyunculara bildirelim
-        if (socket && response.data.bot) {
-          socket.emit('botAdded', {
+        if (socketRef.current && response.data.bot) {
+          socketRef.current.emit('botAdded', {
             lobbyId: lobby?._id || response.data.lobby?._id,
             bot: response.data.bot
           });
@@ -1846,16 +1957,16 @@ function LobbyPage() {
 
   // useEffect içinde Socket.io event listener'ları
   useEffect(() => {
-    if (!socket || !user) return;
+    if (!socketRef.current || !user) return;
 
     console.log("Socket bağlantısı için event listener'lar ayarlanıyor...");
 
     // Socket event'lerinin çalıştığından emin olmak için debug
     const socketDebug = () => {
-      const connected = socket.connected;
+      const connected = socketRef.current.connected;
       console.log("Socket bağlantı durumu:", connected);
-      console.log("Socket ID:", socket.id);
-      console.log("Socket event'leri:", socket.hasListeners('playerStatusUpdate'));
+      console.log("Socket ID:", socketRef.current.id);
+      console.log("Socket event'leri:", socketRef.current.hasListeners('playerStatusUpdate'));
       
       // Bağlantı durumunu state'e kaydet
       setIsSocketConnected(connected);
@@ -1865,7 +1976,7 @@ function LobbyPage() {
         console.log("Socket bağlantısı kuruldu, hazır durumumu yeniden gönderiyorum:", lastKnownReadyState.current);
         
         // Hazır durumunu socket üzerinden yeniden gönder
-        socket.emit('playerStatusUpdate', {
+        socketRef.current.emit('playerStatusUpdate', {
           lobbyId: lobby._id,
           lobbyCode: lobbyCode,
           userId: user.id,
@@ -1874,7 +1985,7 @@ function LobbyPage() {
         });
         
         // Kendimize özel status güncelleme event'i
-        socket.emit('myStatusUpdate', {
+        socketRef.current.emit('myStatusUpdate', {
           lobbyId: lobby._id,
           lobbyCode: lobbyCode,
           userId: user.id,
@@ -1963,29 +2074,29 @@ function LobbyPage() {
     };
 
     // Socket.io event listener'ları
-    socket.on('playerStatusUpdate', handlePlayerStatus);
-    socket.on('myStatusUpdate', handlePlayerStatus);
-    socket.on('botAdded', handleBotAdded);
-    socket.on('playerJoined', handlePlayerJoined);
-    socket.on('playerLeft', handlePlayerLeft);
-    socket.on('lobbyDeleted', handleLobbyDeleted);
-    socket.on('lobbyUpdated', () => {
+    socketRef.current.on('playerStatusUpdate', handlePlayerStatus);
+    socketRef.current.on('myStatusUpdate', handlePlayerStatus);
+    socketRef.current.on('botAdded', handleBotAdded);
+    socketRef.current.on('playerJoined', handlePlayerJoined);
+    socketRef.current.on('playerLeft', handlePlayerLeft);
+    socketRef.current.on('lobbyDeleted', handleLobbyDeleted);
+    socketRef.current.on('lobbyUpdated', () => {
       console.log('Socket: Lobi güncellendi, veriler yenileniyor');
       fetchLobbyData(false);
     });
     
     // Socket'e tekrar bağlan
-    socket.connect();
+    socketRef.current.connect();
     console.log("Socket bağlantısı yeniden kuruldu.");
     
     // Bağlantı kontrolü
-    socket.on('connect', () => {
-      console.log('Socket bağlantısı kuruldu:', socket.id);
+    socketRef.current.on('connect', () => {
+      console.log('Socket bağlantısı kuruldu:', socketRef.current.id);
       setIsSocketConnected(true);
       
       // Bağlantı sonrası kimlik doğrulama yap
       if (user?.id) {
-        socket.emit('identify', user.id);
+        socketRef.current.emit('identify', user.id);
         console.log('Socket kimlik bilgisi gönderildi:', user.id);
         
         // Hazır durumunu yeniden gönder (eğer varsa)
@@ -1994,7 +2105,7 @@ function LobbyPage() {
           
           // Kısa bir gecikme ile gönder (kimlik doğrulamasının tamamlanması için)
           setTimeout(() => {
-            socket.emit('playerStatusUpdate', {
+            socketRef.current.emit('playerStatusUpdate', {
               lobbyId: lobby._id,
               lobbyCode: lobbyCode,
               userId: user.id,
@@ -2006,7 +2117,7 @@ function LobbyPage() {
       }
     });
     
-    socket.on('disconnect', () => {
+    socketRef.current.on('disconnect', () => {
       console.log('Socket bağlantısı koptu');
       setIsSocketConnected(false);
       
@@ -2029,19 +2140,19 @@ function LobbyPage() {
     // Cleanup fonksiyonu
     return () => {
       console.log("Socket listener'lar temizleniyor...");
-      socket.off('playerStatusUpdate', handlePlayerStatus);
-      socket.off('myStatusUpdate', handlePlayerStatus);
-      socket.off('botAdded', handleBotAdded);
-      socket.off('playerJoined', handlePlayerJoined);
-      socket.off('playerLeft', handlePlayerLeft);
-      socket.off('lobbyDeleted', handleLobbyDeleted);
-      socket.off('lobbyUpdated');
-      socket.off('connect');
-      socket.off('disconnect');
+      socketRef.current.off('playerStatusUpdate', handlePlayerStatus);
+      socketRef.current.off('myStatusUpdate', handlePlayerStatus);
+      socketRef.current.off('botAdded', handleBotAdded);
+      socketRef.current.off('playerJoined', handlePlayerJoined);
+      socketRef.current.off('playerLeft', handlePlayerLeft);
+      socketRef.current.off('lobbyDeleted', handleLobbyDeleted);
+      socketRef.current.off('lobbyUpdated');
+      socketRef.current.off('connect');
+      socketRef.current.off('disconnect');
       clearInterval(fullRefreshInterval);
       clearInterval(debugInterval);
     };
-  }, [socket, user, lobbyCode, navigate, enqueueSnackbar, lobby?._id, isReady]);
+  }, [socketRef.current, user, lobbyCode, navigate, enqueueSnackbar, lobby?._id, isReady]);
 
   // Lobiden çıkış yapma fonksiyonu
   const leaveLobby = async () => {
@@ -2054,8 +2165,8 @@ function LobbyPage() {
       console.log("Lobiden çıkış yapılıyor...", lobbyCode);
       
       // Socket.io üzerinden çıkış olayını tetikle
-      if (socket) {
-        socket.emit('leaveLobby', {
+      if (socketRef.current) {
+        socketRef.current.emit('leaveLobby', {
           lobbyCode: lobbyCode,
           userId: user.id
         });
@@ -2450,9 +2561,264 @@ function LobbyPage() {
                     <CopyIcon fontSize="small" color="primary" />
                   </LobbyCode>
                 </Tooltip>
+                
+                <Tooltip title="Lobi Bağlantısını Paylaş">
+                  <IconButton
+                    onClick={handleShareMenuOpen}
+                    sx={{
+                      background: 'rgba(74, 125, 255, 0.1)', 
+                      transition: 'all 0.3s ease',
+                      border: '1px solid rgba(74, 125, 255, 0.3)',
+                      p: 1,
+                      '&:hover': {
+                        background: 'rgba(74, 125, 255, 0.2)',
+                        transform: 'scale(1.1)',
+                        borderColor: '#4a7dff'
+                      }
+                    }}
+                  >
+                    <ShareIcon color="primary" />
+                  </IconButton>
+                </Tooltip>
               </Box>
             </LobbyInfoContainer>
           </Zoom>
+          
+          {/* Paylaşım Menüsü */}
+          <Menu
+            anchorEl={shareMenuAnchorEl}
+            open={Boolean(shareMenuAnchorEl)}
+            onClose={handleShareMenuClose}
+            anchorOrigin={{
+              vertical: 'bottom',
+              horizontal: 'right',
+            }}
+            transformOrigin={{
+              vertical: 'top',
+              horizontal: 'right',
+            }}
+            PaperProps={{
+              sx: {
+                mt: 1,
+                background: 'rgba(30, 32, 68, 0.95)',
+                backdropFilter: 'blur(10px)',
+                borderRadius: '12px',
+                boxShadow: '0 5px 15px rgba(0, 0, 0, 0.3)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                padding: 1
+              }
+            }}
+          >
+            <MenuItem onClick={() => handleShare('facebook')} sx={{ gap: 2, borderRadius: '8px', mb: 0.5 }}>
+              <FaFacebook color="#1877F2" size={20} />
+              <Typography>Facebook</Typography>
+            </MenuItem>
+            <MenuItem onClick={() => handleShare('twitter')} sx={{ gap: 2, borderRadius: '8px', mb: 0.5 }}>
+              <FaTwitter color="#1DA1F2" size={20} />
+              <Typography>Twitter</Typography>
+            </MenuItem>
+            <MenuItem onClick={() => handleShare('whatsapp')} sx={{ gap: 2, borderRadius: '8px', mb: 0.5 }}>
+              <FaWhatsapp color="#25D366" size={20} />
+              <Typography>WhatsApp</Typography>
+            </MenuItem>
+            <MenuItem onClick={() => handleShare('telegram')} sx={{ gap: 2, borderRadius: '8px', mb: 0.5 }}>
+              <FaTelegram color="#0088cc" size={20} />
+              <Typography>Telegram</Typography>
+            </MenuItem>
+            <MenuItem onClick={() => handleShare('email')} sx={{ gap: 2, borderRadius: '8px', mb: 0.5 }}>
+              <FaEnvelope color="#FF5722" size={20} />
+              <Typography>E-posta</Typography>
+            </MenuItem>
+            <MenuItem onClick={() => handleShare('copy')} sx={{ gap: 2, borderRadius: '8px' }}>
+              <FaLink color="#4a7dff" size={20} />
+              <Typography>Linki Kopyala</Typography>
+            </MenuItem>
+          </Menu>
+          
+          {/* Paylaşım Diyaloğu */}
+          <Dialog
+            open={shareDialogOpen}
+            onClose={handleShareDialogClose}
+            PaperProps={{
+              sx: {
+                background: 'rgba(30, 32, 68, 0.95)',
+                backdropFilter: 'blur(10px)',
+                borderRadius: '16px',
+                boxShadow: '0 10px 25px rgba(0, 0, 0, 0.3)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                width: { xs: '90%', sm: '400px' },
+                maxWidth: '500px'
+              }
+            }}
+          >
+            <DialogTitle sx={{ 
+              borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+              pb: 2
+            }}>
+              <Typography variant="h6" sx={{ 
+                fontWeight: 700, 
+                background: 'linear-gradient(90deg, #4a7dff, #ff53f0)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                textAlign: 'center'
+              }}>
+                Lobi Davetiyesini Paylaş
+              </Typography>
+            </DialogTitle>
+            <DialogContent sx={{ pt: 3, pb: 2 }}>
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" sx={{ mb: 1, color: 'rgba(255, 255, 255, 0.7)' }}>
+                  Lobi bağlantısı:
+                </Typography>
+                <Box sx={{ 
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                  padding: '10px 12px',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(255, 255, 255, 0.1)'
+                }}>
+                  <Typography 
+                    variant="body2" 
+                    sx={{ 
+                      flex: 1, 
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      color: '#4a7dff'
+                    }}
+                  >
+                    {shareLink}
+                  </Typography>
+                  <IconButton 
+                    size="small" 
+                    onClick={() => {
+                      navigator.clipboard.writeText(shareLink);
+                      setShareSuccessMessage('Link kopyalandı!');
+                      setTimeout(() => setShareSuccessMessage(''), 2000);
+                    }}
+                    sx={{ color: '#4a7dff' }}
+                  >
+                    <ContentCopy fontSize="small" />
+                  </IconButton>
+                </Box>
+              </Box>
+              
+              <Typography variant="body2" sx={{ mb: 1, color: 'rgba(255, 255, 255, 0.7)' }}>
+                Sosyal medyada paylaş:
+              </Typography>
+              <Box sx={{ 
+                display: 'flex', 
+                justifyContent: 'center', 
+                gap: 2, 
+                mb: 2,
+                flexWrap: 'wrap'
+              }}>
+                <IconButton 
+                  onClick={() => handleShare('facebook')}
+                  sx={{ 
+                    backgroundColor: 'rgba(24, 119, 242, 0.1)', 
+                    p: 1.5,
+                    transition: 'all 0.3s',
+                    '&:hover': {
+                      backgroundColor: 'rgba(24, 119, 242, 0.2)',
+                      transform: 'translateY(-3px)'
+                    }
+                  }}
+                >
+                  <FaFacebook color="#1877F2" size={24} />
+                </IconButton>
+                <IconButton 
+                  onClick={() => handleShare('twitter')}
+                  sx={{ 
+                    backgroundColor: 'rgba(29, 161, 242, 0.1)', 
+                    p: 1.5,
+                    transition: 'all 0.3s',
+                    '&:hover': {
+                      backgroundColor: 'rgba(29, 161, 242, 0.2)',
+                      transform: 'translateY(-3px)'
+                    }
+                  }}
+                >
+                  <FaTwitter color="#1DA1F2" size={24} />
+                </IconButton>
+                <IconButton 
+                  onClick={() => handleShare('whatsapp')}
+                  sx={{ 
+                    backgroundColor: 'rgba(37, 211, 102, 0.1)', 
+                    p: 1.5,
+                    transition: 'all 0.3s',
+                    '&:hover': {
+                      backgroundColor: 'rgba(37, 211, 102, 0.2)',
+                      transform: 'translateY(-3px)'
+                    }
+                  }}
+                >
+                  <FaWhatsapp color="#25D366" size={24} />
+                </IconButton>
+                <IconButton 
+                  onClick={() => handleShare('telegram')}
+                  sx={{ 
+                    backgroundColor: 'rgba(0, 136, 204, 0.1)', 
+                    p: 1.5,
+                    transition: 'all 0.3s',
+                    '&:hover': {
+                      backgroundColor: 'rgba(0, 136, 204, 0.2)',
+                      transform: 'translateY(-3px)'
+                    }
+                  }}
+                >
+                  <FaTelegram color="#0088cc" size={24} />
+                </IconButton>
+                <IconButton 
+                  onClick={() => handleShare('email')}
+                  sx={{ 
+                    backgroundColor: 'rgba(255, 87, 34, 0.1)', 
+                    p: 1.5,
+                    transition: 'all 0.3s',
+                    '&:hover': {
+                      backgroundColor: 'rgba(255, 87, 34, 0.2)',
+                      transform: 'translateY(-3px)'
+                    }
+                  }}
+                >
+                  <FaEnvelope color="#FF5722" size={24} />
+                </IconButton>
+              </Box>
+              
+              {shareSuccessMessage && (
+                <Box sx={{ 
+                  backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                  border: '1px solid rgba(76, 175, 80, 0.3)',
+                  borderRadius: '8px',
+                  padding: '8px 12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 1
+                }}>
+                  <CheckIcon fontSize="small" color="success" />
+                  <Typography variant="body2" color="success.main">
+                    {shareSuccessMessage}
+                  </Typography>
+                </Box>
+              )}
+            </DialogContent>
+            <DialogActions sx={{ px: 3, pb: 2, pt: 0 }}>
+              <Button 
+                onClick={handleShareDialogClose}
+                variant="outlined" 
+                sx={{ 
+                  borderRadius: '8px',
+                  borderColor: 'rgba(255, 255, 255, 0.2)'
+                }}
+                fullWidth
+              >
+                Kapat
+              </Button>
+            </DialogActions>
+          </Dialog>
           
           <LobbyContainer>
             <Slide direction="right" in={true} timeout={500}>

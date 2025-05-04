@@ -13,6 +13,37 @@ export const UserProvider = ({ children }) => {
     checkAuth();
   }, []);
 
+  // URL'leri birleştirmek için yardımcı fonksiyon
+  const combineUrls = (baseUrl, relativePath) => {
+    if (!relativePath) return baseUrl;
+    
+    if (relativePath.startsWith('/')) {
+      return baseUrl.endsWith('/') 
+        ? `${baseUrl.slice(0, -1)}${relativePath}`
+        : `${baseUrl}${relativePath}`;
+    } else {
+      return baseUrl.endsWith('/')
+        ? `${baseUrl}${relativePath}`
+        : `${baseUrl}/${relativePath}`;
+    }
+  };
+
+  // Profil resmini işlemek için yardımcı fonksiyon
+  const processProfileImage = (imageUrl) => {
+    if (!imageUrl) return null;
+    
+    const timestamp = new Date().getTime();
+    let fullImageUrl;
+    
+    if (!imageUrl.includes('http')) {
+      fullImageUrl = combineUrls(BACKEND_URL, imageUrl);
+    } else {
+      fullImageUrl = imageUrl.split('?')[0];
+    }
+    
+    return `${fullImageUrl}?t=${timestamp}`;
+  };
+
   const checkAuth = async () => {
     console.log("UserContext: checkAuth çalıştırılıyor...");
     
@@ -38,7 +69,7 @@ export const UserProvider = ({ children }) => {
           setUser(null);
           setLoading(false);
           return false;
-        } 
+        }
         
         // Token geçerliyse API'den kullanıcı bilgilerini al
         try {
@@ -46,23 +77,16 @@ export const UserProvider = ({ children }) => {
           const userData = await getUserProfile(token);
           console.log("UserContext: Kullanıcı profili alındı:", userData);
           
-          // Profil resminin önbelleğe alınmamasını sağlamak için timestamp ekle
+          // Profil resmini işle
           if (userData && userData.profileImage) {
-            const timestamp = new Date().getTime();
-            // Eğer tam URL yoksa, backend URL'sini ekle
-            if (!userData.profileImage.includes('http')) {
-              userData.profileImage = `${BACKEND_URL}${userData.profileImage}?t=${timestamp}`;
-            } else {
-              // URL'de zaten timestamp varsa, onu güncelle
-              const baseUrl = userData.profileImage.split('?')[0];
-              userData.profileImage = `${baseUrl}?t=${timestamp}`;
-            }
+            userData.profileImage = processProfileImage(userData.profileImage);
+            console.log("UserContext: Güncellenmiş profil resmi URL'si:", userData.profileImage);
           }
           
           // _id'yi id olarak da ekle
           const userWithId = {
             ...userData,
-            id: userData._id
+            id: userData._id || userData.id // id yoksa _id kullan, o da yoksa null olacak
           };
           
           setUser(userWithId);
@@ -104,21 +128,16 @@ export const UserProvider = ({ children }) => {
   const login = (userData) => {
     console.log("UserContext: Kullanıcı giriş yapıyor:", userData);
     
-    // Profil resminin önbelleğe alınmamasını sağlamak için timestamp ekle
+    // Profil resmini işle
     if (userData && userData.profileImage) {
-      const timestamp = new Date().getTime();
-      // Eğer tam URL yoksa, backend URL'sini ekle
-      if (!userData.profileImage.includes('http')) {
-        userData.profileImage = `${BACKEND_URL}${userData.profileImage}?t=${timestamp}`;
-      } else {
-        userData.profileImage = `${userData.profileImage}?t=${timestamp}`;
-      }
+      userData.profileImage = processProfileImage(userData.profileImage);
+      console.log("UserContext: Güncellenmiş profil resmi URL'si:", userData.profileImage);
     }
     
     // _id'yi id olarak da ekle
     const userWithId = {
       ...userData,
-      id: userData._id
+      id: userData._id || userData.id // id yoksa _id kullan, o da yoksa null olacak
     };
     
     setUser(userWithId);
@@ -137,22 +156,16 @@ export const UserProvider = ({ children }) => {
   const updateUserData = (newData) => {
     console.log("UserContext: Kullanıcı bilgileri güncelleniyor:", newData);
     
-    // Profil resminin önbelleğe alınmamasını sağlamak için timestamp ekle
+    // Profil resmini işle
     if (newData && newData.profileImage) {
-      const timestamp = new Date().getTime();
-      // Eğer tam URL yoksa ve HTTP içermiyorsa, backend URL'sini ekle
-      if (!newData.profileImage.includes('http')) {
-        newData.profileImage = `${BACKEND_URL}${newData.profileImage}?t=${timestamp}`;
-      } else {
-        // Zaten tam URL varsa, sadece timestamp ekle
-        newData.profileImage = `${newData.profileImage.split('?')[0]}?t=${timestamp}`;
-      }
+      newData.profileImage = processProfileImage(newData.profileImage);
+      console.log("UserContext: Güncellenmiş profil resmi URL'si:", newData.profileImage);
     }
     
     // _id'yi id olarak da ekle
     const newDataWithId = {
       ...newData,
-      id: newData._id
+      id: newData._id || newData.id // id yoksa _id kullan, o da yoksa null olacak
     };
     
     setUser(prev => {

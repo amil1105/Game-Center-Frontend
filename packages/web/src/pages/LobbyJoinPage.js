@@ -5,8 +5,17 @@ import { FaArrowLeft, FaUsers, FaLock, FaDoorOpen } from 'react-icons/fa';
 import axiosInstance from '../api/axios';
 import { UserContext } from '../context/UserContext';
 import MainLayout from '../components/Layout/MainLayout';
+import { 
+  Box, 
+  Typography, 
+  Button as MuiButton, 
+  InputBase,
+  InputLabel,
+  Avatar,
+  Paper
+} from '@mui/material';
 
-const PageContainer = styled.div`
+const PageContainer = styled(Box)`
   min-height: 100vh;
   color: white;
   padding: 0;
@@ -15,7 +24,7 @@ const PageContainer = styled.div`
   justify-content: center;
 `;
 
-const JoinCard = styled.div`
+const JoinCard = styled(Paper)`
   background: linear-gradient(145deg, #1e2044 0%, #171934 100%);
   border-radius: 20px;
   padding: 30px;
@@ -25,46 +34,53 @@ const JoinCard = styled.div`
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
 `;
 
-const Header = styled.div`
+const Header = styled(Box)`
   display: flex;
   align-items: center;
   gap: 15px;
   margin-bottom: 30px;
 `;
 
-const BackButton = styled.button`
-  background: rgba(124, 77, 255, 0.1);
-  border: none;
-  color: #7C4DFF;
-  font-size: 16px;
-  cursor: pointer;
-  padding: 10px;
-  border-radius: 10px;
-  transition: all 0.3s;
+const BackButton = styled(MuiButton)`
+  && {
+    background: rgba(124, 77, 255, 0.1);
+    border: none;
+    color: #7C4DFF;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 10px;
+    border-radius: 10px;
+    transition: all 0.3s;
+    min-width: auto;
 
-  &:hover {
-    background: rgba(124, 77, 255, 0.2);
-    transform: translateX(-5px);
+    &:hover {
+      background: rgba(124, 77, 255, 0.2);
+      transform: translateX(-5px);
+    }
   }
 `;
 
-const Title = styled.h1`
+const Title = styled(Typography)`
   margin: 0;
   font-size: 1.8rem;
   color: white;
 `;
 
-const FormGroup = styled.div`
+const FormGroup = styled(Box)`
   margin-bottom: 20px;
+`;
 
-  label {
+const StyledInputLabel = styled(InputLabel)`
+  && {
     display: block;
     color: rgba(255, 255, 255, 0.7);
     margin-bottom: 8px;
     font-size: 0.9rem;
   }
+`;
 
-  input {
+const StyledInputBase = styled(InputBase)`
+  && {
     width: 100%;
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.1);
@@ -76,47 +92,48 @@ const FormGroup = styled.div`
     text-align: center;
     transition: all 0.3s;
 
-    &:focus {
-      outline: none;
+    &.Mui-focused {
       border-color: #4a7dff;
       background: rgba(255, 255, 255, 0.08);
     }
 
-    &::placeholder {
+    & input::placeholder {
       color: rgba(255, 255, 255, 0.3);
       letter-spacing: normal;
     }
   }
 `;
 
-const SubmitButton = styled.button`
-  width: 100%;
-  background: linear-gradient(145deg, #4a7dff 0%, #ff53f0 100%);
-  color: white;
-  border: none;
-  padding: 15px;
-  border-radius: 12px;
-  font-size: 1rem;
-  font-weight: 500;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  transition: all 0.3s;
+const SubmitButton = styled(MuiButton)`
+  && {
+    width: 100%;
+    background: linear-gradient(145deg, #4a7dff 0%, #ff53f0 100%);
+    color: white;
+    border: none;
+    padding: 15px;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    transition: all 0.3s;
 
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(74, 125, 255, 0.3);
-  }
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(74, 125, 255, 0.3);
+    }
 
-  &:disabled {
-    opacity: 0.7;
-    cursor: not-allowed;
+    &.Mui-disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
   }
 `;
 
-const ErrorMessage = styled.div`
+const ErrorMessage = styled(Box)`
   color: #ff5353;
   background: rgba(255, 83, 83, 0.1);
   padding: 15px;
@@ -125,35 +142,42 @@ const ErrorMessage = styled.div`
   font-size: 0.9rem;
 `;
 
-const LobbyInfo = styled.div`
+const LobbyInfo = styled(Box)`
   background: rgba(124, 77, 255, 0.1);
   border-radius: 12px;
   padding: 20px;
   margin-bottom: 20px;
-
-  h3 {
-    margin: 0 0 15px 0;
-    font-size: 1.2rem;
-    color: #7C4DFF;
-  }
-
-  p {
-    margin: 5px 0;
-    color: rgba(255, 255, 255, 0.7);
-    font-size: 0.9rem;
-  }
 
   .host {
     display: flex;
     align-items: center;
     gap: 10px;
     margin-top: 15px;
+  }
+`;
 
-    img {
-      width: 30px;
-      height: 30px;
-      border-radius: 8px;
-    }
+const LobbyTitle = styled(Typography)`
+  margin: 0 0 15px 0;
+  font-size: 1.2rem;
+  color: #7C4DFF;
+`;
+
+const LobbyText = styled(Typography)`
+  margin: 5px 0;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
+`;
+
+const HostText = styled(Typography)`
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
+`;
+
+const StyledAvatar = styled(Avatar)`
+  && {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
   }
 `;
 
@@ -255,19 +279,20 @@ function LobbyJoinPage() {
             <BackButton onClick={() => navigate(-1)}>
               <FaArrowLeft />
             </BackButton>
-            <Title>Lobiye Katıl</Title>
+            <Title variant="h1">Lobiye Katıl</Title>
           </Header>
 
           {error && <ErrorMessage>{error}</ErrorMessage>}
 
           {!lobby ? (
-            <form onSubmit={handleCodeSubmit}>
+            <Box component="form" onSubmit={handleCodeSubmit}>
               <FormGroup>
-                <label>Lobi Kodu</label>
-                <input 
+                <StyledInputLabel htmlFor="lobby-code">Lobi Kodu</StyledInputLabel>
+                <StyledInputBase 
+                  id="lobby-code"
                   type="text" 
                   placeholder="6 haneli kodu girin" 
-                  maxLength={6}
+                  inputProps={{ maxLength: 6 }}
                   value={lobbyCode}
                   onChange={(e) => setLobbyCode(e.target.value.toUpperCase())}
                   required
@@ -277,40 +302,39 @@ function LobbyJoinPage() {
               <SubmitButton type="submit" disabled={isLoading || lobbyCode.length !== 6}>
                 {isLoading ? 'Aranıyor...' : 'Lobi Ara'}
               </SubmitButton>
-            </form>
+            </Box>
           ) : (
             <>
               <LobbyInfo>
-                <h3>{lobby.name}</h3>
-                <p>
+                <LobbyTitle variant="h3">{lobby.name}</LobbyTitle>
+                <LobbyText>
                   <FaUsers style={{ marginRight: '5px' }} />
                   {lobby.players.length} / {lobby.maxPlayers} Oyuncu
-                </p>
+                </LobbyText>
                 {lobby.isPrivate && (
-                  <p style={{ color: '#FF9F43' }}>
+                  <LobbyText sx={{ color: '#FF9F43' }}>
                     <FaLock style={{ marginRight: '5px' }} />
                     Özel Lobi (Şifre gerekli)
-                  </p>
+                  </LobbyText>
                 )}
-                <div className="host">
-                  <img 
+                <Box className="host">
+                  <StyledAvatar 
                     src={typeof lobby.creator === 'object' ? lobby.creator.profileImage : ''}
                     alt="Host" 
-                    onError={(e) => {
-                      const username = typeof lobby.creator === 'object' ? lobby.creator.username : '';
-                      const initial = username?.[0] || 'U';
-                      e.target.src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="30" height="30"><rect width="100" height="100" fill="#1F2937"/><text x="50" y="50" font-size="40" text-anchor="middle" dominant-baseline="middle" font-family="Arial" fill="white">' + initial + '</text></svg>')}`;
-                    }}
+                    sx={{ borderRadius: '8px' }}
+                    variant="square"
+                    children={typeof lobby.creator === 'object' ? lobby.creator.username?.[0] || 'U' : 'U'}
                   />
-                  <span>{typeof lobby.creator === 'object' ? lobby.creator.username : ''} (Lobi Sahibi)</span>
-                </div>
+                  <HostText>{typeof lobby.creator === 'object' ? lobby.creator.username : ''} (Lobi Sahibi)</HostText>
+                </Box>
               </LobbyInfo>
 
-              <form onSubmit={handleJoinLobby}>
+              <Box component="form" onSubmit={handleJoinLobby}>
                 {lobby.isPrivate && (
                   <FormGroup>
-                    <label>Lobi Şifresi</label>
-                    <input
+                    <StyledInputLabel htmlFor="lobby-password">Lobi Şifresi</StyledInputLabel>
+                    <StyledInputBase
+                      id="lobby-password"
                       type="password"
                       placeholder="Şifreyi girin"
                       value={password}
@@ -324,7 +348,7 @@ function LobbyJoinPage() {
                   <FaDoorOpen />
                   {isSubmitting ? 'Katılınıyor...' : 'Lobiye Katıl'}
                 </SubmitButton>
-              </form>
+              </Box>
             </>
           )}
         </JoinCard>

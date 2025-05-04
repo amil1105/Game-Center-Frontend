@@ -4,12 +4,13 @@ import styled from 'styled-components';
 import { BsController, BsTrophy, BsPeople } from 'react-icons/bs';
 import MainLayout from '../components/Layout/MainLayout';
 import { useNavigate } from 'react-router-dom';
+import { Box, Typography } from '@mui/material';
 
-const Content = styled.div`
+const Content = styled(Box)`
   padding: 30px;
 `;
 
-const PromoBanner = styled.div`
+const PromoBanner = styled(Box)`
   background: linear-gradient(145deg, #1e2044 0%, #171934 100%);
   border-radius: 20px;
   padding: 30px;
@@ -34,7 +35,7 @@ const PromoBanner = styled.div`
   }
 `;
 
-const PromoContent = styled.div`
+const PromoContent = styled(Box)`
   flex: 1;
   z-index: 1;
 
@@ -70,7 +71,7 @@ const PromoContent = styled.div`
   }
 `;
 
-const PromoImage = styled.div`
+const PromoImage = styled(Box)`
   position: relative;
   z-index: 1;
   transform: perspective(1000px) rotateY(-10deg);
@@ -93,13 +94,13 @@ const PromoImage = styled.div`
   }
 `;
 
-const GameGrid = styled.div`
+const GameGrid = styled(Box)`
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 20px;
 `;
 
-const GameCard = styled.div`
+const GameCard = styled(Box)`
   background: linear-gradient(145deg, #1e2044 0%, #171934 100%);
   border-radius: 12px;
   overflow: hidden;
@@ -115,7 +116,7 @@ const GameCard = styled.div`
   }
 `;
 
-const GameImage = styled.div`
+const GameImage = styled(Box)`
   width: 100%;
   height: 140px;
   position: relative;
@@ -136,13 +137,13 @@ const GameImage = styled.div`
   }
 `;
 
-const GameTitle = styled.h3`
+const GameTitle = styled(Typography)`
   font-size: 16px;
   font-weight: 500;
   margin-bottom: 4px;
 `;
 
-const GameStats = styled.div`
+const GameStats = styled(Box)`
   display: flex;
   align-items: center;
   gap: 15px;
@@ -262,25 +263,46 @@ function MainPage() {
       <Content>
         <PromoBanner>
           <PromoContent>
-            <h2>HOŞ GELDİN BONUSU</h2>
-            <p>Hemen üye ol ve 1000 jeton kazan!</p>
-            <div className="features">
-              <div className="feature">
+            <Typography variant="h2" component="h2" sx={{
+              fontSize: '2rem',
+              fontWeight: 'bold',
+              marginBottom: '10px',
+              background: 'linear-gradient(45deg, #4a7dff 0%, #ff53f0 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent'
+            }}>
+              OYUN MERKEZİ PLATFORMU
+            </Typography>
+            <Typography variant="body1" component="p" sx={{ 
+              color: 'rgba(255, 255, 255, 0.7)',
+              fontSize: '1.1rem',
+              marginBottom: '20px'
+            }}>
+              Gerçek zamanlı çok oyunculu oyunların keyfini çıkarın!
+            </Typography>
+            <Box className="features" sx={{ display: 'flex', gap: '30px' }}>
+              <Box className="feature" sx={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'rgba(255, 255, 255, 0.9)' }}>
                 <BsController size={20} />
-                <span>30+ Çevrimiçi oyun</span>
-              </div>
-              <div className="feature">
+                <Typography variant="span" component="span">Tombala, Okey ve Daha Fazlası</Typography>
+              </Box>
+              <Box className="feature" sx={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'rgba(255, 255, 255, 0.9)' }}>
                 <BsTrophy size={20} />
-                <span>Haftalık turnuvalar</span>
-              </div>
-              <div className="feature">
+                <Typography variant="span" component="span">Gerçek Zamanlı Turnuvalar</Typography>
+              </Box>
+              <Box className="feature" sx={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'rgba(255, 255, 255, 0.9)' }}>
                 <BsPeople size={20} />
-                <span>Çoklu oyuncu modları</span>
-              </div>
-            </div>
+                <Typography variant="span" component="span">Arkadaşlarınızla Oynayın</Typography>
+              </Box>
+            </Box>
           </PromoContent>
           <PromoImage>
-            <img src="https://cdn.dribbble.com/userupload/16528532/file/original-d7f5a5167a2bf86f6710665cf6d8b72b.png?resize=752x&vertical=center" alt="Promo" />
+            <Box component="img" src="https://cdn.dribbble.com/userupload/16528532/file/original-d7f5a5167a2bf86f6710665cf6d8b72b.png?resize=752x&vertical=center" alt="Promo" sx={{
+              width: '200px',
+              height: 'auto',
+              objectFit: 'contain',
+              filter: 'drop-shadow(0 10px 20px rgba(0, 0, 0, 0.3))',
+              transition: 'all 0.3s ease'
+            }} />
           </PromoImage>
         </PromoBanner>
 
@@ -288,20 +310,31 @@ function MainPage() {
           {games.map(game => (
             <GameCard key={game.id} onClick={() => handleGameClick(game.id)}>
               <GameImage>
-                <img src={game.image} alt={game.title} />
-                <div className="game-info">
-                  <GameTitle>{game.title}</GameTitle>
-                </div>
+                <Box component="img" src={game.image} alt={game.title} sx={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover'
+                }} />
+                <Box className="game-info" sx={{
+                  position: 'absolute',
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  padding: '15px',
+                  background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)'
+                }}>
+                  <GameTitle variant="h6">{game.title}</GameTitle>
+                </Box>
               </GameImage>
               <GameStats>
-                <div className="stat">
-                  <span>👥</span>
-                  <span>1.2K</span>
-                </div>
-                <div className="stat">
-                  <span>💰</span>
-                  <span>5.6K</span>
-                </div>
+                <Box className="stat" sx={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#8f90a3', fontSize: '12px', transition: 'all 0.3s' }}>
+                  <Typography variant="span" component="span">👥</Typography>
+                  <Typography variant="span" component="span">1.2K</Typography>
+                </Box>
+                <Box className="stat" sx={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#8f90a3', fontSize: '12px', transition: 'all 0.3s' }}>
+                  <Typography variant="span" component="span">💰</Typography>
+                  <Typography variant="span" component="span">5.6K</Typography>
+                </Box>
               </GameStats>
             </GameCard>
           ))}

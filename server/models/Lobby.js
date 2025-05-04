@@ -10,6 +10,10 @@ const playerSchema = new mongoose.Schema({
   name: {
     type: String
   },
+  profileImage: {
+    type: String,
+    default: null
+  },
   isReady: {
     type: Boolean,
     default: false

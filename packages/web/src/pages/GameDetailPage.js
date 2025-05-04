@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
-import { FaArrowLeft, FaUsers, FaTrophy, FaInfoCircle, FaComments, FaChartLine, FaCoins, FaClock, FaLock, FaCalendarAlt, FaCopy, FaCheck } from 'react-icons/fa';
+import { FaArrowLeft, FaUsers, FaTrophy, FaInfoCircle, FaComments, FaChartLine, FaCoins, FaClock, FaLock, FaCalendarAlt, FaCopy, FaCheck, FaPaperPlane } from 'react-icons/fa';
+import { Box, Typography, Button, List, ListItem, TextField, FormControl, FormLabel, InputLabel, IconButton, InputAdornment } from '@mui/material';
 import axiosInstance, { API_BASE_URL } from '../api/axios';
 import { UserContext } from '../context/UserContext';
 import MainLayout from '../components/Layout/MainLayout';
@@ -52,7 +53,7 @@ const pulse = keyframes`
   }
 `;
 
-const PageContainer = styled.div`
+const PageContainer = styled(Box)`
   background: linear-gradient(135deg, #0f1033 0%, #0a0b1e 100%);
   min-height: 100vh;
   color: white;
@@ -60,7 +61,7 @@ const PageContainer = styled.div`
   font-family: 'Poppins', sans-serif;
 `;
 
-const Banner = styled.div`
+const Banner = styled(Box)`
   width: 100%;
   height: 350px;
   position: relative;
@@ -91,7 +92,7 @@ const Banner = styled.div`
   }
 `;
 
-const BannerContent = styled.div`
+const BannerContent = styled(Box)`
   position: absolute;
   bottom: 50px;
   left: 50px;
@@ -107,7 +108,7 @@ const BannerContent = styled.div`
   }
 `;
 
-const GameTitle = styled.h1`
+const GameTitle = styled(Typography)`
   font-size: 52px;
   font-weight: 800;
   margin: 0;
@@ -121,7 +122,7 @@ const GameTitle = styled.h1`
   }
 `;
 
-const GameStats = styled.div`
+const GameStats = styled(Box)`
   display: flex;
   gap: 15px;
   flex-wrap: wrap;
@@ -149,7 +150,7 @@ const GameStats = styled.div`
   }
 `;
 
-const Content = styled.div`
+const Content = styled(Box)`
   max-width: 1200px;
   margin: -80px auto 0;
   padding: 0 40px 60px;
@@ -163,7 +164,7 @@ const Content = styled.div`
   }
 `;
 
-const Header = styled.div`
+const Header = styled(Box)`
   display: flex;
   align-items: center;
   gap: 20px;
@@ -176,7 +177,7 @@ const Header = styled.div`
   }
 `;
 
-const BackButton = styled.button`
+const BackButton = styled(Button)`
   background: rgba(124, 77, 255, 0.1);
   border: none;
   color: #7C4DFF;
@@ -198,7 +199,7 @@ const BackButton = styled.button`
   }
 `;
 
-const GameInfo = styled.div`
+const GameInfo = styled(Box)`
   h1 {
     font-size: 2.2rem;
     margin: 0;
@@ -215,7 +216,7 @@ const GameInfo = styled.div`
   }
 `;
 
-const MainContent = styled.div`
+const MainContent = styled(Box)`
   display: grid;
   grid-template-columns: 2fr 1fr;
   gap: 40px;
@@ -227,7 +228,7 @@ const MainContent = styled.div`
   }
 `;
 
-const GameDetails = styled.div`
+const GameDetails = styled(Box)`
   background: rgba(255, 255, 255, 0.05);
   border-radius: 25px;
   padding: 35px;
@@ -242,68 +243,68 @@ const GameDetails = styled.div`
   }
 `;
 
-const Section = styled.div`
+const Section = styled(Box)`
   margin-bottom: 40px;
   transition: transform 0.3s ease;
 
   &:hover {
     transform: translateY(-5px);
   }
-
-  h2 {
-    font-size: 1.7rem;
-    margin-bottom: 25px;
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    color: #7C4DFF;
-    padding-bottom: 18px;
-    border-bottom: 1px solid rgba(124, 77, 255, 0.15);
-    font-weight: 700;
-  }
-
-  p {
-    color: #a4a6b3;
-    line-height: 1.9;
-    font-size: 1.1rem;
-  }
 `;
 
-const RulesList = styled.ul`
+const SectionTitle = styled(Typography)`
+  font-size: 1.7rem;
+  margin-bottom: 25px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  color: #7C4DFF;
+  padding-bottom: 18px;
+  border-bottom: 1px solid rgba(124, 77, 255, 0.15);
+  font-weight: 700;
+`;
+
+const SectionText = styled(Typography)`
+  color: #a4a6b3;
+  line-height: 1.9;
+  font-size: 1.1rem;
+`;
+
+const RulesList = styled(List)`
   list-style: none;
   padding: 0;
   margin: 0;
+`;
 
-  li {
-    color: #a4a6b3;
-    margin-bottom: 18px;
-    padding-left: 25px;
-    position: relative;
-    line-height: 1.6;
-    font-size: 1.05rem;
+const StyledListItem = styled(ListItem)`
+  color: #a4a6b3;
+  margin-bottom: 18px;
+  padding-left: 25px;
+  position: relative;
+  line-height: 1.6;
+  font-size: 1.05rem;
 
-    &::before {
-      content: "•";
-      color: #7C4DFF;
-      position: absolute;
-      left: 0;
-      font-size: 1.5rem;
-    }
+  &::before {
+    content: "•";
+    color: #7C4DFF;
+    position: absolute;
+    left: 0;
+    font-size: 1.5rem;
+  }
 
-    &:hover {
-      color: white;
-    }
+  &:hover {
+    color: white;
   }
 `;
 
-const Sidebar = styled.div`
+const Sidebar = styled(Box)`
   display: flex;
   flex-direction: column;
   gap: 30px;
   animation: ${slideInRight} 0.8s ease-out;
 `;
 
-const SidebarCard = styled.div`
+const SidebarCard = styled(Box)`
   background: rgba(255, 255, 255, 0.05);
   border-radius: 25px;
   padding: 30px;
@@ -317,27 +318,27 @@ const SidebarCard = styled.div`
     transform: translateY(-5px);
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
   }
-
-  h2 {
-    font-size: 1.7rem;
-    margin-bottom: 25px;
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    color: #7C4DFF;
-    padding-bottom: 18px;
-    border-bottom: 1px solid rgba(124, 77, 255, 0.15);
-    font-weight: 700;
-  }
 `;
 
-const LobbyList = styled.div`
+const SidebarTitle = styled(Typography)`
+  font-size: 1.7rem;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  color: #7C4DFF;
+  padding-bottom: 15px;
+  border-bottom: 1px solid rgba(124, 77, 255, 0.15);
+  font-weight: 700;
+`;
+
+const LobbyList = styled(Box)`
   display: flex;
   flex-direction: column;
   gap: 15px;
 `;
 
-const LobbyItem = styled.div`
+const LobbyItem = styled(Box)`
   background: rgba(124, 77, 255, 0.08);
   border-radius: 16px;
   padding: 20px;
@@ -368,7 +369,7 @@ const LobbyItem = styled.div`
   }
 `;
 
-const JoinButton = styled.button`
+const JoinButton = styled(Button)`
   background: linear-gradient(135deg, #7C4DFF, #4A7DFF);
   color: white;
   border: none;
@@ -387,10 +388,10 @@ const JoinButton = styled.button`
   }
 `;
 
-const ChatSection = styled.div`
+const ChatSection = styled(Box)`
   background: rgba(255, 255, 255, 0.05);
   border-radius: 25px;
-  padding: 30px;
+  padding: 25px 20px 20px;
   height: 350px;
   display: flex;
   flex-direction: column;
@@ -399,11 +400,13 @@ const ChatSection = styled.div`
   border: 1px solid rgba(255, 255, 255, 0.05);
 `;
 
-const ChatMessages = styled.div`
+const ChatMessages = styled(Box)`
   flex: 1;
   overflow-y: auto;
-  margin-bottom: 20px;
-  padding: 10px;
+  margin-bottom: 15px;
+  padding: 0 5px;
+  display: flex;
+  flex-direction: column;
   
   &::-webkit-scrollbar {
     width: 6px;
@@ -420,29 +423,79 @@ const ChatMessages = styled.div`
   }
 `;
 
-const ChatInput = styled.input`
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 50px;
-  padding: 15px 25px;
-  color: white;
+const MessageContainer = styled(Box)`
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 15px;
+  width: 100%;
+  align-items: ${props => props.isOwnMessage ? 'flex-end' : 'flex-start'};
+`;
+
+const Message = styled(Box)`
+  background: ${props => props.isOwnMessage ? 'rgba(124, 77, 255, 0.2)' : 'rgba(255, 255, 255, 0.05)'};
+  padding: 10px 15px;
+  border-radius: ${props => props.isOwnMessage ? '18px 18px 4px 18px' : '18px 18px 18px 4px'};
+  align-self: ${props => props.isOwnMessage ? 'flex-end' : 'flex-start'};
+  max-width: 85%;
+  position: relative;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  display: inline-block;
+`;
+
+const MessageSender = styled(Typography)`
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: ${props => props.isOwnMessage ? '#a67dff' : '#7C4DFF'};
+  margin-bottom: 3px;
+`;
+
+const MessageText = styled(Typography)`
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.9);
+`;
+
+const MessageTime = styled(Typography)`
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.4);
+  text-align: right;
+  margin-top: 2px;
+`;
+
+const ChatInput = styled(TextField)`
   width: 100%;
   font-size: 0.95rem;
-  outline: none;
   transition: all 0.3s ease;
+  margin-top: 10px;
 
-  &:focus {
-    background: rgba(255, 255, 255, 0.12);
-    border-color: rgba(124, 77, 255, 0.5);
-    box-shadow: 0 0 0 3px rgba(124, 77, 255, 0.1);
+  & .MuiInputBase-root {
+    color: white;
+    padding: 8px 15px;
+    border-radius: 50px;
+    background: rgba(20, 20, 60, 0.3);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   }
 
-  &::placeholder {
+  & .MuiOutlinedInput-root {
+    & fieldset {
+      border-color: rgba(124, 77, 255, 0.2);
+      border-radius: 50px;
+    }
+    &:hover fieldset {
+      border-color: rgba(124, 77, 255, 0.5);
+    }
+    &.Mui-focused fieldset {
+      border-color: rgba(124, 77, 255, 0.5);
+      box-shadow: 0 0 0 2px rgba(124, 77, 255, 0.1);
+    }
+  }
+
+  & .MuiInputBase-input::placeholder {
     color: rgba(255, 255, 255, 0.4);
+    opacity: 1;
   }
 `;
 
-const CreateLobbyButton = styled.button`
+const CreateLobbyButton = styled(Button)`
   background: linear-gradient(135deg, #4a7dff 0%, #7C4DFF 60%, #ff53f0 110%);
   color: white;
   border: none;
@@ -476,6 +529,7 @@ const CreateLobbyButton = styled.button`
   }
 
   &:hover {
+    background: linear-gradient(135deg, #4a7dff 0%, #7C4DFF 60%, #ff53f0 110%);
     transform: translateY(-3px);
     box-shadow: 0 12px 25px rgba(74, 125, 255, 0.4);
     
@@ -490,7 +544,7 @@ const CreateLobbyButton = styled.button`
   }
 `;
 
-const Modal = styled.div`
+const Modal = styled(Box)`
   position: fixed;
   top: 0;
   left: 0;
@@ -505,7 +559,7 @@ const Modal = styled.div`
   animation: ${fadeIn} 0.3s ease-out;
 `;
 
-const ModalContent = styled.div`
+const ModalContent = styled(Box)`
   background: linear-gradient(145deg, #1e2044 0%, #171934 100%);
   border-radius: 25px;
   padding: 40px;
@@ -516,6 +570,8 @@ const ModalContent = styled.div`
   box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
   transform: translateY(0);
   transition: transform 0.3s ease;
+  max-height: 90vh;
+  overflow-y: auto;
 
   @media (max-width: 768px) {
     padding: 30px;
@@ -523,45 +579,24 @@ const ModalContent = styled.div`
   }
 `;
 
-const ModalHeader = styled.div`
+const ModalHeader = styled(Box)`
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 30px;
-
-  h2 {
-    color: white;
-    font-size: 1.8rem;
-    font-weight: 700;
-    margin: 0;
-    background: linear-gradient(90deg, #7C4DFF, #4A7DFF);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-
-  button {
-    background: rgba(255, 255, 255, 0.08);
-    border: none;
-    color: rgba(255, 255, 255, 0.6);
-    cursor: pointer;
-    font-size: 1.8rem;
-    height: 40px;
-    width: 40px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.3s;
-
-    &:hover {
-      background: rgba(255, 255, 255, 0.15);
-      color: white;
-      transform: rotate(90deg);
-    }
-  }
 `;
 
-const FormGroup = styled.div`
+const ModalTitle = styled(Typography)`
+  color: white;
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin: 0;
+  background: linear-gradient(90deg, #7C4DFF, #4A7DFF);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+`;
+
+const FormGroup = styled(FormControl)`
   margin-bottom: 25px;
 
   label {
@@ -595,7 +630,7 @@ const FormGroup = styled.div`
   }
 `;
 
-const LobbyTypeSelector = styled.div`
+const LobbyTypeSelector = styled(Box)`
   display: flex;
   gap: 15px;
   margin-bottom: 30px;
@@ -633,7 +668,7 @@ const LobbyTypeSelector = styled.div`
   }
 `;
 
-const SubmitButton = styled.button`
+const SubmitButton = styled(Button)`
   width: 100%;
   background: linear-gradient(135deg, #4a7dff 0%, #7C4DFF 60%, #ff53f0 110%);
   color: white;
@@ -647,6 +682,8 @@ const SubmitButton = styled.button`
   box-shadow: 0 8px 20px rgba(74, 125, 255, 0.3);
   position: relative;
   overflow: hidden;
+  margin-top: 20px;
+  display: block;
 
   &:before {
     content: '';
@@ -660,6 +697,7 @@ const SubmitButton = styled.button`
   }
 
   &:hover {
+    background: linear-gradient(135deg, #4a7dff 0%, #7C4DFF 60%, #ff53f0 110%);
     transform: translateY(-3px);
     box-shadow: 0 12px 25px rgba(74, 125, 255, 0.4);
     
@@ -683,7 +721,7 @@ const SuccessContent = styled(ModalContent)`
   animation: ${pulse} 0.6s ease-out;
 `;
 
-const LobbyCode = styled.div`
+const LobbyCode = styled(Box)`
   background: rgba(124, 77, 255, 0.1);
   border: 1px solid rgba(124, 77, 255, 0.3);
   border-radius: 15px;
@@ -700,7 +738,7 @@ const LobbyCode = styled.div`
   text-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 `;
 
-const CopyButton = styled.button`
+const CopyButton = styled(Button)`
   background: rgba(124, 77, 255, 0.1);
   border: 1px solid rgba(124, 77, 255, 0.2);
   color: #7C4DFF;
@@ -726,7 +764,7 @@ const CopyButton = styled.button`
   }
 `;
 
-const ShareButtons = styled.div`
+const ShareButtons = styled(Box)`
   display: flex;
   gap: 15px;
   justify-content: center;
@@ -1137,8 +1175,29 @@ function GameDetailPage() {
               <FaArrowLeft />
             </BackButton>
             <GameInfo>
-              <h1>Oyun Bulunamadı</h1>
-              <p>Böyle bir oyun bulunmamaktadır.</p>
+              <Typography 
+                variant="h1" 
+                sx={{ 
+                  fontSize: '2.2rem',
+                  margin: 0,
+                  background: 'linear-gradient(90deg, #7C4DFF, #4A7DFF)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  fontWeight: 700 
+                }}
+              >
+                Oyun Bulunamadı
+              </Typography>
+              <Typography 
+                variant="body1" 
+                sx={{ 
+                  color: '#8B90B3',
+                  margin: '8px 0 0',
+                  fontSize: '1.1rem' 
+                }}
+              >
+                Böyle bir oyun bulunmamaktadır.
+              </Typography>
             </GameInfo>
           </Header>
         </Content>
@@ -1150,33 +1209,32 @@ function GameDetailPage() {
     <MainLayout>
       <PageContainer>
         <Banner>
-          <img src={game.image} alt={game.title} />
+          <Box component="img" src={game.image} alt={game.title} />
           <BannerContent>
-            <GameTitle>{game.title}</GameTitle>
+            <GameTitle variant="h1">{game.title}</GameTitle>
             <GameStats>
-              <div className="stat">
+              <Box className="stat">
                 <FaUsers size={20} />
-                <span>{game.stats.activePlayers} Aktif Oyuncu</span>
-              </div>
-              <div className="stat">
+                <Typography variant="span">{game.stats.activePlayers} Aktif Oyuncu</Typography>
+              </Box>
+              <Box className="stat">
                 <FaClock />
-                <span>{game.stats.totalGames} Toplam Oyun</span>
-              </div>
-              <div className="stat">
+                <Typography variant="span">{game.stats.totalGames} Toplam Oyun</Typography>
+              </Box>
+              <Box className="stat">
                 <FaTrophy />
-                <span>{game.stats.winRate}% Kazanma Oranı</span>
-              </div>
-              <div className="stat">
+                <Typography variant="span">{game.stats.winRate}% Kazanma Oranı</Typography>
+              </Box>
+              <Box className="stat">
                 <FaChartLine />
-                <span>{game.stats.maxWin} Max Kazanç</span>
-              </div>
+                <Typography variant="span">{game.stats.maxWin} Max Kazanç</Typography>
+              </Box>
             </GameStats>
           </BannerContent>
         </Banner>
 
         <Content>
           <Header>
-  
             <CreateLobbyButton onClick={() => setShowCreateLobbyModal(true)}>
               <FaUsers /> Lobi Oluştur
             </CreateLobbyButton>
@@ -1185,47 +1243,51 @@ function GameDetailPage() {
           <MainContent>
             <GameDetails>
               <Section>
-                <h2>
+                <SectionTitle variant="h2">
                   <FaInfoCircle />
                   Oyun Hakkında
-                </h2>
-                <p>{game.description}</p>
+                </SectionTitle>
+                <SectionText variant="body1">{game.description}</SectionText>
               </Section>
 
               <Section>
-                <h2>
+                <SectionTitle variant="h2">
                   <FaInfoCircle />
                   Kurallar
-                </h2>
+                </SectionTitle>
                 <RulesList>
                   {game.rules.map((rule, index) => (
-                    <li key={index}>{rule}</li>
+                    <StyledListItem key={index}>
+                      <SectionText variant="body1">{rule}</SectionText>
+                    </StyledListItem>
                   ))}
                 </RulesList>
               </Section>
 
               <Section>
-                <h2>
+                <SectionTitle variant="h2">
                   <FaInfoCircle />
                   İpuçları
-                </h2>
+                </SectionTitle>
                 <RulesList>
                   {game.tips.map((tip, index) => (
-                    <li key={index}>{tip}</li>
+                    <StyledListItem key={index}>
+                      <SectionText variant="body1">{tip}</SectionText>
+                    </StyledListItem>
                   ))}
                 </RulesList>
               </Section>
 
               <Section>
-                <h2>
+                <SectionTitle variant="h2">
                   <FaChartLine />
                   Oyun Geçmişi
-                </h2>
-                <div style={{ marginTop: '20px' }}>
+                </SectionTitle>
+                <Box sx={{ marginTop: '20px' }}>
                   {gameHistory.map((history) => (
-                    <div
+                    <Box
                       key={history.id}
-                      style={{
+                      sx={{
                         display: 'flex',
                         justifyContent: 'space-between',
                         padding: '10px',
@@ -1234,54 +1296,54 @@ function GameDetailPage() {
                         marginBottom: '10px'
                       }}
                     >
-                      <span>{history.result}</span>
-                      <span style={{ 
+                      <Typography variant="body2">{history.result}</Typography>
+                      <Typography variant="body2" sx={{ 
                         color: history.amount.startsWith('+') ? '#4CAF50' : '#FF5252'
                       }}>
                         {history.amount}
-                      </span>
-                      <span style={{ color: '#6c7293' }}>{history.date}</span>
-                    </div>
+                      </Typography>
+                      <Typography variant="body2" sx={{ color: '#6c7293' }}>{history.date}</Typography>
+                    </Box>
                   ))}
-                </div>
+                </Box>
               </Section>
             </GameDetails>
 
             <Sidebar>
               <SidebarCard>
-                <h2>
+                <SidebarTitle variant="h2">
                   <FaUsers style={{ marginRight: 5 }} />
                   Aktif Lobiler
-                </h2>
+                </SidebarTitle>
                 <LobbyList>
                   {loading ? (
-                    <div style={{ 
+                    <Box sx={{ 
                       textAlign: 'center', 
                       padding: '20px', 
                       color: 'rgba(255, 255, 255, 0.7)' 
                     }}>
-                      Lobiler yükleniyor...
-                    </div>
+                      <Typography variant="body1">Lobiler yükleniyor...</Typography>
+                    </Box>
                   ) : Array.isArray(activeLobbies) && activeLobbies.length > 0 ? (
                     activeLobbies.map((lobby) => (
                       <LobbyItem key={lobby._id || lobby.id}>
-                        <div className="lobby-info">
-                          <h3>{lobby.name}</h3>
-                          <p>
+                        <Box className="lobby-info">
+                          <Typography variant="h3">{lobby.name}</Typography>
+                          <Typography variant="body2">
                             {Array.isArray(lobby.players)
                               ? `${lobby.players.length} / ${lobby.maxPlayers} Oyuncu`
                               : '0 Oyuncu'} 
                             {lobby.betAmount > 0 && ` • ${lobby.betAmount} Token`}
                             {lobby.isPrivate && ` • Özel`}
-                          </p>
-                        </div>
+                          </Typography>
+                        </Box>
                         <JoinButton onClick={() => navigate(`/lobby/${lobby.lobbyCode}`)}>
                           Katıl
                         </JoinButton>
                       </LobbyItem>
                     ))
                   ) : (
-                    <div style={{ 
+                    <Box sx={{ 
                       textAlign: 'center', 
                       padding: '30px 20px', 
                       color: 'rgba(255, 255, 255, 0.7)',
@@ -1289,23 +1351,65 @@ function GameDetailPage() {
                       borderRadius: '16px',
                       border: '1px dashed rgba(255, 255, 255, 0.1)'
                     }}>
-                      Aktif lobi bulunamadı. İlk lobiyi oluşturmak için "<strong>Lobi Oluştur</strong>" butonuna tıklayabilirsiniz.
-                    </div>
+                      <Typography variant="body1">
+                        Aktif lobi bulunamadı. İlk lobiyi oluşturmak için "<strong>Lobi Oluştur</strong>" butonuna tıklayabilirsiniz.
+                      </Typography>
+                    </Box>
                   )}
                 </LobbyList>
               </SidebarCard>
 
               <ChatSection>
-                <h2>
+                <SidebarTitle variant="h2">
                   <FaComments style={{ marginRight: 5 }} />
                   Sohbet
-                </h2>
+                </SidebarTitle>
                 <ChatMessages>
-                  {/* Sohbet mesajları buraya gelecek */}
+                  <MessageContainer isOwnMessage={false}>
+                    <Message isOwnMessage={false}>
+                      <MessageSender isOwnMessage={false}>Eren Yeager</MessageSender>
+                      <MessageText>Merhaba! Bugün oyun oynayacak mısınız?</MessageText>
+                      <MessageTime>14:30</MessageTime>
+                    </Message>
+                  </MessageContainer>
+                  <MessageContainer isOwnMessage={true}>
+                    <Message isOwnMessage={true}>
+                      <MessageSender isOwnMessage={true}>Siz</MessageSender>
+                      <MessageText>Evet, akşam 8'de başlayabilirim.</MessageText>
+                      <MessageTime>14:32</MessageTime>
+                    </Message>
+                  </MessageContainer>
+                  <MessageContainer isOwnMessage={false}>
+                    <Message isOwnMessage={false}>
+                      <MessageSender isOwnMessage={false}>Mikasa Ackerman</MessageSender>
+                      <MessageText>Ben de katılabilirim, lobi kodunu paylaşır mısınız?</MessageText>
+                      <MessageTime>14:35</MessageTime>
+                    </Message>
+                  </MessageContainer>
                 </ChatMessages>
                 <ChatInput 
-                  type="text" 
                   placeholder="Mesajınızı yazın..." 
+                  variant="outlined"
+                  fullWidth
+                  size="small"
+                  InputProps={{
+                    style: { color: 'white' },
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton 
+                          edge="end" 
+                          sx={{ 
+                            color: 'rgba(124, 77, 255, 0.7)',
+                            '&:hover': {
+                              color: '#7C4DFF'
+                            }
+                          }}
+                        >
+                          <FaPaperPlane />
+                        </IconButton>
+                      </InputAdornment>
+                    )
+                  }}
                 />
               </ChatSection>
             </Sidebar>
@@ -1316,96 +1420,140 @@ function GameDetailPage() {
           <Modal>
             <ModalContent>
               <ModalHeader>
-                <h2>Yeni Lobi Oluştur</h2>
-                <button onClick={() => setShowCreateLobbyModal(false)}>&times;</button>
+                <ModalTitle variant="h2">Yeni Lobi Oluştur</ModalTitle>
+                <IconButton 
+                  onClick={() => setShowCreateLobbyModal(false)}
+                  sx={{
+                    background: 'rgba(255, 255, 255, 0.08)',
+                    color: 'rgba(255, 255, 255, 0.6)',
+                    fontSize: '1.8rem',
+                    height: '40px',
+                    width: '40px',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.3s',
+                    '&:hover': {
+                      background: 'rgba(255, 255, 255, 0.15)',
+                      color: 'white',
+                      transform: 'rotate(90deg)'
+                    }
+                  }}
+                >
+                  &times;
+                </IconButton>
               </ModalHeader>
-              <form onSubmit={handleCreateLobby}>
+              <Box component="form" onSubmit={handleCreateLobby}>
                 <LobbyTypeSelector>
-                  <button
+                  <Button
                     type="button"
                     className={lobbyType === 'normal' ? 'active' : ''}
                     onClick={() => setLobbyType('normal')}
                   >
                     <FaUsers style={{ marginRight: '8px' }} />
                     Normal Lobi
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
                     className={lobbyType === 'event' ? 'active' : ''}
                     onClick={() => setLobbyType('event')}
                   >
                     <FaCalendarAlt style={{ marginRight: '8px' }} />
                     Etkinlik Lobi
-                  </button>
+                  </Button>
                 </LobbyTypeSelector>
 
-                <FormGroup>
-                  <label>Lobi Adı</label>
-                  <input
+                <FormGroup fullWidth>
+                  <FormLabel component="label">Lobi Adı</FormLabel>
+                  <TextField
                     type="text"
                     placeholder="Lobi adını girin"
                     value={lobbyData.name}
                     onChange={(e) => setLobbyData({ ...lobbyData, name: e.target.value })}
                     required
+                    fullWidth
+                    variant="outlined"
+                    inputProps={{ style: { color: 'white' } }}
                   />
                 </FormGroup>
 
-                <FormGroup>
-                  <label>Bahis Miktarı</label>
-                  <input
+                <FormGroup fullWidth>
+                  <FormLabel component="label">Bahis Miktarı</FormLabel>
+                  <TextField
                     type="number"
                     placeholder="Bahis miktarını girin"
                     value={lobbyData.betAmount}
                     onChange={(e) => setLobbyData({ ...lobbyData, betAmount: e.target.value })}
                     min="0"
                     required
+                    fullWidth
+                    variant="outlined"
+                    inputProps={{ style: { color: 'white' } }}
                   />
                 </FormGroup>
 
-                <FormGroup>
-                  <label>Lobi Şifresi (Opsiyonel)</label>
-                  <input
+                <FormGroup fullWidth>
+                  <FormLabel component="label">Lobi Şifresi (Opsiyonel)</FormLabel>
+                  <TextField
                     type="password"
                     placeholder="Şifre belirleyin"
                     value={lobbyData.password}
                     onChange={(e) => setLobbyData({ ...lobbyData, password: e.target.value })}
+                    fullWidth
+                    variant="outlined"
+                    inputProps={{ style: { color: 'white' } }}
                   />
                 </FormGroup>
 
                 {lobbyType === 'event' && (
                   <>
-                    <FormGroup>
-                      <label>
+                    <FormGroup fullWidth>
+                      <FormLabel component="label">
                         <FaClock style={{ marginRight: '8px' }} />
                         Başlangıç Tarihi ve Saati
-                      </label>
-                      <input
+                      </FormLabel>
+                      <TextField
                         type="datetime-local"
                         value={lobbyData.startDate}
                         onChange={(e) => setLobbyData({ ...lobbyData, startDate: e.target.value })}
                         required={lobbyType === 'event'}
+                        fullWidth
+                        variant="outlined"
+                        inputProps={{ style: { color: 'white' } }}
                       />
                     </FormGroup>
 
-                    <FormGroup>
-                      <label>
+                    <FormGroup fullWidth>
+                      <FormLabel component="label">
                         <FaClock style={{ marginRight: '8px' }} />
                         Bitiş Tarihi ve Saati
-                      </label>
-                      <input
+                      </FormLabel>
+                      <TextField
                         type="datetime-local"
                         value={lobbyData.endDate}
                         onChange={(e) => setLobbyData({ ...lobbyData, endDate: e.target.value })}
                         required={lobbyType === 'event'}
+                        fullWidth
+                        variant="outlined"
+                        inputProps={{ style: { color: 'white' } }}
                       />
                     </FormGroup>
                   </>
                 )}
 
-                <SubmitButton type="submit" disabled={isSubmitting}>
+                <SubmitButton 
+                  type="submit" 
+                  disabled={isSubmitting} 
+                  variant="contained"
+                  sx={{ 
+                    marginTop: '20px', 
+                    marginBottom: '10px' 
+                  }}
+                >
                   {isSubmitting ? 'Oluşturuluyor...' : 'Lobi Oluştur'}
                 </SubmitButton>
-              </form>
+              </Box>
             </ModalContent>
           </Modal>
         )}
@@ -1414,20 +1562,41 @@ function GameDetailPage() {
           <SuccessModal>
             <SuccessContent>
               <ModalHeader>
-                <h2>Lobi Başarıyla Oluşturuldu!</h2>
-                <button onClick={() => {
-                  setShowSuccessModal(false);
-                  resetForm();
-                }}>&times;</button>
+                <ModalTitle variant="h2">Lobi Başarıyla Oluşturuldu!</ModalTitle>
+                <IconButton 
+                  onClick={() => {
+                    setShowSuccessModal(false);
+                    resetForm();
+                  }}
+                  sx={{
+                    background: 'rgba(255, 255, 255, 0.08)',
+                    color: 'rgba(255, 255, 255, 0.6)',
+                    fontSize: '1.8rem',
+                    height: '40px',
+                    width: '40px',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.3s',
+                    '&:hover': {
+                      background: 'rgba(255, 255, 255, 0.15)',
+                      color: 'white',
+                      transform: 'rotate(90deg)'
+                    }
+                  }}
+                >
+                  &times;
+                </IconButton>
               </ModalHeader>
               
-              <p>Lobiye katılması için arkadaşlarınıza aşağıdaki kodu paylaşın:</p>
+              <Typography variant="body1">Lobiye katılması için arkadaşlarınıza aşağıdaki kodu paylaşın:</Typography>
               
               <LobbyCode>
                 {createdLobby.lobbyCode}
               </LobbyCode>
               
-              <CopyButton onClick={handleCopyCode}>
+              <CopyButton onClick={handleCopyCode} variant="outlined">
                 {copySuccess ? <FaCheck /> : <FaCopy />}
                 {copySuccess ? 'Kopyalandı!' : 'Kodu Kopyala'}
               </CopyButton>
@@ -1438,7 +1607,8 @@ function GameDetailPage() {
               
               <SubmitButton 
                 onClick={() => navigate(`/lobby/${createdLobby.lobbyCode}`)}
-                style={{ marginTop: '20px' }}
+                sx={{ marginTop: '20px' }}
+                variant="contained"
               >
                 Lobiye Git
               </SubmitButton>

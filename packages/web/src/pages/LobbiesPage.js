@@ -1,66 +1,148 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
-import { FaSearch, FaFilter, FaUsers, FaLock, FaCalendarAlt, FaCoins, FaGamepad } from 'react-icons/fa';
+import { FaSearch, FaFilter, FaUsers, FaLock, FaCalendarAlt, FaCoins, FaGamepad, FaCrown, FaStar } from 'react-icons/fa';
 import axiosInstance from '../api/axios';
-import { Button } from '@mui/material';
+import { 
+  Button, 
+  Box, 
+  Typography, 
+  InputBase, 
+  Card, 
+  CardContent, 
+  Chip, 
+  Skeleton, 
+  Fade, 
+  Grow,
+  Divider,
+  Badge,
+  IconButton
+} from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import { theme } from '../styles/theme';
-import { Settings as SettingsIcon, FilterList as FilterListIcon } from '@mui/icons-material';
+import { 
+  Settings as SettingsIcon, 
+  FilterList as FilterListIcon, 
+  Add as AddIcon,
+  Refresh as RefreshIcon
+} from '@mui/icons-material';
 import MainLayout from '../components/Layout/MainLayout';
 
-const PageContainer = styled.div`
+const PageContainer = styled(Box)`
   color: white;
-  padding: 40px;
+  padding: 40px 20px;
+  max-width: 1600px;
+  margin: 0 auto;
+  
+  @media (max-width: 600px) {
+    padding: 20px 16px;
+  }
 `;
 
-const Header = styled.div`
+const Header = styled(Box)`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: 32px;
+  flex-wrap: wrap;
+  gap: 16px;
 `;
 
-const Title = styled.h1`
-  font-size: 24px;
+const Title = styled(Typography)`
+  font-size: 32px;
+  font-weight: 700;
   color: ${theme.palette.text.primary};
   margin: 0;
+  position: relative;
+  
+  &:after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    left: 0;
+    width: 60px;
+    height: 4px;
+    background: linear-gradient(90deg, #7C4DFF, #4A7DFF);
+    border-radius: 4px;
+  }
 `;
 
-const HeaderActions = styled.div`
+const HeaderActions = styled(Box)`
   display: flex;
   gap: 16px;
   align-items: center;
 `;
 
-const ManageButton = styled(Button)`
+const CreateButton = styled(Button)`
   && {
-    background-color: ${theme.palette.secondary.main};
+    background: linear-gradient(45deg, #7C4DFF, #4A7DFF);
     color: white;
+    padding: 8px 16px;
+    border-radius: 12px;
+    font-weight: 600;
+    transition: all 0.3s;
+    box-shadow: 0 4px 12px rgba(124, 77, 255, 0.2);
+    
     &:hover {
-      background-color: ${theme.palette.secondary.dark};
+      background: linear-gradient(45deg, #6236FF, #3A6AE8);
+      box-shadow: 0 6px 16px rgba(124, 77, 255, 0.3);
+      transform: translateY(-2px);
     }
   }
 `;
 
-const SearchBar = styled.div`
-  display: flex;
-  gap: 10px;
-  flex: 1;
-  max-width: 600px;
+const ManageButton = styled(Button)`
+  && {
+    background-color: ${alpha(theme.palette.secondary.main, 0.1)};
+    color: ${theme.palette.secondary.main};
+    padding: 8px 16px;
+    border-radius: 12px;
+    font-weight: 600;
+    border: 1px solid ${alpha(theme.palette.secondary.main, 0.2)};
+    
+    &:hover {
+      background-color: ${alpha(theme.palette.secondary.main, 0.2)};
+    }
+  }
 `;
 
-const SearchInput = styled.input`
+const SearchFilterContainer = styled(Box)`
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 32px;
+  background: ${alpha('#2A2C4E', 0.5)};
+  border-radius: 16px;
+  padding: 24px;
+  border: 1px solid ${alpha(theme.palette.primary.main, 0.1)};
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(8px);
+`;
+
+const SearchBar = styled(Box)`
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  align-items: center;
+`;
+
+const SearchInput = styled(InputBase)`
   flex: 1;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: ${alpha(theme.palette.background.paper, 0.1)};
+  border: 1px solid ${alpha(theme.palette.primary.main, 0.1)};
   border-radius: 12px;
   padding: 12px 20px;
   color: white;
   font-size: 1rem;
+  transition: all 0.3s ease;
 
-  &:focus {
-    outline: none;
+  & .MuiInputBase-input {
+    padding: 0;
+  }
+
+  &.Mui-focused {
     border-color: #4a7dff;
+    box-shadow: 0 0 0 3px ${alpha('#4a7dff', 0.2)};
   }
 
   &::placeholder {
@@ -68,9 +150,16 @@ const SearchInput = styled.input`
   }
 `;
 
+const SearchIcon = styled(Box)`
+  color: ${alpha(theme.palette.text.primary, 0.5)};
+  margin-right: 8px;
+  display: flex;
+  align-items: center;
+`;
+
 const FilterButton = styled(Button)`
   && {
-    background: rgba(124, 77, 255, 0.1);
+    background: ${alpha('#7C4DFF', 0.1)};
     color: #7C4DFF;
     padding: 12px 20px;
     border-radius: 12px;
@@ -79,91 +168,163 @@ const FilterButton = styled(Button)`
     align-items: center;
     gap: 8px;
     transition: all 0.3s;
+    min-width: 120px;
 
     &:hover {
-      background: rgba(124, 77, 255, 0.2);
+      background: ${alpha('#7C4DFF', 0.2)};
     }
   }
 `;
 
-const FiltersContainer = styled.div`
+const RefreshButtonWrapper = styled(Box)`
   display: flex;
-  gap: 15px;
-  margin-bottom: 30px;
+  justify-content: flex-end;
+  margin: -8px 0 16px;
+`;
+
+const FiltersContainer = styled(Box)`
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
   flex-wrap: wrap;
+  padding-top: 16px;
+  border-top: 1px solid ${alpha(theme.palette.divider, 0.1)};
 `;
 
-const FilterChip = styled.button`
-  background: ${props => props.active ? '#7C4DFF' : 'rgba(124, 77, 255, 0.1)'};
+const FilterChip = styled(Chip)`
+  background: ${props => props.active ? 'linear-gradient(45deg, #7C4DFF, #4A7DFF)' : alpha('#7C4DFF', 0.1)};
   color: ${props => props.active ? 'white' : '#7C4DFF'};
-  border: none;
-  padding: 8px 16px;
   border-radius: 20px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  padding: 4px;
   transition: all 0.3s;
+  font-weight: ${props => props.active ? '600' : '400'};
+  border: 1px solid ${props => props.active ? 'transparent' : alpha('#7C4DFF', 0.2)};
+  box-shadow: ${props => props.active ? '0 4px 12px rgba(124, 77, 255, 0.2)' : 'none'};
+
+  .MuiChip-label {
+    padding: 0 12px;
+  }
 
   &:hover {
-    background: ${props => props.active ? '#6236FF' : 'rgba(124, 77, 255, 0.2)'};
+    background: ${props => props.active ? 'linear-gradient(45deg, #6236FF, #3A6AE8)' : alpha('#7C4DFF', 0.2)};
+    transform: ${props => props.active ? 'translateY(-2px)' : 'none'};
   }
 `;
 
-const LobbiesList = styled.div`
+const LobbiesList = styled(Box)`
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 24px;
 `;
 
-const LobbyCard = styled.div`
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 16px;
-  padding: 20px;
-  cursor: pointer;
-  transition: all 0.3s;
-
-  &:hover {
-    transform: translateY(-5px);
-    background: rgba(255, 255, 255, 0.08);
+const LobbyCard = styled(Card)`
+  && {
+    background: ${alpha('#2A2C4E', 0.5)};
+    border-radius: 16px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    border: 1px solid ${alpha(theme.palette.primary.main, 0.1)};
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+    height: 100%;
+    
+    &:hover {
+      transform: translateY(-8px);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
+      border-color: ${alpha(theme.palette.primary.main, 0.3)};
+      
+      .hover-effect {
+        opacity: 1;
+      }
+    }
+    
+    ${props => props.isFeatured && `
+      border: 2px solid ${alpha('#FFD700', 0.5)};
+      box-shadow: 0 8px 24px rgba(255, 215, 0, 0.15);
+      
+      &:before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #FFC107, #FFD700);
+      }
+    `}
   }
 `;
 
-const LobbyHeader = styled.div`
+const EventBadge = styled(Box)`
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+`;
+
+const LobbyCardContent = styled(CardContent)`
+  padding: 24px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+`;
+
+const LobbyHeader = styled(Box)`
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 15px;
+  margin-bottom: 16px;
 `;
 
-const LobbyTitle = styled.h3`
-  margin: 0;
-  font-size: 1.2rem;
+const LobbyTitle = styled(Typography)`
+  font-size: 1.3rem;
+  font-weight: 600;
   color: white;
+  margin-right: 12px;
+  flex: 1;
 `;
 
-const GameBadge = styled.div`
-  background: rgba(124, 77, 255, 0.1);
-  color: #7C4DFF;
-  padding: 4px 8px;
-  border-radius: 8px;
-  font-size: 0.8rem;
-  display: flex;
-  align-items: center;
-  gap: 4px;
+const GameBadge = styled(Chip)`
+  && {
+    background: ${alpha('#7C4DFF', 0.1)};
+    color: #7C4DFF;
+    border-radius: 8px;
+    height: auto;
+    padding: 4px 2px;
+    font-size: 0.8rem;
+    border: 1px solid ${alpha('#7C4DFF', 0.2)};
+    
+    .MuiChip-label {
+      padding: 0 8px 0 4px;
+    }
+    
+    .MuiChip-icon {
+      margin-left: 6px;
+      color: #7C4DFF;
+    }
+  }
 `;
 
-const LobbyInfo = styled.div`
+const LobbyInfo = styled(Box)`
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
+  margin-top: auto;
 `;
 
-const InfoRow = styled.div`
+const LobbyDivider = styled(Divider)`
+  && {
+    margin: 12px 0;
+    background-color: ${alpha(theme.palette.divider, 0.1)};
+  }
+`;
+
+const InfoRow = styled(Box)`
   display: flex;
   align-items: center;
-  gap: 8px;
-  color: rgba(255, 255, 255, 0.7);
+  gap: 10px;
+  color: ${alpha(theme.palette.text.primary, 0.8)};
   font-size: 0.9rem;
 
   svg {
@@ -171,12 +332,169 @@ const InfoRow = styled.div`
   }
 `;
 
-const NoLobbies = styled.div`
-  text-align: center;
-  padding: 40px;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 1.1rem;
+const JoinButton = styled(Button)`
+  && {
+    margin-top: 20px;
+    background: linear-gradient(45deg, #7C4DFF, #4A7DFF);
+    color: white;
+    border-radius: 12px;
+    padding: 10px 0;
+    font-weight: 600;
+    transition: all 0.3s;
+    opacity: 0;
+    transform: translateY(10px);
+    
+    &.hover-effect {
+      opacity: 0;
+      transition: all 0.3s ease;
+    }
+  }
 `;
+
+const FeatureBadge = styled(Box)`
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: linear-gradient(45deg, #FFC107, #FFD700);
+  color: #000;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 0.7rem;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  box-shadow: 0 2px 8px rgba(255, 215, 0, 0.3);
+  z-index: 2;
+`;
+
+const NoLobbies = styled(Box)`
+  text-align: center;
+  padding: 60px 20px;
+  background: ${alpha('#2A2C4E', 0.3)};
+  border-radius: 16px;
+  color: ${alpha(theme.palette.text.primary, 0.7)};
+  border: 1px dashed ${alpha(theme.palette.divider, 0.3)};
+  grid-column: 1 / -1;
+`;
+
+const NoLobbiesText = styled(Typography)`
+  font-size: 1.2rem;
+  margin-bottom: 16px;
+`;
+
+const NoLobbiesSubText = styled(Typography)`
+  font-size: 0.9rem;
+  color: ${alpha(theme.palette.text.primary, 0.5)};
+  margin-bottom: 24px;
+`;
+
+// Etkinlik durumu bileşeni
+const EventStatus = styled(Chip)`
+  && {
+    background: ${props => {
+      if (props.status === 'waiting') return alpha('#FFC107', 0.1);
+      if (props.status === 'playing') return alpha('#4CAF50', 0.1);
+      return alpha('#F44336', 0.1);
+    }};
+    color: ${props => {
+      if (props.status === 'waiting') return '#FFC107';
+      if (props.status === 'playing') return '#4CAF50';
+      return '#F44336';
+    }};
+    border: 1px solid ${props => {
+      if (props.status === 'waiting') return alpha('#FFC107', 0.3);
+      if (props.status === 'playing') return alpha('#4CAF50', 0.3);
+      return alpha('#F44336', 0.3);
+    }};
+    height: auto;
+    font-size: 0.8rem;
+    margin-top: 8px;
+    border-radius: 8px;
+    
+    .MuiChip-label {
+      padding: 2px 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+  }
+`;
+
+// Geri sayım bileşeni
+const Countdown = styled(Chip)`
+  && {
+    background: ${alpha('#FFC107', 0.1)};
+    color: #FFC107;
+    height: auto;
+    font-size: 0.8rem;
+    margin-top: 8px;
+    animation: pulse 2s infinite;
+    border: 1px solid ${alpha('#FFC107', 0.3)};
+    border-radius: 8px;
+    
+    .MuiChip-label {
+      padding: 2px 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    @keyframes pulse {
+      0% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.7;
+      }
+      100% {
+        opacity: 1;
+      }
+    }
+  }
+`;
+
+const LobbyBackground = styled(Box)`
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: ${props => props.$isEvent ? 
+    `linear-gradient(135deg, ${alpha('#7C4DFF', 0.3)}, ${alpha('#4A7DFF', 0.1)})` : 
+    'transparent'
+  };
+  z-index: 0;
+  pointer-events: none;
+`;
+
+const LoadingSkeleton = () => (
+  <>
+    {[1, 2, 3, 4, 5, 6].map((item) => (
+      <Card key={item} sx={{ 
+        background: alpha('#2A2C4E', 0.5), 
+        borderRadius: '16px',
+        height: '100%',
+        border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
+      }}>
+        <CardContent sx={{ padding: '24px', height: '100%' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+            <Skeleton variant="text" width="60%" height={32} sx={{ bgcolor: alpha('#fff', 0.1) }} />
+            <Skeleton variant="rectangular" width="30%" height={24} sx={{ bgcolor: alpha('#fff', 0.1), borderRadius: '8px' }} />
+          </Box>
+          <Box sx={{ mt: 2 }}>
+            <Skeleton variant="text" width="100%" height={24} sx={{ bgcolor: alpha('#fff', 0.1) }} />
+            <Skeleton variant="text" width="80%" height={24} sx={{ mt: 1, bgcolor: alpha('#fff', 0.1) }} />
+            <Skeleton variant="text" width="60%" height={24} sx={{ mt: 1, bgcolor: alpha('#fff', 0.1) }} />
+          </Box>
+          <Box sx={{ mt: 'auto', pt: 2 }}>
+            <Skeleton variant="rectangular" width="100%" height={42} sx={{ bgcolor: alpha('#fff', 0.1), borderRadius: '12px', mt: 2 }} />
+          </Box>
+        </CardContent>
+      </Card>
+    ))}
+  </>
+);
 
 // Tarih formatlama fonksiyonu
 const formatDate = (dateString) => {
@@ -204,53 +522,6 @@ const getCountdown = (dateString) => {
   return `${hours}s ${minutes}dk`;
 };
 
-// Etkinlik durumu bileşeni
-const EventStatus = styled.div`
-  background: ${props => {
-    if (props.status === 'waiting') return 'rgba(255, 193, 7, 0.1)';
-    if (props.status === 'playing') return 'rgba(76, 175, 80, 0.1)';
-    return 'rgba(244, 67, 54, 0.1)';
-  }};
-  color: ${props => {
-    if (props.status === 'waiting') return '#FFC107';
-    if (props.status === 'playing') return '#4CAF50';
-    return '#F44336';
-  }};
-  padding: 4px 8px;
-  border-radius: 8px;
-  font-size: 0.8rem;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: 8px;
-`;
-
-// Geri sayım bileşeni
-const Countdown = styled.div`
-  background: rgba(255, 193, 7, 0.1);
-  color: #FFC107;
-  padding: 4px 8px;
-  border-radius: 8px;
-  font-size: 0.8rem;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: 8px;
-  animation: pulse 2s infinite;
-
-  @keyframes pulse {
-    0% {
-      opacity: 1;
-    }
-    50% {
-      opacity: 0.7;
-    }
-    100% {
-      opacity: 1;
-    }
-  }
-`;
-
 function LobbiesPage() {
   const navigate = useNavigate();
   const [lobbies, setLobbies] = useState([]);
@@ -269,16 +540,21 @@ function LobbiesPage() {
   }, []);
 
   const fetchLobbies = async () => {
+    setLoading(true);
     try {
       const response = await axiosInstance.get('/lobbies');
       console.log('Gelen lobi yanıtı:', response.data);
       // API yanıtı { lobbies: [...], total, hasMore } formatında
       const lobbiesData = response.data.lobbies || [];
-      setLobbies(lobbiesData);
+      
+      // Bir miktar gecikme ekleyelim ki animasyonları görebilelim
+      setTimeout(() => {
+        setLobbies(lobbiesData);
+        setLoading(false);
+      }, 800);
     } catch (error) {
       console.error('Lobiler yüklenirken hata:', error);
       setLobbies([]); // Hata durumunda boş array
-    } finally {
       setLoading(false);
     }
   };
@@ -322,86 +598,151 @@ function LobbiesPage() {
     navigate(`/join/lobby/${lobby.lobbyCode}`);
   };
 
+  const handleRefresh = () => {
+    fetchLobbies();
+  };
+
   const renderLobbyCards = () => {
     if (loading) {
-      return <NoLobbies>Lobiler yükleniyor...</NoLobbies>;
+      return <LoadingSkeleton />;
     }
 
     if (filteredLobbies.length === 0) {
-      return <NoLobbies>Aktif lobi bulunamadı</NoLobbies>;
+      return (
+        <NoLobbies>
+          <NoLobbiesText variant="h6">Aktif lobi bulunamadı</NoLobbiesText>
+          <NoLobbiesSubText variant="body2">
+            Yeni bir lobi oluşturabilir veya filtrelerinizi değiştirebilirsiniz
+          </NoLobbiesSubText>
+          <CreateButton
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => navigate('/games/bingo')}
+          >
+            Yeni Lobi Oluştur
+          </CreateButton>
+        </NoLobbies>
+      );
     }
 
-    return filteredLobbies.map(lobby => (
-      <LobbyCard key={lobby._id} onClick={() => handleJoinLobby(lobby)}>
-        <LobbyHeader>
-          <LobbyTitle>{lobby.name}</LobbyTitle>
-          <GameBadge>
-            <FaGamepad size={12} />
-            {lobby.game}
-          </GameBadge>
-        </LobbyHeader>
+    return filteredLobbies.map((lobby, index) => (
+      <Grow
+        in={true}
+        style={{ transformOrigin: '0 0 0' }}
+        timeout={(index % 6) * 100 + 300}
+        key={lobby._id}
+      >
+        <LobbyCard 
+          onClick={() => handleJoinLobby(lobby)} 
+          isFeatured={lobby.isEventLobby && lobby.status === 'waiting'}
+        >
+          <LobbyBackground $isEvent={lobby.isEventLobby} />
+          
+          {lobby.isEventLobby && lobby.status === 'waiting' && (
+            <FeatureBadge>
+              <FaCrown size={12} /> Özel Etkinlik
+            </FeatureBadge>
+          )}
+          
+          <LobbyCardContent>
+            <LobbyHeader>
+              <LobbyTitle variant="h3">{lobby.name}</LobbyTitle>
+              <GameBadge
+                icon={<FaGamepad size={14} />}
+                label={lobby.game}
+              />
+            </LobbyHeader>
 
-        <LobbyInfo>
-          <InfoRow>
-            <FaUsers size={14} />
-            {lobby.players.length}/{lobby.maxPlayers} Oyuncu
-          </InfoRow>
-          
-          {lobby.betAmount > 0 && (
-            <InfoRow>
-              <FaCoins size={14} />
-              {lobby.betAmount} Jeton
-            </InfoRow>
-          )}
-          
-          {lobby.isPrivate && (
-            <InfoRow>
-              <FaLock size={14} />
-              Özel Lobi
-            </InfoRow>
-          )}
-          
-          {lobby.isEventLobby && lobby.eventDetails && (
-            <>
+            <LobbyInfo>
               <InfoRow>
-                <FaCalendarAlt size={14} />
-                Etkinlik Lobisi
+                <FaUsers size={16} />
+                <Typography variant="body2">
+                  {lobby.players.length}/{lobby.maxPlayers} Oyuncu
+                </Typography>
               </InfoRow>
               
-              {lobby.eventDetails.startDate && (
+              {lobby.betAmount > 0 && (
                 <InfoRow>
-                  <FaCalendarAlt size={14} />
-                  Başlangıç: {formatDate(lobby.eventDetails.startDate)}
+                  <FaCoins size={16} />
+                  <Typography variant="body2">
+                    {lobby.betAmount} Jeton
+                  </Typography>
                 </InfoRow>
               )}
               
-              {lobby.status === 'waiting' && lobby.eventDetails.startDate && (
-                (() => {
-                  const now = new Date();
-                  const startDate = new Date(lobby.eventDetails.startDate);
-                  const diff = startDate - now;
-                  const lessThan24Hours = diff > 0 && diff < 24 * 60 * 60 * 1000;
-                  
-                  if (lessThan24Hours) {
-                    return (
-                      <Countdown>
-                        <FaCalendarAlt size={14} />
-                        Başlamasına: {getCountdown(lobby.eventDetails.startDate)}
-                      </Countdown>
-                    );
-                  }
-                  return null;
-                })()
+              {lobby.isPrivate && (
+                <InfoRow>
+                  <FaLock size={16} />
+                  <Typography variant="body2">
+                    Özel Lobi
+                  </Typography>
+                </InfoRow>
               )}
               
-              <EventStatus status={lobby.status}>
-                {lobby.status === 'waiting' ? 'Bekliyor' : 
-                 lobby.status === 'playing' ? 'Aktif' : 'Tamamlandı'}
-              </EventStatus>
-            </>
-          )}
-        </LobbyInfo>
-      </LobbyCard>
+              {lobby.isEventLobby && lobby.eventDetails && (
+                <>
+                  <LobbyDivider />
+                  <InfoRow>
+                    <FaCalendarAlt size={16} />
+                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                      Etkinlik Lobisi
+                    </Typography>
+                  </InfoRow>
+                  
+                  {lobby.eventDetails.startDate && (
+                    <InfoRow>
+                      <FaCalendarAlt size={16} />
+                      <Typography variant="body2">
+                        Başlangıç: {formatDate(lobby.eventDetails.startDate)}
+                      </Typography>
+                    </InfoRow>
+                  )}
+                  
+                  {lobby.status === 'waiting' && lobby.eventDetails.startDate && (
+                    (() => {
+                      const now = new Date();
+                      const startDate = new Date(lobby.eventDetails.startDate);
+                      const diff = startDate - now;
+                      const lessThan24Hours = diff > 0 && diff < 24 * 60 * 60 * 1000;
+                      
+                      if (lessThan24Hours) {
+                        return (
+                          <Countdown
+                            icon={<FaCalendarAlt size={14} />}
+                            label={`Başlamasına: ${getCountdown(lobby.eventDetails.startDate)}`}
+                          />
+                        );
+                      }
+                      return null;
+                    })()
+                  )}
+                  
+                  <EventStatus 
+                    status={lobby.status}
+                    icon={
+                      lobby.status === 'waiting' ? <FaUsers size={14} /> : 
+                      lobby.status === 'playing' ? <FaGamepad size={14} /> : 
+                      <FaStar size={14} />
+                    }
+                    label={
+                      lobby.status === 'waiting' ? 'Bekliyor' : 
+                      lobby.status === 'playing' ? 'Aktif' : 'Tamamlandı'
+                    }
+                  />
+                </>
+              )}
+            </LobbyInfo>
+            
+            <JoinButton
+              variant="contained"
+              fullWidth
+              className="hover-effect"
+            >
+              Lobiye Katıl
+            </JoinButton>
+          </LobbyCardContent>
+        </LobbyCard>
+      </Grow>
     ));
   };
 
@@ -409,10 +750,17 @@ function LobbiesPage() {
     <MainLayout>
       <PageContainer>
         <Header>
-          <Title>Lobiler</Title>
+          <Title variant="h1">Lobiler</Title>
           <HeaderActions>
-            <ManageButton 
+            <CreateButton 
               variant="contained" 
+              startIcon={<AddIcon />}
+              onClick={() => navigate('/games/bingo')}
+            >
+              Lobi Oluştur
+            </CreateButton>
+            <ManageButton 
+              variant="outlined" 
               startIcon={<SettingsIcon />}
               onClick={() => navigate('/lobbies/manage')}
             >
@@ -421,53 +769,60 @@ function LobbiesPage() {
           </HeaderActions>
         </Header>
 
-        <SearchBar>
-          <SearchInput 
-            type="text" 
-            placeholder="Lobi adı veya oyun ara..." 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-          <FilterButton 
-            variant="contained" 
-            startIcon={<FilterListIcon />}
-            onClick={() => setShowFilters(!showFilters)}
-          >
-            Filtrele
-          </FilterButton>
-        </SearchBar>
+        <SearchFilterContainer>
+          <SearchBar>
+            <SearchInput 
+              placeholder="Lobi adı veya oyun ara..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              fullWidth
+              startAdornment={<SearchIcon><FaSearch size={16} /></SearchIcon>}
+            />
+            <FilterButton 
+              variant="contained" 
+              startIcon={<FilterListIcon />}
+              onClick={() => setShowFilters(!showFilters)}
+            >
+              Filtrele
+            </FilterButton>
+          </SearchBar>
 
-        {showFilters && (
-          <FiltersContainer>
-            <FilterChip 
-              active={filters.all} 
-              onClick={() => handleFilterChange('all')}
-            >
-              Tümü
-            </FilterChip>
-            <FilterChip 
-              active={filters.public} 
-              onClick={() => handleFilterChange('public')}
-            >
-              <FaUsers size={12} />
-              Açık Lobiler
-            </FilterChip>
-            <FilterChip 
-              active={filters.private} 
-              onClick={() => handleFilterChange('private')}
-            >
-              <FaLock size={12} />
-              Özel Lobiler
-            </FilterChip>
-            <FilterChip 
-              active={filters.events} 
-              onClick={() => handleFilterChange('events')}
-            >
-              <FaCalendarAlt size={12} />
-              Etkinlikler
-            </FilterChip>
-          </FiltersContainer>
-        )}
+          {showFilters && (
+            <Fade in={showFilters}>
+              <FiltersContainer>
+                <FilterChip 
+                  active={filters.all} 
+                  onClick={() => handleFilterChange('all')}
+                  label="Tümü"
+                />
+                <FilterChip 
+                  active={filters.public} 
+                  onClick={() => handleFilterChange('public')}
+                  icon={<FaUsers size={12} />}
+                  label="Açık Lobiler"
+                />
+                <FilterChip 
+                  active={filters.private} 
+                  onClick={() => handleFilterChange('private')}
+                  icon={<FaLock size={12} />}
+                  label="Özel Lobiler"
+                />
+                <FilterChip 
+                  active={filters.events} 
+                  onClick={() => handleFilterChange('events')}
+                  icon={<FaCalendarAlt size={12} />}
+                  label="Etkinlikler"
+                />
+              </FiltersContainer>
+            </Fade>
+          )}
+        </SearchFilterContainer>
+
+        <RefreshButtonWrapper>
+          <IconButton onClick={handleRefresh} size="small" sx={{ color: alpha('#fff', 0.7) }}>
+            <RefreshIcon />
+          </IconButton>
+        </RefreshButtonWrapper>
 
         <LobbiesList>
           {renderLobbyCards()}

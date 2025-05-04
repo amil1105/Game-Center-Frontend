@@ -15,6 +15,7 @@ const server = http.createServer(app);
 
 // MongoDB modellerini yükle
 const Lobby = require('./models/Lobby');
+const User = require('./models/User');
 
 // Tombala yardımcı fonksiyonlarını içe aktar veya tanımla
 // Bir oyuncunun kartında 15 işaretli sayı olup olmadığını kontrol et
@@ -152,7 +153,7 @@ io.on('connection', (socket) => {
   // Bağlantı parametrelerini al ve loglama
   const { lobbyId, playerId, playerName } = socket.handshake.query;
   console.log(`Bağlantı parametreleri: lobbyId=${lobbyId}, playerId=${playerId}, playerName=${playerName || 'Belirtilmemiş'}`);
-  
+
   // Ping-pong ile bağlantı kontrolü
   socket.on('ping', (data, callback) => {
     console.log(`Ping alındı: ${socket.id}`);
@@ -197,7 +198,7 @@ io.on('connection', (socket) => {
       // drawnNumbers dizisinin durumunu kontrol et ve logla
       console.log(`Sayı çekme öncesi - Lobi: ${lobbyId}, Mevcut çekilen sayılar:`, 
         Array.isArray(lobby.drawnNumbers) ? `${lobby.drawnNumbers.length} sayı çekilmiş: [${lobby.drawnNumbers.join(', ')}]` : 'dizi değil');
-      
+    
       // Eğer drawnNumbers tanımlı değilse, boş dizi olarak başlat
       if (!lobby.drawnNumbers || !Array.isArray(lobby.drawnNumbers)) {
         console.log('drawnNumbers dizisi tanımlı değil veya dizi değil, yeni dizi oluşturuluyor');
@@ -211,11 +212,11 @@ io.on('connection', (socket) => {
         for (const key in lobby.drawnNumbers) {
           if (Object.prototype.hasOwnProperty.call(lobby.drawnNumbers, key)) {
             tempArray.push(parseInt(lobby.drawnNumbers[key]));
-          }
+    }
         }
         lobby.drawnNumbers = tempArray;
-      }
-      
+    }
+    
       // Önceki çekilen sayıların sayısını logla
       console.log(`Çekilen sayı sayısı (çekim öncesi): ${lobby.drawnNumbers.length}/90`);
       
@@ -231,19 +232,19 @@ io.on('connection', (socket) => {
       // Sayıyı ekle
       lobby.drawnNumbers.push(nextNumber);
       lobby.currentNumber = nextNumber;
-      
+        
       // drawnNumbers dizisini kontrol et ve logla
       console.log(`Sayı eklendikten sonra - drawnNumbers: [${lobby.drawnNumbers.join(', ')}]`);
       console.log(`Toplam çekilen sayı adedi: ${lobby.drawnNumbers.length}/90`);
-      
+          
       // Mongo için güncellemeyi işaretle
       lobby.markModified('drawnNumbers');
-      
+          
       // Veritabanına kaydet
       try {
         await lobby.save();
         console.log(`Lobby başarıyla kaydedildi. Güncel çekilen sayı adedi: ${lobby.drawnNumbers.length}/90`);
-        
+              
         // Tüm oyunculara yeni sayıyı bildir - kaydettikten sonra bildir
         io.to(lobbyId).emit('number_drawn', {
           number: nextNumber,
@@ -262,29 +263,64 @@ io.on('connection', (socket) => {
       // Tüm sayılar çekildiyse durumu güncelle
       if (lobby.drawnNumbers.length >= 90) {
         lobby.status = 'finished';
-        await lobby.save();
+                await lobby.save();
         io.to(lobbyId).emit('game_end', { 
           message: 'Tüm sayılar çekildi, oyun bitti!',
           allNumbersDrawn: true
         });
         return;
-      }
-      
+        }
+        
       // Tüm oyuncuların kartlarını kontrol et - 15 işaretli sayı kontrolü
       if (lobby.playersDetail && Array.isArray(lobby.playersDetail)) {
         for (const player of lobby.playersDetail) {
           if (player.card) {
             const tombalaCheck = checkForTombalaByMarkedCount(player.card, lobby.drawnNumbers);
-            
+
             // Eğer oyuncunun kartında 15 işaretli sayı varsa, otomatik tombala!
             if (tombalaCheck.isTombala) {
               console.log(`Otomatik tombala tespit edildi! Oyuncu: ${player.name || player.id}, İşaretli: ${tombalaCheck.markedCount}/15`);
-              
+    
+              // Kullanıcı adını users tablosundan al
+              let realPlayerName = player.name;
+              try {
+                if (mongoose.Types.ObjectId.isValid(player.id)) {
+                  const user = await User.findById(player.id);
+                  if (user && user.username) {
+                    realPlayerName = user.username;
+                    console.log(`Kullanıcı adı Users tablosundan alındı: ${realPlayerName}`);
+                  } else {
+                    console.log(`Kullanıcı bulunamadı veya username alanı yok: ${player.id}`);
+                    
+                    // Kullanıcı bilgisi player.user'dan gelebilir
+                    if (player.user && typeof player.user === 'object') {
+                      // Zaten Mongoose tarafından populate edilmiş olabilir
+                      if (player.user.username) {
+                        realPlayerName = player.user.username;
+                        console.log(`Kullanıcı adı player.user nesnesinden alındı: ${realPlayerName}`);
+                      }
+                    } else if (player.user) {
+                      // Lobi içinde detaylı bilgilerine bak
+                      const playerDetail = lobby.playersDetail.find(p => 
+                        p.user && p.user.toString() === player.user.toString()
+                      );
+                      
+                      if (playerDetail && playerDetail.name) {
+                        realPlayerName = playerDetail.name;
+                        console.log(`Oyuncu adı playersDetail'dan alındı: ${realPlayerName}`);
+                      }
+                    }
+                  }
+                }
+              } catch (error) {
+                console.error('Kullanıcı bilgisi alınamadı:', error);
+              }
+    
               // Kazananı güncelle
               if (!lobby.winners) lobby.winners = [];
               lobby.winners.push({
                 playerId: player.id,
-                playerName: player.name || 'Bilinmeyen Oyuncu',
+                playerName: realPlayerName || player.name || 'Bilinmeyen Oyuncu',
                 type: 'tombala',
                 timestamp: new Date()
               });
@@ -297,10 +333,10 @@ io.on('connection', (socket) => {
               
               // Tüm oyunculara bildirimi gönder
               io.to(lobbyId).emit('game_end', {
-                message: `${player.name || 'Bir oyuncu'} tüm sayıları işaretledi (15/15)! Oyun bitti!`,
+                message: `${realPlayerName || player.name || 'Bir oyuncu'} tüm sayıları işaretledi (15/15)! Oyun bitti!`,
                 winner: {
                   playerId: player.id,
-                  playerName: player.name || 'Bilinmeyen Oyuncu',
+                  playerName: realPlayerName || player.name || 'Bilinmeyen Oyuncu',
                   totalMarked: tombalaCheck.markedCount,
                   type: 'tombala'
                 },
@@ -309,7 +345,7 @@ io.on('connection', (socket) => {
               
               io.to(lobbyId).emit('tombala_claimed', {
                 playerId: player.id,
-                playerName: player.name || 'Bilinmeyen Oyuncu',
+                playerName: realPlayerName || player.name || 'Bilinmeyen Oyuncu',
                 type: 'tombala',
                 automatic: true,
                 totalMarked: 15
@@ -326,7 +362,7 @@ io.on('connection', (socket) => {
       socket.emit('error', { message: 'Sayı çekilirken bir hata oluştu' });
     }
   });
-  
+
   // Odaya katılma
   socket.on('join_lobby', async (data) => {
     try {
@@ -338,9 +374,23 @@ io.on('connection', (socket) => {
         return;
       }
       
+      // Gerçek kullanıcı adını Users tablosundan al
+      let realPlayerName = playerName;
+      try {
+        if (mongoose.Types.ObjectId.isValid(playerId)) {
+          const user = await User.findById(playerId);
+          if (user && user.username) {
+            realPlayerName = user.username;
+            console.log(`Kullanıcı adı Users tablosundan alındı: ${realPlayerName}`);
+          }
+        }
+      } catch (userError) {
+        console.error('Kullanıcı bilgisi alınamadı:', userError);
+      }
+      
       // Lobiye katıl
     socket.join(lobbyId);
-      console.log(`Oyuncu ${playerId} ${lobbyId} lobisine katıldı`);
+      console.log(`Oyuncu ${playerId} (${realPlayerName}) ${lobbyId} lobisine katıldı`);
       
       try {
         // Lobi bilgilerini al
@@ -349,26 +399,54 @@ io.on('connection', (socket) => {
             { lobbyCode: lobbyId }, 
             { _id: mongoose.Types.ObjectId.isValid(lobbyId) ? mongoose.Types.ObjectId(lobbyId) : null }
           ]
+        }).populate({
+          path: 'playersDetail.user',
+          select: 'username profileImage'
         });
         
-              if (lobby) {
+        if (lobby) {
           console.log(`Lobi bulundu: ${lobby.lobbyCode}`);
-                
+          
+          // Kullanıcı bilgilerini zenginleştir
+          const enrichedPlayers = lobby.playersDetail.map(player => {
+            // Null kontrol
+            if (!player.user) {
+              return {
+                id: `bot-${player._id || Math.random().toString(36).substring(2, 9)}`,
+                name: player.name || 'Bot Oyuncu',
+                isBot: true,
+                isHost: false,
+                isReady: player.isReady || false,
+                profileImage: player.profileImage || null
+              };
+            }
+            
+            const userProfile = player.user;
+            return {
+              id: player.user.toString(),
+              name: player.name || (userProfile ? userProfile.username : 'Bilinmeyen Oyuncu'),
+              isBot: player.isBot || false,
+              isHost: player.user.toString() === lobby.creator.toString(),
+              isReady: player.isReady || false,
+              profileImage: player.profileImage || (userProfile ? userProfile.profileImage : null)
+            };
+          });
+          
           // Oyun durumunu bildir
                 socket.emit('lobby_joined', {
             lobbyId: lobby.lobbyCode,
             gameStatus: lobby.status,
             drawnNumbers: lobby.drawnNumbers || [],
             currentNumber: lobby.currentNumber,
-            message: `${playerName || 'Oyuncu'} lobiye katıldı`,
-            players: lobby.playersDetail || []
+            message: `${realPlayerName || 'Oyuncu'} lobiye katıldı`,
+            players: enrichedPlayers
           });
           
           // Diğer oyunculara bildir
           socket.to(lobbyId).emit('player_joined', {
             playerId,
-            playerName: playerName || 'Yeni Oyuncu',
-            players: lobby.playersDetail || []
+            playerName: realPlayerName || 'Yeni Oyuncu',
+            players: enrichedPlayers
           });
               } else {
           console.warn(`Lobi bulunamadı, geçici lobi oluşturuluyor: ${lobbyId}`);
@@ -394,7 +472,7 @@ io.on('connection', (socket) => {
           players: []
         });
       }
-            } catch (error) {
+    } catch (error) {
       console.error('Lobiye katılma hatası:', error);
       socket.emit('error', { message: 'Lobiye katılırken bir hata oluştu' });
     }
@@ -409,8 +487,8 @@ io.on('connection', (socket) => {
       if (!lobbyId) {
         socket.emit('error', { message: 'Lobi ID gerekli' });
         return;
-      }
-      
+        }
+        
       // Lobi bilgilerini al
       const lobby = await Lobby.findOne({ 
         $or: [
@@ -426,13 +504,13 @@ io.on('connection', (socket) => {
       }
       
       // Oyun başlatıldı olarak güncelle
-      lobby.status = 'playing';
+              lobby.status = 'playing';
       
       // Yeni oyun başlatılıyorsa, çekilen sayıları sıfırla
       if (newGame) {
         console.log('Yeni oyun başlatıldı, çekilen sayılar sıfırlanıyor');
-        lobby.drawnNumbers = [];
-        lobby.currentNumber = null;
+              lobby.drawnNumbers = [];
+              lobby.currentNumber = null;
         
         // Kazananları da sıfırla
         if (lobby.winners) {
@@ -442,9 +520,9 @@ io.on('connection', (socket) => {
         // Yeni oyun değilse, çekilen sayıların doğru formatta olduğundan emin ol
         if (!lobby.drawnNumbers || !Array.isArray(lobby.drawnNumbers)) {
           console.log('drawnNumbers dizisi tanımlı değil veya dizi değil, yeni dizi oluşturuluyor');
-          lobby.drawnNumbers = [];
-        }
-        
+      lobby.drawnNumbers = [];
+    }
+    
         // drawnNumbers dizisini kontrol et, eğer nesneyse diziye çevir
         if (typeof lobby.drawnNumbers === 'object' && !Array.isArray(lobby.drawnNumbers)) {
           console.log('drawnNumbers bir nesne olarak saklanmış, diziye çevriliyor');
@@ -467,16 +545,16 @@ io.on('connection', (socket) => {
       // Veritabanına kaydet
       await lobby.save();
       console.log(`Lobi durumu güncellendi: ${lobby.lobbyCode}, Durum: ${lobby.status}, Çekilen Sayı Adedi: ${lobby.drawnNumbers.length}/90`);
-      
-      // Tüm oyunculara bildir
+    
+    // Tüm oyunculara bildir
       io.to(lobbyId).emit('game_start', {
         gameStatus: lobby.status,
         drawnNumbers: lobby.drawnNumbers || [],
         currentNumber: lobby.currentNumber,
         message: data.message || 'Oyun başladı!',
         isNewGame: newGame || false
-      });
-      
+    });
+    
       // Sistem mesajı olarak da gönder
       io.to(lobbyId).emit('system_message', {
         message: data.message || 'Oyun başladı!',
@@ -489,7 +567,7 @@ io.on('connection', (socket) => {
       socket.emit('error', { message: 'Oyun başlatılırken bir hata oluştu' });
     }
   });
-  
+
   // Bağlantı kesildiğinde
   socket.on('disconnect', (reason) => {
     console.log(`Socket bağlantısı kesildi (${socket.id}): ${reason}`);
@@ -527,19 +605,47 @@ io.on('connection', (socket) => {
         return;
       }
       
+      // Kullanıcı adını users tablosundan al
+      let realPlayerName = playerName;
+      try {
+        if (mongoose.Types.ObjectId.isValid(playerId)) {
+          const user = await User.findById(playerId);
+          if (user && user.username) {
+            realPlayerName = user.username;
+            console.log(`Kullanıcı adı Users tablosundan alındı: ${realPlayerName}`);
+          } else {
+            console.log(`Kullanıcı bulunamadı veya username alanı yok: ${playerId}`);
+            
+            // PlayersDetail içinde bu oyuncunun adını ara
+            if (lobby.playersDetail && Array.isArray(lobby.playersDetail)) {
+              const playerDetail = lobby.playersDetail.find(p => 
+                p.user && p.user.toString() === playerId
+              );
+              
+              if (playerDetail && playerDetail.name) {
+                realPlayerName = playerDetail.name;
+                console.log(`Oyuncu adı playersDetail'dan alındı: ${realPlayerName}`);
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Kullanıcı bilgisi alınamadı:', error);
+      }
+      
       // Kazanan olarak ekle
       if (!lobby.winners) {
         lobby.winners = [];
-      }
-      
+                }
+                
       const winnerInfo = {
-        playerId,
-        playerName: playerName || 'Bilinmeyen Oyuncu',
+                  playerId,
+        playerName: realPlayerName || playerName || 'Bilinmeyen Oyuncu',
         type: 'tombala',
         timestamp: new Date(),
         totalMarked: totalMarked || 15
       };
-      
+                
       lobby.winners.push(winnerInfo);
       lobby.markModified('winners');
       
@@ -552,36 +658,36 @@ io.on('connection', (socket) => {
       console.log(`Lobi durumu güncellendi (Tombala): ${lobby.lobbyCode}, Yeni durum: ${lobby.status}`);
       
       // Tüm oyunculara bildir
-      io.to(lobbyId).emit('tombala_claimed', {
-        playerId,
-        playerName: playerName || 'Bir oyuncu',
+        io.to(lobbyId).emit('tombala_claimed', {
+          playerId,
+        playerName: realPlayerName || playerName || 'Bir oyuncu',
         type: 'tombala',
         timestamp: Date.now(),
         totalMarked: totalMarked || 15
-      });
-      
+    });
+        
       // Oyun sonu bildirimini gönder
-      io.to(lobbyId).emit('game_end', {
-        message: `${playerName || 'Bir oyuncu'} TOMBALA yaptı! Oyun bitti!`,
+        io.to(lobbyId).emit('game_end', {
+        message: `${realPlayerName || playerName || 'Bir oyuncu'} TOMBALA yaptı! Oyun bitti!`,
         winner: winnerInfo,
-        winType: 'tombala',
+          winType: 'tombala',
         gameStatus: 'finished',
         endReason: 'tombala_claimed'
-      });
-      
+        });
+        
       // Sistem mesajı olarak da gönder
       io.to(lobbyId).emit('system_message', {
-        message: `${playerName || 'Bir oyuncu'} TOMBALA yaptı! Oyun bitti!`,
+        message: `${realPlayerName || playerName || 'Bir oyuncu'} TOMBALA yaptı! Oyun bitti!`,
         type: 'success',
         timestamp: Date.now()
       });
       
-    } catch (error) {
+        } catch (error) {
       console.error('Tombala talep hatası:', error);
       socket.emit('error', { message: 'Tombala talebi işlenirken bir hata oluştu' });
     }
   });
-  
+
   // Oyun sonu olayı
   socket.on('game_end', async (data) => {
     try {
@@ -600,13 +706,13 @@ io.on('connection', (socket) => {
           { _id: mongoose.Types.ObjectId.isValid(lobbyId) ? mongoose.Types.ObjectId(lobbyId) : null }
         ]
       });
-      
-      if (!lobby) {
-        socket.emit('error', { message: 'Lobi bulunamadı' });
+    
+    if (!lobby) {
+      socket.emit('error', { message: 'Lobi bulunamadı' });
         console.error(`Lobi bulunamadı: ${lobbyId}`);
-        return;
-      }
-      
+      return;
+        }
+    
       // Oyun başlamış mı kontrol et (sadece oynanan oyunlar bitirilebilir)
       if (lobby.status !== 'playing') {
         console.log(`Oyun zaten ${lobby.status} durumunda, bitirme işlemi atlanıyor`);
@@ -621,11 +727,11 @@ io.on('connection', (socket) => {
       await lobby.save();
       console.log(`Lobi durumu güncellendi (Oyun sonu): ${lobby.lobbyCode}, Yeni durum: ${lobby.status}`);
       
-      // Tüm oyunculara bildir
-      io.to(lobbyId).emit('game_end', {
+    // Tüm oyunculara bildir
+    io.to(lobbyId).emit('game_end', {
         message: message || 'Oyun sona erdi!',
         reason: reason || 'manual_end',
-        gameStatus: 'finished',
+      gameStatus: 'finished',
         timestamp: Date.now()
       });
       
@@ -639,6 +745,72 @@ io.on('connection', (socket) => {
     } catch (error) {
       console.error('Oyun sonu hatası:', error);
       socket.emit('error', { message: 'Oyun sonlandırılırken bir hata oluştu' });
+    }
+  });
+
+  // Lobi bilgilerini güncelleme olayı
+  socket.on('lobby_info', async (data) => {
+    try {
+      const { lobbyId } = data;
+      
+      if (!lobbyId) {
+        socket.emit('error', { message: 'Lobi ID gerekli' });
+      return;
+    }
+    
+      // Lobi bilgilerini al
+      const lobby = await Lobby.findOne({ 
+        $or: [
+          { lobbyCode: lobbyId }, 
+          { _id: mongoose.Types.ObjectId.isValid(lobbyId) ? mongoose.Types.ObjectId(lobbyId) : null }
+        ]
+      }).populate({
+        path: 'playersDetail.user',
+        select: 'username profileImage'
+      });
+      
+      if (lobby) {
+        console.log(`Lobi bilgileri gönderiliyor: ${lobby.lobbyCode}`);
+        
+        // Kullanıcı bilgilerini zenginleştir
+        const mappedPlayers = lobby.playersDetail.map(player => {
+          // Null kontrol
+          if (!player.user) {
+            return {
+              id: `bot-${player._id || Math.random().toString(36).substring(2, 9)}`,
+              name: player.name || 'Bot Oyuncu',
+              isBot: true,
+              isHost: false,
+              isReady: player.isReady || false,
+              profileImage: player.profileImage || null
+            };
+          }
+          
+          return {
+            id: player.user.toString(),
+            name: player.name,
+            isBot: player.isBot || false,
+            isHost: player.user.toString() === lobby.creator.toString(),
+            isReady: player.isReady || false,
+            profileImage: player.profileImage || null
+          };
+        });
+        
+        // Lobi bilgilerini gönder
+        io.to(lobbyId).emit('lobby_info', {
+          lobbyId: lobby.lobbyCode,
+          status: lobby.status,
+          drawnNumbers: lobby.drawnNumbers || [],
+          currentNumber: lobby.currentNumber,
+          players: mappedPlayers
+        });
+      } else {
+        console.warn(`Lobi bulunamadı: ${lobbyId}`);
+        socket.emit('error', { message: 'Lobi bulunamadı' });
+      }
+    } catch (error) {
+      console.error('Lobi bilgileri gönderilirken hata:', error);
+      socket.emit('error', { message: 'Lobi bilgileri alınırken bir hata oluştu' });
     }
   });
 });
@@ -1248,6 +1420,128 @@ app.patch('/api/lobbies/status/:lobbyId', async (req, res) => {
       error: 'Lobi durumu güncellenirken bir hata oluştu',
       detail: error.message,
       timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// Lobiye oyuncu ekleme fonksiyonu ekle
+app.post('/api/lobbies/:lobbyId/players', async (req, res) => {
+  try {
+    const { lobbyId } = req.params;
+    const { playerId, playerName, isBot, profileImage } = req.body;
+    
+    console.log(`Lobiye oyuncu ekleme isteği: Lobi=${lobbyId}, Oyuncu=${playerId}, İsim=${playerName}`);
+    
+    if (!lobbyId || !playerId) {
+      return res.status(400).json({ success: false, message: 'Lobi ID ve oyuncu ID gerekli' });
+    }
+    
+    // Lobi bilgilerini al
+    const lobby = await Lobby.findOne({ 
+      $or: [
+        { lobbyCode: lobbyId }, 
+        { _id: mongoose.Types.ObjectId.isValid(lobbyId) ? mongoose.Types.ObjectId(lobbyId) : null }
+      ]
+    });
+    
+    if (!lobby) {
+      return res.status(404).json({ success: false, message: 'Lobi bulunamadı' });
+    }
+    
+    // Oyuncu zaten var mı kontrol et
+    const existingPlayerIndex = lobby.playersDetail.findIndex(p => 
+      p.user.toString() === playerId
+    );
+    
+    if (existingPlayerIndex >= 0) {
+      // Oyuncu zaten var, güncelle
+      lobby.playersDetail[existingPlayerIndex].name = playerName || lobby.playersDetail[existingPlayerIndex].name;
+      lobby.playersDetail[existingPlayerIndex].isBot = isBot || lobby.playersDetail[existingPlayerIndex].isBot;
+      
+      // Profil resmi varsa güncelle
+      if (profileImage) {
+        lobby.playersDetail[existingPlayerIndex].profileImage = profileImage;
+      }
+    } else {
+      // Oyuncu ekle
+      lobby.playersDetail.push({
+        user: mongoose.Types.ObjectId(playerId),
+        name: playerName || 'Misafir Oyuncu',
+        isBot: isBot || false,
+        profileImage: profileImage || null,
+        joinedAt: new Date()
+      });
+      
+      // players dizisine de ekle
+      if (!lobby.players.some(p => p.toString() === playerId)) {
+        lobby.players.push(mongoose.Types.ObjectId(playerId));
+      }
+    }
+    
+    // Mongo için değişiklikleri işaretle
+    lobby.markModified('playersDetail');
+    lobby.markModified('players');
+    
+    // Kaydet
+    await lobby.save();
+    
+    // Socket.io üzerinden bildiri gönder
+    if (req.app.get('io')) {
+      const io = req.app.get('io');
+      
+      // Dönüştürülmüş oyuncu listesi
+      const mappedPlayers = lobby.playersDetail.map(player => {
+        // Null kontrol
+        if (!player.user) {
+          return {
+            id: `bot-${player._id || Math.random().toString(36).substring(2, 9)}`,
+            name: player.name || 'Bot Oyuncu',
+            isBot: true,
+            isHost: false,
+            isReady: player.isReady || false,
+            profileImage: player.profileImage || null
+          };
+        }
+        
+        return {
+          id: player.user.toString(),
+          name: player.name,
+          isBot: player.isBot || false,
+          isHost: player.user.toString() === lobby.creator.toString(),
+          isReady: player.isReady || false,
+          profileImage: player.profileImage || null
+        };
+      });
+      
+      // Yeni oyuncu katıldı bildirimi
+      io.to(lobbyId).emit('player_joined', {
+        playerId,
+        playerName: playerName || 'Yeni Oyuncu',
+        players: mappedPlayers
+      });
+      
+      // Lobi bilgilerini güncelle
+      io.to(lobbyId).emit('lobby_info', {
+        lobbyId: lobby.lobbyCode,
+        status: lobby.status,
+        drawnNumbers: lobby.drawnNumbers || [],
+        currentNumber: lobby.currentNumber,
+        players: mappedPlayers
+      });
+    }
+    
+    res.json({ 
+      success: true, 
+      message: 'Oyuncu lobiye eklendi',
+      playerId,
+      lobbyId: lobby.lobbyCode
+    });
+  } catch (error) {
+    console.error('Oyuncu ekleme hatası:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Oyuncu eklenirken bir hata oluştu',
+      error: error.message
     });
   }
 });

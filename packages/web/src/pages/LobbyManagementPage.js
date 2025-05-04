@@ -5,8 +5,10 @@ import { UserContext } from '../context/UserContext';
 import { FaEdit, FaTrash, FaClock, FaUsers, FaLock, FaCalendarAlt, FaCoins, FaArrowLeft, FaPlay } from 'react-icons/fa';
 import axiosInstance from '../api/axios';
 import MainLayout from '../components/Layout/MainLayout';
+import { Box, Typography, Button, TextField, Checkbox as MuiCheckbox, FormControlLabel, FormGroup as MuiFormGroup } from '@mui/material';
 
-const PageContainer = styled.div`
+// Özel stil bileşenleri
+const PageContainer = styled(Box)`
   color: white;
   padding: 40px;
   
@@ -15,28 +17,29 @@ const PageContainer = styled.div`
   }
 `;
 
-const Header = styled.div`
+const Header = styled(Box)`
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 30px;
 `;
 
-const HeaderLeft = styled.div`
+const HeaderLeft = styled(Box)`
   display: flex;
   align-items: center;
   gap: 20px;
 `;
 
-const BackButton = styled.button`
+const StyledBackButton = styled(Button)`
   background: rgba(124, 77, 255, 0.1);
-  border: none;
   color: #7C4DFF;
   font-size: 20px;
   cursor: pointer;
   padding: 12px;
   border-radius: 12px;
   transition: all 0.3s;
+  min-width: auto;
+  line-height: 1;
 
   &:hover {
     background: rgba(124, 77, 255, 0.2);
@@ -44,12 +47,12 @@ const BackButton = styled.button`
   }
 `;
 
-const Title = styled.h1`
+const TitleTypography = styled(Typography)`
   font-size: 2rem;
   margin: 0;
 `;
 
-const LobbyCard = styled.div`
+const LobbyCard = styled(Box)`
   background: linear-gradient(145deg, #1e2044 0%, #171934 100%);
   border-radius: 16px;
   padding: 25px;
@@ -63,29 +66,28 @@ const LobbyCard = styled.div`
   }
 `;
 
-const LobbyHeader = styled.div`
+const LobbyHeader = styled(Box)`
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   margin-bottom: 20px;
 `;
 
-const LobbyInfo = styled.div`
-  h2 {
+const LobbyInfo = styled(Box)`
+  .MuiTypography-h2 {
     font-size: 1.5rem;
     margin: 0 0 10px 0;
   }
 `;
 
-const LobbyActions = styled.div`
+const LobbyActions = styled(Box)`
   display: flex;
   gap: 10px;
 `;
 
-const ActionButton = styled.button`
+const StyledActionButton = styled(Button)`
   background: ${props => props.secondary ? 'rgba(255, 255, 255, 0.1)' : 'linear-gradient(145deg, #4a7dff 0%, #7c4dff 100%)'};
   color: white;
-  border: none;
   border-radius: 12px;
   padding: 10px 15px;
   margin-right: ${props => props.mr ? '10px' : '0'};
@@ -96,10 +98,12 @@ const ActionButton = styled.button`
   justify-content: center;
   gap: 5px;
   transition: all 0.3s;
+  text-transform: none;
 
   &:hover {
     transform: translateY(-2px);
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    background: ${props => props.secondary ? 'rgba(255, 255, 255, 0.15)' : 'linear-gradient(145deg, #5a8dff 0%, #8c5dff 100%)'};
   }
 
   &:disabled {
@@ -109,23 +113,27 @@ const ActionButton = styled.button`
   }
 `;
 
-const StartGameButton = styled(ActionButton)`
+const StartGameButton = styled(StyledActionButton)`
   background: linear-gradient(145deg, #00bcd4 0%, #2196f3 100%);
   margin-top: 15px;
   width: 100%;
   padding: 12px;
   font-weight: 500;
   font-size: 1rem;
+  
+  &:hover {
+    background: linear-gradient(145deg, #10cce4 0%, #31a6ff 100%);
+  }
 `;
 
-const LobbyDetails = styled.div`
+const LobbyDetails = styled(Box)`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 20px;
   margin-bottom: 20px;
 `;
 
-const DetailItem = styled.div`
+const DetailItem = styled(Box)`
   display: flex;
   align-items: center;
   gap: 10px;
@@ -136,72 +144,98 @@ const DetailItem = styled.div`
   }
 `;
 
-const EditForm = styled.form`
+const EditFormBox = styled(Box)`
   display: grid;
   gap: 20px;
   margin-top: 20px;
 `;
 
-const FormGroup = styled.div`
+const FormGroupBox = styled(Box)`
   display: flex;
   flex-direction: column;
   gap: 8px;
 
-  label {
+  .MuiFormLabel-root {
     color: rgba(255, 255, 255, 0.7);
   }
 `;
 
-const Input = styled.input`
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  padding: 12px;
-  color: white;
-  font-size: 1rem;
-  transition: all 0.3s;
-
-  &:focus {
-    outline: none;
+const StyledTextField = styled(TextField)`
+  .MuiInputBase-root {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    color: white;
+    font-size: 1rem;
+    transition: all 0.3s;
+  }
+  
+  .MuiOutlinedInput-notchedOutline {
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+  
+  &:hover .MuiOutlinedInput-notchedOutline {
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+  
+  .MuiInputBase-root.Mui-focused .MuiOutlinedInput-notchedOutline {
     border-color: #7C4DFF;
-    background: rgba(255, 255, 255, 0.08);
+  }
+  
+  .MuiInputLabel-root {
+    color: rgba(255, 255, 255, 0.7);
+  }
+  
+  .MuiInputLabel-root.Mui-focused {
+    color: #7C4DFF;
+  }
+  
+  .MuiInputBase-input {
+    padding: 12px;
   }
 `;
 
-const Checkbox = styled.div`
+const CheckboxContainer = styled(Box)`
   display: flex;
   align-items: center;
   gap: 8px;
-
-  input {
-    width: 20px;
-    height: 20px;
-    cursor: pointer;
+  
+  .MuiFormControlLabel-root {
+    margin: 0;
   }
   
-  label {
+  .MuiCheckbox-root {
+    color: rgba(255, 255, 255, 0.7);
+  }
+  
+  .MuiCheckbox-root.Mui-checked {
+    color: #7C4DFF;
+  }
+  
+  .MuiTypography-root {
+    color: rgba(255, 255, 255, 0.7);
     cursor: pointer;
   }
 `;
 
-const SaveButton = styled.button`
+const StyledSaveButton = styled(Button)`
   background: linear-gradient(45deg, #4a7dff 0%, #7C4DFF 100%);
   color: white;
-  border: none;
   padding: 12px;
   border-radius: 8px;
   cursor: pointer;
   font-size: 1rem;
   transition: all 0.3s;
   font-weight: 600;
+  text-transform: none;
 
   &:hover {
     transform: translateY(-2px);
     box-shadow: 0 5px 15px rgba(124, 77, 255, 0.3);
+    background: linear-gradient(45deg, #5a8dff 0%, #8c5dff 100%);
   }
 `;
 
-const NoLobbiesMessage = styled.div`
+const NoLobbiesMessage = styled(Box)`
   background: rgba(255, 255, 255, 0.05);
   border-radius: 16px;
   padding: 40px;
@@ -220,10 +254,9 @@ const NoLobbiesMessage = styled.div`
   }
 `;
 
-const CreateLobbyButton = styled.button`
+const StyledCreateLobbyButton = styled(Button)`
   background: linear-gradient(45deg, #4a7dff 0%, #7C4DFF 100%);
   color: white;
-  border: none;
   padding: 12px 20px;
   border-radius: 8px;
   cursor: pointer;
@@ -234,15 +267,17 @@ const CreateLobbyButton = styled.button`
   margin: 20px auto;
   transition: all 0.3s;
   font-weight: 600;
+  text-transform: none;
 
   &:hover {
     transform: translateY(-2px);
     box-shadow: 0 5px 15px rgba(124, 77, 255, 0.3);
+    background: linear-gradient(45deg, #5a8dff 0%, #8c5dff 100%);
   }
 `;
 
 // Etkinlik durumu bileşeni
-const EventStatus = styled.div`
+const EventStatus = styled(Box)`
   background: ${props => {
     if (props.status === 'waiting') return 'rgba(255, 193, 7, 0.1)';
     if (props.status === 'playing') return 'rgba(76, 175, 80, 0.1)';
@@ -263,7 +298,7 @@ const EventStatus = styled.div`
 `;
 
 // Geri sayım bileşeni
-const Countdown = styled.div`
+const Countdown = styled(Box)`
   background: rgba(255, 193, 7, 0.1);
   color: #FFC107;
   padding: 8px 16px;
@@ -452,169 +487,198 @@ function LobbyManagementPage() {
       <PageContainer>
         <Header>
           <HeaderLeft>
-            <BackButton onClick={() => navigate('/lobbies')}>
+            <StyledBackButton onClick={() => navigate('/lobbies')}>
               <FaArrowLeft />
-            </BackButton>
-            <Title>Lobilerimi Yönet</Title>
+            </StyledBackButton>
+            <TitleTypography variant="h1">Lobilerimi Yönet</TitleTypography>
           </HeaderLeft>
         </Header>
 
         {editingLobby ? (
-          <EditForm onSubmit={(e) => handleSubmit(e, editingLobby._id)}>
-            <FormGroup>
-              <label>Lobi Adı</label>
-              <Input 
+          <EditFormBox component="form" onSubmit={(e) => handleSubmit(e, editingLobby._id)}>
+            <FormGroupBox>
+              <Typography component="label" htmlFor="name">Lobi Adı</Typography>
+              <StyledTextField 
+                id="name"
                 name="name"
                 defaultValue={editingLobby.name}
                 required
+                fullWidth
+                variant="outlined"
+                InputLabelProps={{ shrink: true }}
               />
-            </FormGroup>
+            </FormGroupBox>
 
-            <FormGroup>
-              <label>Maksimum Oyuncu</label>
-              <Input 
+            <FormGroupBox>
+              <Typography component="label" htmlFor="maxPlayers">Maksimum Oyuncu</Typography>
+              <StyledTextField 
+                id="maxPlayers"
                 name="maxPlayers"
                 type="number"
                 defaultValue={editingLobby.maxPlayers}
-                min="2"
-                max="8"
+                inputProps={{ min: "2", max: "8" }}
                 required
+                fullWidth
+                variant="outlined"
+                InputLabelProps={{ shrink: true }}
               />
-            </FormGroup>
+            </FormGroupBox>
 
-            <FormGroup>
-              <label>Bahis Miktarı</label>
-              <Input 
+            <FormGroupBox>
+              <Typography component="label" htmlFor="betAmount">Bahis Miktarı</Typography>
+              <StyledTextField 
+                id="betAmount"
                 name="betAmount"
                 type="number"
                 defaultValue={editingLobby.betAmount}
-                min="0"
+                inputProps={{ min: "0" }}
                 required
+                fullWidth
+                variant="outlined"
+                InputLabelProps={{ shrink: true }}
               />
-            </FormGroup>
+            </FormGroupBox>
 
-            <Checkbox>
-              <input 
-                name="isPrivate"
-                type="checkbox"
-                defaultChecked={editingLobby.isPrivate}
+            <CheckboxContainer>
+              <FormControlLabel
+                control={
+                  <MuiCheckbox 
+                    name="isPrivate"
+                    defaultChecked={editingLobby.isPrivate}
+                  />
+                }
+                label="Özel Lobi"
               />
-              <label>Özel Lobi</label>
-            </Checkbox>
+            </CheckboxContainer>
 
-            <FormGroup>
-              <label>Şifre (Özel lobi için)</label>
-              <Input 
+            <FormGroupBox>
+              <Typography component="label" htmlFor="password">Şifre (Özel lobi için)</Typography>
+              <StyledTextField 
+                id="password"
                 name="password"
                 type="password"
                 defaultValue={editingLobby.password}
+                fullWidth
+                variant="outlined"
+                InputLabelProps={{ shrink: true }}
               />
-            </FormGroup>
+            </FormGroupBox>
 
-            <Checkbox>
-              <input 
-                name="isEventLobby"
-                type="checkbox"
-                defaultChecked={editingLobby.isEventLobby}
-                onChange={(e) => {
-                  const form = e.target.form;
-                  const startTimeInput = form.querySelector('input[name="startTime"]');
-                  const endTimeInput = form.querySelector('input[name="endTime"]');
-                  if (startTimeInput && endTimeInput) {
-                    startTimeInput.required = e.target.checked;
-                    endTimeInput.required = e.target.checked;
-                  }
-                }}
+            <CheckboxContainer>
+              <FormControlLabel
+                control={
+                  <MuiCheckbox 
+                    name="isEventLobby"
+                    defaultChecked={editingLobby.isEventLobby}
+                    onChange={(e) => {
+                      const form = e.target.form;
+                      const startTimeInput = form.querySelector('input[name="startTime"]');
+                      const endTimeInput = form.querySelector('input[name="endTime"]');
+                      if (startTimeInput && endTimeInput) {
+                        startTimeInput.required = e.target.checked;
+                        endTimeInput.required = e.target.checked;
+                      }
+                    }}
+                  />
+                }
+                label="Etkinlik Lobisi"
               />
-              <label>Etkinlik Lobisi</label>
-            </Checkbox>
+            </CheckboxContainer>
 
             {(editingLobby.isEventLobby || editingLobby?.isEventLobby) && (
               <>
-                <FormGroup>
-                  <label>
+                <FormGroupBox>
+                  <Typography component="label" htmlFor="startTime" sx={{ display: 'flex', alignItems: 'center' }}>
                     <FaClock style={{ marginRight: '8px' }} />
                     Başlangıç Zamanı
-                  </label>
-                  <Input 
+                  </Typography>
+                  <StyledTextField 
+                    id="startTime"
                     name="startTime"
                     type="datetime-local"
                     defaultValue={editingLobby?.eventDetails?.startTime}
                     required={editingLobby.isEventLobby}
+                    fullWidth
+                    variant="outlined"
+                    InputLabelProps={{ shrink: true }}
                   />
-                </FormGroup>
+                </FormGroupBox>
 
-                <FormGroup>
-                  <label>
+                <FormGroupBox>
+                  <Typography component="label" htmlFor="endTime" sx={{ display: 'flex', alignItems: 'center' }}>
                     <FaClock style={{ marginRight: '8px' }} />
                     Bitiş Zamanı
-                  </label>
-                  <Input 
+                  </Typography>
+                  <StyledTextField 
+                    id="endTime"
                     name="endTime"
                     type="datetime-local"
                     defaultValue={editingLobby?.eventDetails?.endTime}
                     required={editingLobby.isEventLobby}
+                    fullWidth
+                    variant="outlined"
+                    InputLabelProps={{ shrink: true }}
                   />
-                </FormGroup>
+                </FormGroupBox>
               </>
             )}
 
-            <SaveButton type="submit">Kaydet</SaveButton>
-          </EditForm>
+            <StyledSaveButton type="submit">Kaydet</StyledSaveButton>
+          </EditFormBox>
         ) : (
           <>
             {loading ? (
-              <div>Lobiler yükleniyor...</div>
+              <Typography>Lobiler yükleniyor...</Typography>
             ) : lobbies.length === 0 ? (
               <NoLobbiesMessage>
-                <h3>Henüz bir lobiniz yok</h3>
-                <p>Yeni bir lobi oluşturarak oyunculara ev sahipliği yapabilirsiniz.</p>
-                <CreateLobbyButton onClick={() => navigate('/games/bingo')}>
+                <Typography variant="h3" component="h3">Henüz bir lobiniz yok</Typography>
+                <Typography component="p">Yeni bir lobi oluşturarak oyunculara ev sahipliği yapabilirsiniz.</Typography>
+                <StyledCreateLobbyButton onClick={() => navigate('/games/bingo')}>
                   Yeni Lobi Oluştur
-                </CreateLobbyButton>
+                </StyledCreateLobbyButton>
               </NoLobbiesMessage>
             ) : (
               <>
-                <CreateLobbyButton onClick={() => navigate('/games/bingo')}>
+                <StyledCreateLobbyButton onClick={() => navigate('/games/bingo')}>
                   Yeni Lobi Oluştur
-                </CreateLobbyButton>
+                </StyledCreateLobbyButton>
                 
                 {lobbies.map(lobby => (
                   <LobbyCard key={lobby._id}>
                     <LobbyHeader>
                       <LobbyInfo>
-                        <h2>{lobby.name}</h2>
-                        <p>{lobby.game}</p>
+                        <Typography variant="h2">{lobby.name}</Typography>
+                        <Typography>{lobby.game}</Typography>
                       </LobbyInfo>
                       <LobbyActions>
-                        <ActionButton onClick={() => handleEdit(lobby)}>
+                        <StyledActionButton onClick={() => handleEdit(lobby)}>
                           <FaEdit />
                           Düzenle
-                        </ActionButton>
-                        <ActionButton danger onClick={() => handleDelete(lobby._id)}>
+                        </StyledActionButton>
+                        <StyledActionButton onClick={() => handleDelete(lobby._id)}>
                           <FaTrash />
                           Sil
-                        </ActionButton>
+                        </StyledActionButton>
                       </LobbyActions>
                     </LobbyHeader>
                     
                     <LobbyDetails>
                       <DetailItem>
                         <FaUsers />
-                        <span>{lobby.players.length} / {lobby.maxPlayers} Oyuncu</span>
+                        <Typography component="span">{lobby.players.length} / {lobby.maxPlayers} Oyuncu</Typography>
                       </DetailItem>
                       
                       {lobby.betAmount > 0 && (
                         <DetailItem>
                           <FaCoins />
-                          <span>{lobby.betAmount} Jeton</span>
+                          <Typography component="span">{lobby.betAmount} Jeton</Typography>
                         </DetailItem>
                       )}
                       
                       {lobby.isPrivate && (
                         <DetailItem>
                           <FaLock />
-                          <span>Özel Lobi</span>
+                          <Typography component="span">Özel Lobi</Typography>
                         </DetailItem>
                       )}
                       
@@ -622,20 +686,20 @@ function LobbyManagementPage() {
                         <>
                           <DetailItem>
                             <FaCalendarAlt />
-                            <span>Etkinlik Lobisi</span>
+                            <Typography component="span">Etkinlik Lobisi</Typography>
                           </DetailItem>
                           
                           {lobby.eventDetails.startDate && (
                             <DetailItem>
                               <FaCalendarAlt />
-                              <span>Başlangıç: {formatDate(lobby.eventDetails.startDate)}</span>
+                              <Typography component="span">Başlangıç: {formatDate(lobby.eventDetails.startDate)}</Typography>
                             </DetailItem>
                           )}
                           
                           {lobby.eventDetails.endDate && (
                             <DetailItem>
                               <FaCalendarAlt />
-                              <span>Bitiş: {formatDate(lobby.eventDetails.endDate)}</span>
+                              <Typography component="span">Bitiş: {formatDate(lobby.eventDetails.endDate)}</Typography>
                             </DetailItem>
                           )}
                         </>
@@ -665,22 +729,18 @@ function LobbyManagementPage() {
                         
                         <EventStatus status={lobby.status}>
                           <FaClock />
-                          {lobby.status === 'waiting' ? 'Bekliyor' : 
-                           lobby.status === 'playing' ? 'Aktif' : 'Tamamlandı'}
+                          <Typography component="span">
+                            {lobby.status === 'waiting' ? 'Bekliyor' : 
+                             lobby.status === 'playing' ? 'Aktif' : 'Tamamlandı'}
+                          </Typography>
                         </EventStatus>
                       </>
                     )}
                     
-                    <div style={{ marginTop: '20px' }}>
-                      <p>Lobi Kodu: <strong>{lobby.lobbyCode}</strong></p>
-                      <p>Lobi Linki: <strong>{window.location.origin}/join/lobby/{lobby.lobbyCode}</strong></p>
-                    </div>
-
-                    {(lobby.game === 'tombala' || lobby.game === 'bingo') && lobby.status === 'waiting' && (
-                      <StartGameButton onClick={() => handleStartGame(lobby)}>
-                        <FaPlay /> Oyunu Başlat
-                      </StartGameButton>
-                    )}
+                    <Box sx={{ marginTop: '20px' }}>
+                      <Typography component="p">Lobi Kodu: <Box component="strong">{lobby.lobbyCode}</Box></Typography>
+                      <Typography component="p">Lobi Linki: <Box component="strong">{window.location.origin}/join/lobby/{lobby.lobbyCode}</Box></Typography>
+                    </Box>
                   </LobbyCard>
                 ))}
               </>

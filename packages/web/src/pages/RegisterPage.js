@@ -1,11 +1,10 @@
 // src/pages/RegisterPage.js
-import React, { useState, useContext } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { FaUser, FaEnvelope, FaLock, FaGoogle, FaEye, FaEyeSlash, FaChevronRight } from 'react-icons/fa';
 import { FaTelegramPlane } from 'react-icons/fa';
 import { SiBinance } from 'react-icons/si';
 import { BsController, BsTrophy, BsPeople } from 'react-icons/bs';
-import { UserContext } from '../context/UserContext';
 import { registerUser } from '../api/auth';
 import '../styles/Auth.css';
 
@@ -15,7 +14,6 @@ import {
   Button, 
   IconButton, 
   InputAdornment, 
-  Divider, 
   Typography,
   Box,
   CircularProgress,
@@ -125,10 +123,6 @@ function RegisterPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
 
-  // UserContext'i React.useContext ile kullanmak yerine doğrudan değişkene atayalım
-  const userContext = React.useContext(UserContext);
-  const login = userContext ? userContext.login : () => {};
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (password !== confirmPassword) {
@@ -155,51 +149,68 @@ function RegisterPage() {
   };
 
   return (
-    <div className="auth-container">
-      <div 
+    <Box className="auth-container">
+      <Box 
         className="auth-left-side" 
         style={{ 
           backgroundImage: `url('https://cdn.dribbble.com/userupload/16528532/file/original-d7f5a5167a2bf86f6710665cf6d8b72b.png?resize=752x&vertical=center')` 
         }}
       >
-        <div className="auth-game-decoration">
+        <Box className="auth-game-decoration">
           {React.createElement(BsController)}
-        </div>
-        <div className="auth-game-decoration">
+        </Box>
+        <Box className="auth-game-decoration">
           {React.createElement(BsTrophy)}
-        </div>
-        <div className="auth-game-decoration">
+        </Box>
+        <Box className="auth-game-decoration">
           {React.createElement(BsPeople)}
-        </div>
+        </Box>
         
-        <div className="auth-content-wrapper">
-          <div className="auth-logo">Game Center</div>
-          <div className="auth-bonus">
-            <h2>HOŞ GELDİN BONUSU</h2>
-            <p>Hemen üye ol ve 1000 jeton kazan!</p>
-          </div>
+        <Box className="auth-content-wrapper">
+          <Typography 
+            variant="h6" 
+            component="div" 
+            className="auth-logo"
+            sx={{
+              background: 'linear-gradient(45deg, #7C4DFF, #5f52e8)',
+              color: 'transparent',
+              WebkitBackgroundClip: 'text',
+              backgroundClip: 'text',
+              fontWeight: 700,
+              fontSize: '2.5rem',
+              filter: 'drop-shadow(0 0 10px rgba(124, 77, 255, 0.5))',
+              letterSpacing: '0.5px',
+              mb: 3
+            }}
+          >
+            Game Center
+          </Typography>
+          <Box className="auth-bonus">
+            <Typography variant="h2" component="h2">OYUN MERKEZİ PLATFORMU</Typography>
+            <Typography variant="body1" component="p">Gerçek zamanlı çok oyunculu oyunların keyfini çıkarın!</Typography>
+          </Box>
           
-          <div className="auth-welcome-text">Maceraya Katıl!</div>
-          <div className="auth-subtitle">Ücretsiz kayıt olarak eğlenceli oyunlara hemen başlayın.</div>
+          <Typography variant="h4" component="div" className="auth-welcome-text">Maceraya Katıl!</Typography>
+          <Typography variant="body1" component="div" className="auth-subtitle">Ücretsiz kayıt olarak eğlenceli oyunlara hemen başlayın.</Typography>
           
-          <div className="auth-features-list">
-            <div className="auth-feature-item">
+          <Box className="auth-features-list">
+            <Box className="auth-feature-item">
               {React.createElement(BsController, { size: 20 })}
-              <span>30+ Çevrimiçi oyun</span>
-            </div>
-            <div className="auth-feature-item">
+              <Typography variant="span" component="span">Tombala, Okey ve Daha Fazlası</Typography>
+            </Box>
+            <Box className="auth-feature-item">
               {React.createElement(BsTrophy, { size: 20 })}
-              <span>Haftalık turnuvalar ve ödüller</span>
-            </div>
-            <div className="auth-feature-item">
+              <Typography variant="span" component="span">Gerçek Zamanlı Turnuvalar</Typography>
+            </Box>
+            <Box className="auth-feature-item">
               {React.createElement(BsPeople, { size: 20 })}
-              <span>Arkadaşlarınızla çoklu oyuncu modları</span>
-            </div>
-          </div>
-        </div>
-      </div>
+              <Typography variant="span" component="span">Arkadaşlarınızla Oynayın</Typography>
+            </Box>
+          </Box>
+        </Box>
+      </Box>
       
-      <div className="auth-right-side">
+      <Box className="auth-right-side">
         <Box component="form" className="auth-form" onSubmit={handleSubmit} sx={{ width: '100%', maxWidth: '360px' }}>
           <StyledTextField
             fullWidth
@@ -366,8 +377,8 @@ function RegisterPage() {
             Giriş Yap
           </Link>
         </Typography>
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
 }
 

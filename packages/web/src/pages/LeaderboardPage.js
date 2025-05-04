@@ -1,12 +1,10 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import styled, { keyframes, css } from 'styled-components';
-import { 
-  FaTrophy, FaMedal, FaSearch, FaArrowLeft,
-  FaGamepad, FaChartLine, FaCalendarAlt, FaFireAlt, FaStar, FaCrown, FaUser
-} from 'react-icons/fa';
+import styled, { keyframes } from 'styled-components';
 import { UserContext } from '../context/UserContext';
 import MainLayout from '../components/Layout/MainLayout';
+import { FaTrophy, FaSearch, FaChartLine, FaFireAlt, FaUser, FaCrown, FaStar } from 'react-icons/fa';
+import { Box, Typography, Avatar as MuiAvatar } from '@mui/material';
 
 // Animasyonlar
 const fadeIn = keyframes`
@@ -53,123 +51,433 @@ const float = keyframes`
   }
 `;
 
-const PageContainer = styled.div`
-  color: white;
-  padding: 40px;
-`;
-
-const PageContent = styled.div`
-  max-width: 1200px;
+const PageContainer = styled(Box)`
+  width: 100%;
+  padding: 20px;
+  max-width: 1400px;
   margin: 0 auto;
-  animation: ${fadeIn} 0.5s ease-out;
 `;
 
-const Header = styled.div`
+const PageContent = styled(Box)`
+  width: 100%;
+`;
+
+const Header = styled(Box)`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 40px;
-  
-  @media (max-width: 768px) {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 20px;
-  }
-`;
-
-const HeaderLeft = styled.div`
-  display: flex;
-  align-items: center;
+  margin-bottom: 30px;
+  flex-wrap: wrap;
   gap: 20px;
 `;
 
-
-
-const Title = styled.h1`
-  font-size: 2.5rem;
-  margin: 0;
+const HeaderLeft = styled(Box)`
   display: flex;
   align-items: center;
-  gap: 15px;
+`;
+
+const Title = styled(Typography)`
+  font-size: 2rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   
   svg {
-    color: #4a7dff;
-    animation: ${float} 3s ease-in-out infinite;
+    color: #FFD700;
+    font-size: 1.8rem;
   }
 `;
 
-const HeaderRight = styled.div`
+const HeaderRight = styled(Box)`
   display: flex;
   align-items: center;
-  width: 100%;
-  max-width: 400px;
-  
-  @media (max-width: 768px) {
-    max-width: 100%;
-  }
 `;
 
-const SearchBar = styled.div`
+const SearchBar = styled(Box)`
   position: relative;
-  width: 100%;
+  display: flex;
+  align-items: center;
   
   svg {
     position: absolute;
-    left: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #6c7293;
-    z-index: 1;
+    left: 15px;
+    color: #6e7191;
+    font-size: 14px;
   }
 `;
 
-const SearchInput = styled.input`
-  width: 100%;
+const SearchInput = styled(Box)`
   padding: 12px 12px 12px 40px;
-  background: rgba(26, 27, 38, 0.5);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  color: white;
-  font-size: 1rem;
+  border-radius: 50px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  font-size: 14px;
+  width: 250px;
   
-  &:focus {
+  & input {
+    background: transparent;
+    border: none;
+    color: #fff;
+    width: 100%;
     outline: none;
+  }
+  
+  &:focus-within {
     border-color: #4a7dff;
-    background: rgba(74, 125, 255, 0.1);
   }
   
   &::placeholder {
-    color: #6c7293;
+    color: #6e7191;
   }
 `;
 
-const FilterButton = styled.button`
+const CategoriesContainer = styled(Box)`
+  display: flex;
+  flex-wrap: wrap;
+  margin-bottom: 30px;
+  gap: 10px;
+`;
+
+const CategoryButton = styled(Box)`
+  padding: 8px 16px;
+  border-radius: 50px;
+  background: ${props => props.$active ? '#4a7dff' : 'rgba(255, 255, 255, 0.05)'};
+  color: ${props => props.$active ? '#fff' : '#6e7191'};
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 14px;
+  
+  &:hover {
+    background: ${props => props.$active ? '#4a7dff' : 'rgba(255, 255, 255, 0.1)'};
+  }
+`;
+
+const LeaderboardWrapper = styled(Box)`
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  
+  @media (min-width: 1024px) {
+    grid-template-columns: 2fr 1fr;
+  }
+`;
+
+const LeaderboardContainer = styled(Box)`
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 20px;
+  padding: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+`;
+
+const TopThreeContainer = styled(Box)`
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 15px;
+  margin-bottom: 30px;
+  
+  @media (max-width: 768px) {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+`;
+
+const TopPlayerCard = styled(Box)`
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 30px 15px 20px;
+  background: ${props => {
+    if (props.$rank === 1) return 'linear-gradient(to bottom, rgba(255, 215, 0, 0.15), rgba(255, 215, 0, 0.05))';
+    if (props.$rank === 2) return 'linear-gradient(to bottom, rgba(192, 192, 192, 0.15), rgba(192, 192, 192, 0.05))';
+    if (props.$rank === 3) return 'linear-gradient(to bottom, rgba(205, 127, 50, 0.15), rgba(205, 127, 50, 0.05))';
+    return 'rgba(255, 255, 255, 0.05)';
+  }};
+  border-radius: 15px;
+  border: 1px solid ${props => {
+    if (props.$rank === 1) return 'rgba(255, 215, 0, 0.3)';
+    if (props.$rank === 2) return 'rgba(192, 192, 192, 0.3)';
+    if (props.$rank === 3) return 'rgba(205, 127, 50, 0.3)';
+    return 'rgba(255, 255, 255, 0.05)';
+  }};
+  
+  animation: ${props => props.$rank === 1 ? 'pulse 2s infinite' : 'none'};
+  
+  @keyframes pulse {
+    0% {
+      box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.4);
+    }
+    70% {
+      box-shadow: 0 0 0 10px rgba(255, 215, 0, 0);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgba(255, 215, 0, 0);
+    }
+  }
+  
+  @media (max-width: 768px) {
+    flex-direction: row;
+    padding: 15px;
+    gap: 15px;
+    justify-content: flex-start;
+    
+    > * {
+      margin-top: 0 !important;
+    }
+  }
+`;
+
+const CrownIcon = styled(Box)`
+  position: absolute;
+  top: -15px;
+  color: #FFD700;
+  font-size: 2rem;
+  filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.5));
+  animation: float 3s ease-in-out infinite;
+  
+  @keyframes float {
+    0% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-5px);
+    }
+    100% {
+      transform: translateY(0px);
+    }
+  }
+  
+  @media (max-width: 768px) {
+    position: relative;
+    top: 0;
+    font-size: 1.5rem;
+  }
+`;
+
+const TopPlayerAvatar = styled(Box)`
+  position: relative;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  margin-bottom: 15px;
+  background: ${props => {
+    if (props.$rank === 1) return 'linear-gradient(45deg, #ffd700, #ff9d00)';
+    if (props.$rank === 2) return 'linear-gradient(45deg, #c0c0c0, #e0e0e0)';
+    if (props.$rank === 3) return 'linear-gradient(45deg, #cd7f32, #e0955b)';
+    return 'linear-gradient(45deg, #2a2c4e, #4a5568)';
+  }};
+  padding: 3px;
+  
+  .MuiAvatar-root {
+    width: 100%;
+    height: 100%;
+    border: 2px solid #14162d;
+  }
+  
+  @media (max-width: 768px) {
+    width: 50px;
+    height: 50px;
+    margin-bottom: 0;
+  }
+`;
+
+const Avatar = styled(MuiAvatar)`
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: #2a2c4e;
+  
+  &.profile-image {
+    width: 45px;
+    height: 45px;
+  }
+`;
+
+const TopPlayerRank = styled(Box)`
+  position: absolute;
+  bottom: -5px;
+  right: -5px;
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 12px 16px;
-  background: rgba(26, 27, 38, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  color: white;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: all 0.3s;
-  white-space: nowrap;
-  flex-shrink: 0;
+  font-weight: bold;
+  font-size: 0.8rem;
+  background: ${props => {
+    if (props.$rank === 1) return '#ffd700';
+    if (props.$rank === 2) return '#c0c0c0';
+    if (props.$rank === 3) return '#cd7f32';
+    return '#4a7dff';
+  }};
+  color: ${props => props.$rank === 1 ? '#000' : '#fff'};
+  
+  @media (max-width: 768px) {
+    width: 20px;
+    height: 20px;
+    font-size: 0.7rem;
+  }
+`;
+
+const TopPlayerName = styled(Typography)`
+  font-weight: 600;
+  margin-top: 5px;
+  color: ${props => {
+    if (props.$rank === 1) return '#ffd700';
+    if (props.$rank === 2) return '#c0c0c0';
+    if (props.$rank === 3) return '#cd7f32';
+    return '#fff';
+  }};
+  
+  @media (max-width: 768px) {
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+`;
+
+const TopPlayerScore = styled(Typography)`
+  margin-top: 5px;
+  font-weight: bold;
+  color: ${props => {
+    if (props.$rank === 1) return '#ffd700';
+    if (props.$rank === 2) return '#c0c0c0';
+    if (props.$rank === 3) return '#cd7f32';
+    return '#4a7dff';
+  }};
+  
+  @media (max-width: 768px) {
+    margin-top: 0;
+    margin-left: auto;
+  }
+`;
+
+const LeaderboardList = styled(Box)`
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+`;
+
+const LeaderboardItem = styled(Box)`
+  display: flex;
+  align-items: center;
+  padding: 10px 15px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 10px;
+  transition: all 0.2s ease;
   
   &:hover {
-    background: rgba(74, 125, 255, 0.1);
-    border-color: #4a7dff;
+    background: rgba(255, 255, 255, 0.06);
+    transform: translateY(-2px);
   }
+`;
+
+const Rank = styled(Box)`
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 0.9rem;
+  margin-right: 15px;
+  background: ${props => {
+    if (props.$rank === 1) return '#ffd700';
+    if (props.$rank === 2) return '#c0c0c0';
+    if (props.$rank === 3) return '#cd7f32';
+    return 'rgba(255, 255, 255, 0.1)';
+  }};
+  color: ${props => (props.$rank <= 3) ? '#000' : '#fff'};
+`;
+
+const PlayerInfo = styled(Box)`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+`;
+
+const PlayerDetails = styled(Box)`
+  display: flex;
+  flex-direction: column;
+  
+  .player-name {
+    font-weight: 500;
+    line-height: 1.2;
+  }
+  
+  .player-stats {
+    font-size: 0.8rem;
+    color: #6e7191;
+  }
+`;
+
+const Score = styled(Typography)`
+  font-weight: bold;
+  color: #4a7dff;
+`;
+
+const SideContent = styled(Box)`
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+`;
+
+const SideCard = styled(Box)`
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 20px;
+  padding: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+`;
+
+const SideCardTitle = styled(Typography)`
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   
   svg {
     color: #4a7dff;
   }
 `;
 
-const CategoriesContainer = styled.div`
+const CategoryStats = styled(Box)`
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 15px;
+`;
+
+const CategoryItem = styled(Box)`
+  text-align: center;
+  padding: 15px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 10px;
+`;
+
+const PlayerRow = styled(Box)`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  
+  .player-name {
+    flex: 1;
+    font-size: 0.9rem;
+  }
+  
+  .player-score {
+    font-weight: bold;
+    color: #4a7dff;
+  }
+`;
+
+const CategoryContainer = styled(Box)`
   display: flex;
   gap: 10px;
   margin-bottom: 30px;
@@ -191,294 +499,7 @@ const CategoriesContainer = styled.div`
   }
 `;
 
-const CategoryButton = styled.button`
-  padding: 10px 20px;
-  background: ${props => props.$active ? 'linear-gradient(145deg, #4a7dff 0%, #6a5aff 100%)' : 'rgba(26, 27, 38, 0.5)'};
-  border: 1px solid ${props => props.$active ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.1)'};
-  border-radius: 30px;
-  color: white;
-  font-size: 0.9rem;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.3s;
-  
-  &:hover {
-    background: ${props => props.$active ? 'linear-gradient(145deg, #4a7dff 0%, #6a5aff 100%)' : 'rgba(74, 125, 255, 0.1)'};
-    transform: translateY(-3px);
-  }
-  
-  ${props => props.$active && css`
-    box-shadow: 0 5px 15px rgba(74, 125, 255, 0.3);
-  `}
-`;
-
-const LeaderboardWrapper = styled.div`
-  display: grid;
-  grid-template-columns: 1fr 300px;
-  gap: 30px;
-  
-  @media (max-width: 1024px) {
-    grid-template-columns: 1fr;
-  }
-`;
-
-const LeaderboardContainer = styled.div`
-  background: linear-gradient(145deg, #1e2044 0%, #171934 100%);
-  border-radius: 20px;
-  padding: 30px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-`;
-
-const TopThreeContainer = styled.div`
-  display: grid;
-  grid-template-columns: 1fr 1.2fr 1fr;
-  gap: 15px;
-  margin-bottom: 40px;
-  
-  @media (max-width: 768px) {
-    display: flex;
-    flex-direction: column;
-  }
-`;
-
-const TopPlayerCard = styled.div`
-  position: relative;
-  background: ${props => {
-    switch(props.$rank) {
-      case 1: return 'linear-gradient(145deg, #ffd700 0%, #f2c94c 100%)';
-      case 2: return 'linear-gradient(145deg, #c0c0c0 0%, #a4a4a4 100%)';
-      case 3: return 'linear-gradient(145deg, #cd7f32 0%, #a56b29 100%)';
-      default: return 'linear-gradient(145deg, #1e2044 0%, #171934 100%)';
-    }
-  }};
-  border-radius: 20px;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  order: ${props => props.$rank === 1 ? 2 : props.$rank === 2 ? 1 : 3};
-  transform: ${props => props.$rank === 1 ? 'scale(1.1)' : 'scale(1)'};
-  box-shadow: ${props => props.$rank === 1 ? '0 15px 30px rgba(242, 201, 76, 0.3)' : 'none'};
-  animation: ${props => props.$rank === 1 ? css`${pulse} 3s infinite` : 'none'};
-  
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    border-radius: 20px;
-    background: linear-gradient(
-      to right,
-      rgba(255, 255, 255, 0) 0%,
-      rgba(255, 255, 255, 0.3) 50%,
-      rgba(255, 255, 255, 0) 100%
-    );
-    background-size: 200px 100%;
-    animation: ${props => props.$rank === 1 ? css`${shine} 4s infinite` : 'none'};
-    z-index: 1;
-  }
-  
-  @media (max-width: 768px) {
-    order: ${props => props.$rank};
-    transform: scale(1);
-  }
-`;
-
-const CrownIcon = styled.div`
-  position: absolute;
-  top: -25px;
-  font-size: 30px;
-  color: #ffd700;
-  filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.7));
-  z-index: 2;
-`;
-
-const TopPlayerAvatar = styled.div`
-  position: relative;
-  width: 100px;
-  height: 100px;
-  margin-bottom: 15px;
-  z-index: 2;
-  
-  img {
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    object-fit: cover;
-    border: 4px solid white;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-  }
-  
-  ${props => props.$rank === 1 && css`
-    width: 120px;
-    height: 120px;
-  `}
-`;
-
-const TopPlayerRank = styled.div`
-  position: absolute;
-  bottom: 0;
-  right: 0;
-  width: 30px;
-  height: 30px;
-  background: ${props => {
-    switch(props.$rank) {
-      case 1: return '#f2c94c';
-      case 2: return '#a4a4a4';
-      case 3: return '#a56b29';
-      default: return '#4a7dff';
-    }
-  }};
-  border: 2px solid white;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: bold;
-  z-index: 3;
-`;
-
-const TopPlayerName = styled.h3`
-  font-size: ${props => props.$rank === 1 ? '1.4rem' : '1.2rem'};
-  margin-bottom: 5px;
-  color: ${props => props.$rank === 1 ? 'black' : props.$rank === 2 || props.$rank === 3 ? 'black' : 'white'};
-  z-index: 2;
-`;
-
-const TopPlayerScore = styled.div`
-  font-size: ${props => props.$rank === 1 ? '1.2rem' : '1rem'};
-  font-weight: bold;
-  color: ${props => props.$rank === 1 ? 'black' : props.$rank === 2 || props.$rank === 3 ? 'black' : '#4a7dff'};
-  z-index: 2;
-`;
-
-const LeaderboardList = styled.div`
-  margin-top: 20px;
-`;
-
-const LeaderboardItem = styled.div`
-  display: flex;
-  align-items: center;
-  padding: 15px 20px;
-  background: rgba(26, 27, 38, 0.4);
-  border-radius: 15px;
-  margin-bottom: 10px;
-  transition: all 0.3s;
-
-  &:hover {
-    background: rgba(74, 125, 255, 0.1);
-    transform: translateX(5px);
-  }
-`;
-
-const Rank = styled.div`
-  width: 40px;
-  height: 40px;
-  background: rgba(26, 27, 38, 0.7);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.1rem;
-  font-weight: bold;
-  color: ${props => {
-    switch(props.$rank) {
-      case 1: return '#FFD700';
-      case 2: return '#C0C0C0';
-      case 3: return '#CD7F32';
-      default: return '#6c7293';
-    }
-  }};
-`;
-
-const PlayerInfo = styled.div`
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  margin: 0 20px;
-
-  img {
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
-    object-fit: cover;
-    border: 2px solid #2a2c4e;
-  }
-`;
-
-const PlayerDetails = styled.div``;
-
-const PlayerName = styled.div`
-  font-weight: bold;
-  font-size: 1.1rem;
-  margin-bottom: 5px;
-`;
-
-const PlayerStats = styled.div`
-  font-size: 0.9rem;
-  color: #8f90a3;
-`;
-
-const Score = styled.div`
-  font-weight: bold;
-  font-size: 1.2rem;
-  color: #4a7dff;
-`;
-
-const SideContent = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 30px;
-`;
-
-const SideCard = styled.div`
-  background: linear-gradient(145deg, #1e2044 0%, #171934 100%);
-  border-radius: 20px;
-  padding: 25px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-`;
-
-const SideCardTitle = styled.h3`
-  font-size: 1.2rem;
-  margin-bottom: 20px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  
-  svg {
-    color: #4a7dff;
-  }
-`;
-
-const CategoryStats = styled.div`
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 15px;
-`;
-
-const CategoryItem = styled.div`
-  background: rgba(26, 27, 38, 0.5);
-  border-radius: 15px;
-  padding: 15px;
-  text-align: center;
-  
-  h4 {
-    font-size: 1.5rem;
-    color: #4a7dff;
-    margin-bottom: 5px;
-  }
-  
-  p {
-    font-size: 0.9rem;
-    color: #8f90a3;
-  }
-`;
-
-const HighlightCard = styled.div`
+const HighlightCard = styled(Box)`
   position: relative;
   background: linear-gradient(
     135deg,
@@ -495,35 +516,6 @@ const HighlightCard = styled.div`
     font-size: 24px;
     color: #FFD700;
     filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.5));
-  }
-  
-  h4 {
-    font-size: 1.1rem;
-    margin-bottom: 15px;
-  }
-`;
-
-const PlayerRow = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 10px;
-  
-  img {
-    width: 35px;
-    height: 35px;
-    border-radius: 50%;
-    object-fit: cover;
-  }
-  
-  .player-name {
-    flex: 1;
-    font-size: 0.9rem;
-  }
-  
-  .player-score {
-    font-weight: bold;
-    color: #4a7dff;
   }
 `;
 
@@ -597,7 +589,7 @@ function LeaderboardPage() {
           <Header>
             <HeaderLeft>
              
-              <Title>
+              <Title variant="h1">
                 <FaTrophy />
                 Liderlik Tablosu
               </Title>
@@ -606,12 +598,14 @@ function LeaderboardPage() {
             <HeaderRight>
               <SearchBar>
                 <FaSearch />
-                <SearchInput 
-                  type="text" 
-                  placeholder="Oyuncu ara..." 
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
+                <SearchInput component="div">
+                  <input 
+                    type="text" 
+                    placeholder="Oyuncu ara..." 
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </SearchInput>
               </SearchBar>
             </HeaderRight>
           </Header>
@@ -663,7 +657,7 @@ function LeaderboardPage() {
                     <TopPlayerCard key={player.id} $rank={index + 1}>
                       {index === 0 && <CrownIcon><FaCrown /></CrownIcon>}
                       <TopPlayerAvatar $rank={index + 1}>
-                        <img 
+                        <Avatar
                           src={getProfileImage(player)} 
                           alt={player.name} 
                           onError={(e) => {
@@ -673,8 +667,8 @@ function LeaderboardPage() {
                         />
                         <TopPlayerRank $rank={index + 1}>{index + 1}</TopPlayerRank>
                       </TopPlayerAvatar>
-                      <TopPlayerName $rank={index + 1}>{player.name}</TopPlayerName>
-                      <TopPlayerScore $rank={index + 1}>{player.score.toLocaleString()} Puan</TopPlayerScore>
+                      <TopPlayerName $rank={index + 1} variant="body1">{player.name}</TopPlayerName>
+                      <TopPlayerScore $rank={index + 1} variant="body2">{player.score.toLocaleString()} Puan</TopPlayerScore>
                     </TopPlayerCard>
                   ))}
                 </TopThreeContainer>
@@ -687,7 +681,7 @@ function LeaderboardPage() {
                       {leaderboardData.findIndex(p => p.id === player.id) + 1}
                     </Rank>
                     <PlayerInfo>
-                      <img 
+                      <Avatar
                         src={getProfileImage(player)} 
                         alt={player.name} 
                         onError={(e) => {
@@ -696,11 +690,11 @@ function LeaderboardPage() {
                         }}
                       />
                       <PlayerDetails>
-                        <PlayerName>{player.name}</PlayerName>
-                        <PlayerStats>{player.games} Oyun • %{player.winRate} Kazanma</PlayerStats>
+                        <Typography variant="body1" className="player-name">{player.name}</Typography>
+                        <Typography variant="body2" className="player-stats">{player.games} Oyun • %{player.winRate} Kazanma</Typography>
                       </PlayerDetails>
                     </PlayerInfo>
-                    <Score>{player.score.toLocaleString()} Puan</Score>
+                    <Score variant="body1">{player.score.toLocaleString()} Puan</Score>
                   </LeaderboardItem>
                 ))}
               </LeaderboardList>
@@ -708,69 +702,69 @@ function LeaderboardPage() {
             
             <SideContent>
               <SideCard>
-                <SideCardTitle>
+                <SideCardTitle variant="h6">
                   <FaChartLine /> İstatistikler
                 </SideCardTitle>
                 <CategoryStats>
                   <CategoryItem>
-                    <h4>250+</h4>
-                    <p>Aktif Oyuncu</p>
+                    <Typography variant="h4">250+</Typography>
+                    <Typography variant="body2">Aktif Oyuncu</Typography>
                   </CategoryItem>
                   <CategoryItem>
-                    <h4>1.2M</h4>
-                    <p>Toplam Oyun</p>
+                    <Typography variant="h4">1.2M</Typography>
+                    <Typography variant="body2">Toplam Oyun</Typography>
                   </CategoryItem>
                   <CategoryItem>
-                    <h4>120K</h4>
-                    <p>Haftalık Oyun</p>
+                    <Typography variant="h4">120K</Typography>
+                    <Typography variant="body2">Haftalık Oyun</Typography>
                   </CategoryItem>
                   <CategoryItem>
-                    <h4>%54</h4>
-                    <p>Ort. Kazanma</p>
+                    <Typography variant="h4">%54</Typography>
+                    <Typography variant="body2">Ort. Kazanma</Typography>
                   </CategoryItem>
                 </CategoryStats>
               </SideCard>
               
               <SideCard>
-                <SideCardTitle>
+                <SideCardTitle variant="h6">
                   <FaFireAlt /> Haftanın En İyileri
                 </SideCardTitle>
                 <HighlightCard>
-                  <div className="highlight-icon"><FaStar /></div>
-                  <h4>Kart Oyunları</h4>
+                  <Box className="highlight-icon"><FaStar /></Box>
+                  <Typography variant="h4" sx={{ fontSize: '1.1rem', marginBottom: '15px' }}>Kart Oyunları</Typography>
                   <PlayerRow>
-                    <img 
+                    <Avatar
                       src={getProfileImage(getBestPlayer('kart'))} 
                       alt={getBestPlayer('kart').name} 
                     />
-                    <span className="player-name">{getBestPlayer('kart').name}</span>
-                    <span className="player-score">{getBestPlayer('kart').score.toLocaleString()}</span>
+                    <Typography component="span" className="player-name">{getBestPlayer('kart').name}</Typography>
+                    <Typography component="span" className="player-score">{getBestPlayer('kart').score.toLocaleString()}</Typography>
                   </PlayerRow>
                 </HighlightCard>
                 
                 <HighlightCard style={{ marginTop: '15px' }}>
-                  <div className="highlight-icon"><FaStar /></div>
-                  <h4>Zar Oyunları</h4>
+                  <Box className="highlight-icon"><FaStar /></Box>
+                  <Typography variant="h4" sx={{ fontSize: '1.1rem', marginBottom: '15px' }}>Zar Oyunları</Typography>
                   <PlayerRow>
-                    <img 
+                    <Avatar 
                       src={getProfileImage(getBestPlayer('zar'))} 
                       alt={getBestPlayer('zar').name} 
                     />
-                    <span className="player-name">{getBestPlayer('zar').name}</span>
-                    <span className="player-score">{getBestPlayer('zar').score.toLocaleString()}</span>
+                    <Typography component="span" className="player-name">{getBestPlayer('zar').name}</Typography>
+                    <Typography component="span" className="player-score">{getBestPlayer('zar').score.toLocaleString()}</Typography>
                   </PlayerRow>
                 </HighlightCard>
               </SideCard>
               
               {user && (
                 <SideCard>
-                  <SideCardTitle>
+                  <SideCardTitle variant="h6">
                     <FaUser /> Senin Sıralamanız
                   </SideCardTitle>
                   <LeaderboardItem style={{ background: 'rgba(74, 125, 255, 0.1)' }}>
                     <Rank $rank={4}>4</Rank>
                     <PlayerInfo>
-                      <img 
+                      <Avatar 
                         src={user.profileImage || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`} 
                         alt={user.username} 
                         className="profile-image"
@@ -781,11 +775,11 @@ function LeaderboardPage() {
                         }}
                       />
                       <PlayerDetails>
-                        <PlayerName>{user.username || user.email}</PlayerName>
-                        <PlayerStats>76 Oyun • %55 Kazanma</PlayerStats>
+                        <Typography variant="body1" className="player-name">{user.username || user.email}</Typography>
+                        <Typography variant="body2" className="player-stats">76 Oyun • %55 Kazanma</Typography>
                       </PlayerDetails>
                     </PlayerInfo>
-                    <Score>8,500 Puan</Score>
+                    <Score variant="body1">8,500 Puan</Score>
                   </LeaderboardItem>
                 </SideCard>
               )}

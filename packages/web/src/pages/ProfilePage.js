@@ -6,6 +6,7 @@ import { FaTrophy, FaGamepad, FaChartLine, FaCalendarAlt, FaCog, FaBell } from '
 import { BACKEND_URL } from '../api/auth';
 import { Link, useNavigate } from 'react-router-dom';
 import MainLayout from '../components/Layout/MainLayout';
+import { Box, Typography, Avatar as MuiAvatar } from '@mui/material';
 
 // Animasyonlar
 const fadeIn = keyframes`
@@ -31,13 +32,13 @@ const pulse = keyframes`
   }
 `;
 
-const ProfileContainer = styled.div`
+const ProfileContainer = styled(Box)`
   padding: 40px;
   color: white;
   animation: ${fadeIn} 0.5s ease-out;
 `;
 
-const ProfileWrapper = styled.div`
+const ProfileWrapper = styled(Box)`
   display: grid;
   grid-template-columns: 300px 1fr;
   gap: 40px;
@@ -49,11 +50,11 @@ const ProfileWrapper = styled.div`
   }
 `;
 
-const ProfileSidebar = styled.div`
+const ProfileSidebar = styled(Box)`
   position: relative;
 `;
 
-const ProfileCard = styled.div`
+const ProfileCard = styled(Box)`
   background: linear-gradient(145deg, #1e2044 0%, #171934 100%);
   border-radius: 20px;
   padding: 30px;
@@ -75,7 +76,7 @@ const ProfileCard = styled.div`
   }
 `;
 
-const AvatarWrapper = styled.div`
+const AvatarWrapper = styled(Box)`
   position: relative;
   margin: 20px auto 30px;
   width: 150px;
@@ -83,7 +84,7 @@ const AvatarWrapper = styled.div`
   z-index: 1;
 `;
 
-const AvatarBorder = styled.div`
+const AvatarBorder = styled(Box)`
   position: absolute;
   top: -5px;
   left: -5px;
@@ -95,7 +96,7 @@ const AvatarBorder = styled.div`
   z-index: -1;
 `;
 
-const Avatar = styled.img`
+const Avatar = styled(MuiAvatar)`
   width: 150px;
   height: 150px;
   border-radius: 50%;
@@ -106,26 +107,26 @@ const Avatar = styled.img`
   background-color: #171934;
 `;
 
-const Username = styled.h1`
+const Username = styled(Typography)`
   font-size: 1.8rem;
   font-weight: 700;
   margin-bottom: 5px;
 `;
 
-const Email = styled.p`
+const Email = styled(Typography)`
   color: #8f90a3;
   margin-bottom: 20px;
   font-size: 0.9rem;
 `;
 
-const UserStats = styled.div`
+const UserStats = styled(Box)`
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 15px;
   margin: 25px 0;
 `;
 
-const StatItem = styled.div`
+const StatItem = styled(Box)`
   padding: 15px;
   background: rgba(26, 27, 38, 0.7);
   border-radius: 15px;
@@ -135,21 +136,154 @@ const StatItem = styled.div`
     transform: translateY(-5px);
     background: rgba(74, 125, 255, 0.1);
   }
+`;
+
+const ContentArea = styled(Box)`
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+`;
+
+const ContentHeader = styled(Box)`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+`;
+
+const ContentCard = styled(Box)`
+  background: linear-gradient(145deg, #1e2044 0%, #171934 100%);
+  border-radius: 20px;
+  padding: 30px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  animation: ${fadeIn} 0.5s ease-out;
+`;
+
+const StatsGrid = styled(Box)`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 20px;
+  margin-top: 20px;
+`;
+
+const StatCard = styled(Box)`
+  background: rgba(26, 27, 38, 0.7);
+  padding: 25px 20px;
+  border-radius: 15px;
+  text-align: center;
+  transition: all 0.3s ease;
   
-  h3 {
-    font-size: 1.8rem;
-    font-weight: 700;
-    color: #4a7dff;
-    margin-bottom: 5px;
-  }
-  
-  p {
-    color: #8f90a3;
-    font-size: 0.9rem;
+  &:hover {
+    transform: translateY(-5px);
+    background: rgba(74, 125, 255, 0.1);
   }
 `;
 
-const ProfileActions = styled.div`
+const GameHistoryList = styled(Box)`
+  margin-top: 20px;
+`;
+
+const HistoryItem = styled(Box)`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  transition: all 0.3s ease;
+  
+  &:last-child {
+    border-bottom: none;
+  }
+  
+  &:hover {
+    background: rgba(26, 27, 38, 0.5);
+    border-radius: 12px;
+  }
+`;
+
+const GameInfo = styled(Box)`
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  
+  .game-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 12px;
+    background: linear-gradient(145deg, #1e2044 0%, #171934 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    color: #4a7dff;
+  }
+  
+  .game-details {
+    .MuiTypography-root {
+      font-size: 1.1rem;
+      margin-bottom: 5px;
+    }
+    
+    .date {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      color: #8f90a3;
+      font-size: 0.85rem;
+      
+      svg {
+        font-size: 0.8rem;
+      }
+    }
+  }
+`;
+
+const ResultIndicator = styled(Box)`
+  font-weight: 700;
+  font-size: 1.1rem;
+  padding: 8px 16px;
+  border-radius: 20px;
+  background: ${props => props.$win ? 'rgba(76, 175, 80, 0.1)' : 'rgba(244, 67, 54, 0.1)'};
+  color: ${props => props.$win ? '#4CAF50' : '#f44336'};
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+const AchievementGrid = styled(Box)`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 20px;
+  margin-top: 20px;
+`;
+
+const AchievementCard = styled(Box)`
+  background: rgba(26, 27, 38, 0.7);
+  border-radius: 15px;
+  padding: 20px;
+  text-align: center;
+  transition: all 0.3s ease;
+  
+  &:hover {
+    transform: translateY(-5px);
+    background: rgba(74, 125, 255, 0.1);
+  }
+  
+  .achievement-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 30px;
+    background: linear-gradient(145deg, #4a7dff 0%, #6a5aff 100%);
+    margin: 0 auto 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    color: white;
+  }
+`;
+
+const ProfileActions = styled(Box)`
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -174,183 +308,6 @@ const ProfileAction = styled(Link)`
   
   svg {
     color: #4a7dff;
-  }
-`;
-
-const ContentArea = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 30px;
-`;
-
-const ContentHeader = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
-  
-  h2 {
-    font-size: 1.5rem;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    
-    svg {
-      color: #4a7dff;
-    }
-  }
-`;
-
-const ContentCard = styled.div`
-  background: linear-gradient(145deg, #1e2044 0%, #171934 100%);
-  border-radius: 20px;
-  padding: 30px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-  animation: ${fadeIn} 0.5s ease-out;
-`;
-
-const StatsGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 20px;
-  margin-top: 20px;
-`;
-
-const StatCard = styled.div`
-  background: rgba(26, 27, 38, 0.7);
-  padding: 25px 20px;
-  border-radius: 15px;
-  text-align: center;
-  transition: all 0.3s ease;
-  
-  &:hover {
-    transform: translateY(-5px);
-    background: rgba(74, 125, 255, 0.1);
-  }
-  
-  h3 {
-    font-size: 2rem;
-    color: #4a7dff;
-    margin-bottom: 10px;
-  }
-  
-  p {
-    color: #8f90a3;
-  }
-`;
-
-const GameHistoryList = styled.div`
-  margin-top: 20px;
-`;
-
-const HistoryItem = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  transition: all 0.3s ease;
-  
-  &:last-child {
-    border-bottom: none;
-  }
-  
-  &:hover {
-    background: rgba(26, 27, 38, 0.5);
-    border-radius: 12px;
-  }
-`;
-
-const GameInfo = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  
-  .game-icon {
-    width: 50px;
-    height: 50px;
-    border-radius: 12px;
-    background: linear-gradient(145deg, #1e2044 0%, #171934 100%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.5rem;
-    color: #4a7dff;
-  }
-  
-  .game-details {
-    h4 {
-      font-size: 1.1rem;
-      margin-bottom: 5px;
-    }
-    
-    .date {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      color: #8f90a3;
-      font-size: 0.85rem;
-      
-      svg {
-        font-size: 0.8rem;
-      }
-    }
-  }
-`;
-
-const ResultIndicator = styled.div`
-  font-weight: 700;
-  font-size: 1.1rem;
-  padding: 8px 16px;
-  border-radius: 20px;
-  background: ${props => props.$win ? 'rgba(76, 175, 80, 0.1)' : 'rgba(244, 67, 54, 0.1)'};
-  color: ${props => props.$win ? '#4CAF50' : '#f44336'};
-  display: flex;
-  align-items: center;
-  gap: 8px;
-`;
-
-const AchievementGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 20px;
-  margin-top: 20px;
-`;
-
-const AchievementCard = styled.div`
-  background: rgba(26, 27, 38, 0.7);
-  border-radius: 15px;
-  padding: 20px;
-  text-align: center;
-  transition: all 0.3s ease;
-  
-  &:hover {
-    transform: translateY(-5px);
-    background: rgba(74, 125, 255, 0.1);
-  }
-  
-  .achievement-icon {
-    width: 60px;
-    height: 60px;
-    border-radius: 30px;
-    background: linear-gradient(145deg, #4a7dff 0%, #6a5aff 100%);
-    margin: 0 auto 15px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.5rem;
-    color: white;
-  }
-  
-  h4 {
-    font-size: 1rem;
-    margin-bottom: 5px;
-  }
-  
-  p {
-    color: #8f90a3;
-    font-size: 0.85rem;
   }
 `;
 
@@ -421,17 +378,17 @@ function ProfilePage() {
                 />
               </AvatarWrapper>
               
-              <Username>{userData?.username || 'Kullanıcı'}</Username>
-              <Email>{userData?.email || 'kullanıcı@örnek.com'}</Email>
+              <Username variant="h1">{userData?.username || 'Kullanıcı'}</Username>
+              <Email variant="body2">{userData?.email || 'kullanıcı@örnek.com'}</Email>
               
               <UserStats>
                 <StatItem>
-                  <h3>156</h3>
-                  <p>Oyun</p>
+                  <Typography variant="h3" sx={{ fontSize: '1.8rem', fontWeight: 700, color: '#4a7dff', marginBottom: '5px' }}>156</Typography>
+                  <Typography variant="body2" sx={{ color: '#8f90a3', fontSize: '0.9rem' }}>Oyun</Typography>
                 </StatItem>
                 <StatItem>
-                  <h3>57%</h3>
-                  <p>Kazanma</p>
+                  <Typography variant="h3" sx={{ fontSize: '1.8rem', fontWeight: 700, color: '#4a7dff', marginBottom: '5px' }}>57%</Typography>
+                  <Typography variant="body2" sx={{ color: '#8f90a3', fontSize: '0.9rem' }}>Kazanma</Typography>
                 </StatItem>
               </UserStats>
               
@@ -439,7 +396,7 @@ function ProfilePage() {
                 <ProfileAction to="/settings">
                   <FaCog /> Hesap Ayarları
                 </ProfileAction>
-                <ProfileAction to="/notifications">
+                <ProfileAction to="/settings">
                   <FaBell /> Bildirimler
                 </ProfileAction>
               </ProfileActions>
@@ -449,14 +406,16 @@ function ProfilePage() {
           <ContentArea>
             <ContentCard>
               <ContentHeader>
-                <h2><FaChartLine /> İstatistikler</h2>
+                <Typography variant="h2" sx={{ fontSize: '1.5rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <FaChartLine style={{ color: '#4a7dff' }} /> İstatistikler
+                </Typography>
               </ContentHeader>
               
               <StatsGrid>
                 {stats.map((stat, index) => (
                   <StatCard key={index}>
-                    <h3>{stat.value}</h3>
-                    <p>{stat.label}</p>
+                    <Typography variant="h3" sx={{ fontSize: '2rem', color: '#4a7dff', marginBottom: '10px' }}>{stat.value}</Typography>
+                    <Typography variant="body2" sx={{ color: '#8f90a3' }}>{stat.label}</Typography>
                   </StatCard>
                 ))}
               </StatsGrid>
@@ -464,23 +423,25 @@ function ProfilePage() {
             
             <ContentCard>
               <ContentHeader>
-                <h2><FaGamepad /> Oyun Geçmişi</h2>
+                <Typography variant="h2" sx={{ fontSize: '1.5rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <FaGamepad style={{ color: '#4a7dff' }} /> Oyun Geçmişi
+                </Typography>
               </ContentHeader>
               
               <GameHistoryList>
                 {gameHistory.map((history, index) => (
                   <HistoryItem key={index}>
                     <GameInfo>
-                      <div className="game-icon">
+                      <Box className="game-icon">
                         {history.icon}
-                      </div>
-                      <div className="game-details">
-                        <h4>{history.game}</h4>
-                        <div className="date">
-                          <FaCalendarAlt />
+                      </Box>
+                      <Box className="game-details">
+                        <Typography variant="h4" sx={{ fontSize: '1.1rem', marginBottom: '5px' }}>{history.game}</Typography>
+                        <Box className="date" sx={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#8f90a3', fontSize: '0.85rem' }}>
+                          <FaCalendarAlt style={{ fontSize: '0.8rem' }} />
                           {history.date}
-                        </div>
-                      </div>
+                        </Box>
+                      </Box>
                     </GameInfo>
                     <ResultIndicator $win={history.result === 'Kazandı'}>
                       {history.amount}
@@ -492,17 +453,19 @@ function ProfilePage() {
             
             <ContentCard>
               <ContentHeader>
-                <h2><FaTrophy /> Başarımlar</h2>
+                <Typography variant="h2" sx={{ fontSize: '1.5rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <FaTrophy style={{ color: '#4a7dff' }} /> Başarımlar
+                </Typography>
               </ContentHeader>
               
               <AchievementGrid>
                 {achievements.map((achievement, index) => (
                   <AchievementCard key={index}>
-                    <div className="achievement-icon">
+                    <Box className="achievement-icon">
                       {achievement.icon}
-                    </div>
-                    <h4>{achievement.name}</h4>
-                    <p>{achievement.description}</p>
+                    </Box>
+                    <Typography variant="h4" sx={{ fontSize: '1rem', marginBottom: '5px' }}>{achievement.name}</Typography>
+                    <Typography variant="body2" sx={{ color: '#8f90a3', fontSize: '0.85rem' }}>{achievement.description}</Typography>
                   </AchievementCard>
                 ))}
               </AchievementGrid>

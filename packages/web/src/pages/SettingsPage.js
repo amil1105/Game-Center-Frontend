@@ -7,6 +7,18 @@ import { getUserProfile, updateUserSettings, uploadProfileImage, BACKEND_URL } f
 import { UserContext } from '../context/UserContext';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '../components/Layout/MainLayout';
+import { 
+  Box, 
+  Typography, 
+  Button, 
+  TextField, 
+  Avatar, 
+  Select as MuiSelect, 
+  MenuItem, 
+  FormControl, 
+  FormControlLabel, 
+  Switch as MuiSwitch
+} from '@mui/material';
 
 // Animasyonlar
 const fadeIn = keyframes`
@@ -41,29 +53,20 @@ const shine = keyframes`
   }
 `;
 
-const SettingsContainer = styled.div`
+const SettingsContainer = styled(Box)`
   padding: 40px;
   color: white;
   animation: ${fadeIn} 0.5s ease-out;
 `;
 
-const Header = styled.div`
+const Header = styled(Box)`
   margin-bottom: 40px;
   display: flex;
   align-items: center;
   gap: 20px;
-  
-  h1 {
-    font-size: 2rem;
-    margin-bottom: 10px;
-  }
-  
-  p {
-    color: #6c7293;
-  }
 `;
 
-const BackButton = styled.button`
+const BackButton = styled(Button)`
   background: rgba(74, 125, 255, 0.1);
   border: none;
   color: #4a7dff;
@@ -79,7 +82,7 @@ const BackButton = styled.button`
   }
 `;
 
-const SettingsGrid = styled.div`
+const SettingsGrid = styled(Box)`
   display: grid;
   grid-template-columns: 250px 1fr;
   gap: 30px;
@@ -91,14 +94,14 @@ const SettingsGrid = styled.div`
   }
 `;
 
-const SettingsNav = styled.div`
+const SettingsNav = styled(Box)`
   background: linear-gradient(145deg, #1e2044 0%, #171934 100%);
   border-radius: 15px;
   padding: 20px;
   height: fit-content;
 `;
 
-const NavItem = styled.div`
+const NavItem = styled(Box)`
   padding: 15px;
   margin: 5px 0;
   border-radius: 10px;
@@ -122,7 +125,7 @@ const NavItem = styled.div`
   }
 `;
 
-const SettingsContent = styled.div`
+const SettingsContent = styled(Box)`
   background: linear-gradient(145deg, #1e2044 0%, #171934 100%);
   border-radius: 15px;
   padding: 30px;
@@ -142,107 +145,90 @@ const SettingsContent = styled.div`
   }
 `;
 
-const FormGroup = styled.div`
+const FormGroup = styled(Box)`
   margin-bottom: 25px;
+`;
 
-  label {
-    display: block;
-    margin-bottom: 8px;
+const StyledTextField = styled(TextField)`
+  width: 100%;
+
+  & .MuiInputBase-root {
+    background: rgba(26, 27, 38, 0.5);
+    border-radius: 8px;
+    color: white;
+    font-size: 1rem;
+    transition: all 0.3s;
+  }
+
+  & .MuiOutlinedInput-notchedOutline {
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+
+  &:hover .MuiOutlinedInput-notchedOutline {
+    border-color: rgba(255, 255, 255, 0.3);
+  }
+
+  &.Mui-focused .MuiOutlinedInput-notchedOutline {
+    border-color: #4a7dff;
+    box-shadow: 0 0 0 3px rgba(74, 125, 255, 0.1);
+  }
+  
+  & .MuiInputLabel-root {
     color: #6c7293;
   }
+  
+  & .MuiInputLabel-root.Mui-focused {
+    color: #4a7dff;
+  }
 `;
 
-const Input = styled.input`
+const StyledSelect = styled(MuiSelect)`
   width: 100%;
-  padding: 12px;
   background: rgba(26, 27, 38, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   color: white;
   font-size: 1rem;
   transition: all 0.3s;
-
-  &:focus {
-    outline: none;
+  
+  & .MuiOutlinedInput-notchedOutline {
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+  
+  &:hover .MuiOutlinedInput-notchedOutline {
+    border-color: rgba(255, 255, 255, 0.3);
+  }
+  
+  &.Mui-focused .MuiOutlinedInput-notchedOutline {
     border-color: #4a7dff;
-    background: rgba(74, 125, 255, 0.1);
     box-shadow: 0 0 0 3px rgba(74, 125, 255, 0.1);
   }
-`;
-
-const Select = styled.select`
-  width: 100%;
-  padding: 12px;
-  background: rgba(26, 27, 38, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  color: white;
-  font-size: 1rem;
-  transition: all 0.3s;
-  cursor: pointer;
-
-  &:focus {
-    outline: none;
-    border-color: #4a7dff;
-    background: rgba(74, 125, 255, 0.1);
-    box-shadow: 0 0 0 3px rgba(74, 125, 255, 0.1);
-  }
-
-  option {
-    background: #1a1b38;
+  
+  & .MuiSelect-icon {
     color: white;
   }
 `;
 
-const Switch = styled.label`
-  position: relative;
-  display: inline-block;
-  width: 60px;
-  height: 34px;
-
-  input {
-    opacity: 0;
-    width: 0;
-    height: 0;
+const Switch = styled(MuiSwitch)`
+  & .MuiSwitch-switchBase {
+    color: white;
   }
 
-  span {
-    position: absolute;
-    cursor: pointer;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: #2a2c4e;
-    transition: .4s;
-    border-radius: 34px;
-
-    &:before {
-      position: absolute;
-      content: "";
-      height: 26px;
-      width: 26px;
-      left: 4px;
-      bottom: 4px;
-      background-color: white;
-      transition: .4s;
-      border-radius: 50%;
-    }
+  & .MuiSwitch-switchBase.Mui-checked {
+    color: #4a7dff;
   }
 
-  input:checked + span {
+  & .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track {
     background-color: #4a7dff;
   }
 
-  input:checked + span:before {
-    transform: translateX(26px);
+  & .MuiSwitch-track {
+    background-color: #2a2c4e;
   }
 `;
 
-const SaveButton = styled.button`
+const SaveButton = styled(Button)`
   background: linear-gradient(145deg, #4a7dff 0%, #6a5aff 100%);
   color: white;
-  border: none;
   padding: 12px 24px;
   border-radius: 8px;
   font-size: 1rem;
@@ -253,6 +239,7 @@ const SaveButton = styled.button`
   overflow: hidden;
 
   &:hover {
+    background-image: linear-gradient(145deg, #5a8dff 0%, #7a6aff 100%);
     transform: translateY(-2px);
     box-shadow: 0 5px 15px rgba(74, 125, 255, 0.3);
   }
@@ -286,7 +273,7 @@ const SaveButton = styled.button`
   }
 `;
 
-const ImagePreview = styled.div`
+const ImagePreview = styled(Box)`
   width: 150px;
   height: 150px;
   border-radius: 75px;
@@ -299,7 +286,7 @@ const ImagePreview = styled.div`
   transition: all 0.3s ease;
   animation: ${pulse} 3s infinite;
 
-  img {
+  & .MuiAvatar-root {
     width: 100%;
     height: 100%;
     object-fit: cover;
@@ -309,7 +296,7 @@ const ImagePreview = styled.div`
   &:hover {
     border-color: #4a7dff;
 
-    img {
+    & .MuiAvatar-root {
       transform: scale(1.05);
     }
 
@@ -319,7 +306,7 @@ const ImagePreview = styled.div`
   }
 `;
 
-const UploadOverlay = styled.div`
+const UploadOverlay = styled(Box)`
   position: absolute;
   top: 0;
   left: 0;
@@ -335,7 +322,7 @@ const UploadOverlay = styled.div`
   border-radius: 50%;
 `;
 
-const UploadIcon = styled.div`
+const UploadIcon = styled(Box)`
   width: 50px;
   height: 50px;
   border-radius: 50%;
@@ -348,11 +335,11 @@ const UploadIcon = styled.div`
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
 `;
 
-const FileInput = styled.input`
+const FileInput = styled('input')`
   display: none;
 `;
 
-const UploadButton = styled.button`
+const UploadButton = styled(Button)`
   background-color: transparent;
   color: #4a7dff;
   border: 1px solid #4a7dff;
@@ -370,12 +357,12 @@ const UploadButton = styled.button`
     background-color: rgba(74, 125, 255, 0.1);
   }
 
-  svg {
+  & svg {
     font-size: 1rem;
   }
 `;
 
-const ImageUploadProgress = styled.div`
+const ImageUploadProgress = styled(Box)`
   width: 100%;
   height: 6px;
   background: #2a2c4e;
@@ -413,8 +400,12 @@ function SettingsPage() {
   });
   
   const fileInputRef = useRef(null);
-  const { updateUserData } = useContext(UserContext);
+  const { updateUserData, user: contextUser } = useContext(UserContext);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    console.log('Current user in context:', contextUser);
+  }, [contextUser]);
 
   // URL parametrelerinden sekme değerini kontrol et
   useEffect(() => {
@@ -436,12 +427,22 @@ function SettingsPage() {
         const userData = await getUserProfile(token);
         console.log('User data received in settings:', userData);
         
-        setUser(userData);
+        // _id'yi id olarak da ekle
+        const userWithId = {
+          ...userData,
+          id: userData._id || userData.id // id yoksa _id kullan, o da yoksa null olacak
+        };
+        
+        setUser(userWithId);
+        
+        // Daha sonra erişim için userData'yı localStorage'a kaydet
+        localStorage.setItem('userData', JSON.stringify(userWithId));
+        setLoading(false);  // Loading durumunu güncelle
         
         // Profil resmi yolunu düzeltme (zaten BACKEND_URL içerip içermediğini kontrol et)
         let profileImageUrl = userData.profileImage || '';
         if (profileImageUrl && !profileImageUrl.includes('http')) {
-          profileImageUrl = `${BACKEND_URL}${profileImageUrl}`;
+          profileImageUrl = combineUrls(BACKEND_URL, profileImageUrl);
           console.log('Updated profile image URL with backend URL:', profileImageUrl);
         }
         
@@ -504,6 +505,21 @@ function SettingsPage() {
       console.log('File input triggered');
     } else {
       console.error('File input reference is not available');
+    }
+  };
+
+  // URL'leri birleştirmek için yardımcı fonksiyon
+  const combineUrls = (baseUrl, relativePath) => {
+    if (!relativePath) return baseUrl;
+    
+    if (relativePath.startsWith('/')) {
+      return baseUrl.endsWith('/') 
+        ? `${baseUrl.slice(0, -1)}${relativePath}`
+        : `${baseUrl}${relativePath}`;
+    } else {
+      return baseUrl.endsWith('/')
+        ? `${baseUrl}${relativePath}`
+        : `${baseUrl}/${relativePath}`;
     }
   };
 
@@ -581,7 +597,9 @@ function SettingsPage() {
         
         // Backend'den gelen göreceli URL'yi tam URL'ye dönüştür
         const profileImagePath = response.profileImage;
-        const fullProfileImageUrl = `${BACKEND_URL}${profileImagePath}?t=${timestamp}`;
+        // URL'leri düzgün bir şekilde birleştir
+        const baseUrl = combineUrls(BACKEND_URL, profileImagePath);
+        const fullProfileImageUrl = `${baseUrl}?t=${timestamp}`;
         
         console.log('Full profile image URL:', fullProfileImageUrl);
 
@@ -596,32 +614,16 @@ function SettingsPage() {
           profileImage: fullProfileImageUrl
         }));
 
-        // UserContext'i güncelle
-        updateUserData({ profileImage: fullProfileImageUrl });
-
-        // Tarayıcı önbelleğini temizlemek için görüntüyü önceden yükle
-        const preloadImage = new Image();
-        preloadImage.src = fullProfileImageUrl;
-        preloadImage.onload = () => {
-          console.log('Image preloaded successfully');
-          
-          // Görüntü başarıyla yüklendiğinde önbelleği temizle ve gerekirse sayfayı yenile
-          toast.success('Profil resmi başarıyla güncellendi');
-          
-          // Sayfayı yenile yerine doğrudan DOM'u güncelle
-          const profileImages = document.querySelectorAll('.profile-image');
-          profileImages.forEach(img => {
-            img.src = fullProfileImageUrl;
-          });
+        // UserContext'i tamamen güncelleyerek bütün uygulamadaki avatar görüntülerinin güncellenmesini sağla
+        const updatedUserData = {
+          ...contextUser,
+          profileImage: fullProfileImageUrl
         };
+        console.log('Updating user context with new data:', updatedUserData);
+        updateUserData(updatedUserData);
         
-        preloadImage.onerror = (err) => {
-          console.error('Error preloading image:', err);
-          toast.error('Profil resmi yüklenirken bir sorun oluştu');
-        };
-        
-        // Test için: Resmi göstermeye çalış
-        console.log('Try to open image at:', fullProfileImageUrl);
+        // Görüntü başarıyla yüklendiğinde bildirim ver
+        toast.success('Profil resmi başarıyla güncellendi');
         
       } catch (uploadError) {
         console.error('Upload error:', uploadError);
@@ -655,8 +657,13 @@ function SettingsPage() {
 
       setUser(updatedUser);
       
-      // UserContext'i güncelle
-      updateUserData(updatedUser);
+      // UserContext'i tamamen güncelleyerek bütün uygulamadaki kullanıcı bilgilerinin güncellenmesini sağla
+      const updatedUserData = {
+        ...contextUser,
+        ...updatedUser
+      };
+      console.log('Updating user context with new data after settings update:', updatedUserData);
+      updateUserData(updatedUserData);
       
       toast.success('Ayarlar başarıyla güncellendi');
     } catch (error) {
@@ -672,14 +679,17 @@ function SettingsPage() {
       case 'profile':
         return (
           <>
-            <h2>Profil Ayarları</h2>
+            <Typography variant="h2" sx={{ marginBottom: 2 }}>Profil Ayarları</Typography>
             <FormGroup>
-              <label>Profil Resmi</label>
+              <Typography variant="body2" component="label" sx={{ display: 'block', marginBottom: 1, color: '#6c7293' }}>
+                Profil Resmi
+              </Typography>
               <ImagePreview>
-                <img 
+                <Avatar 
                   className="profile-image"
                   src={formData.profileImage || `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="150" height="150"><rect width="100" height="100" fill="#2a2c4e"/><text x="50" y="50" font-size="50" text-anchor="middle" dominant-baseline="middle" font-family="Arial" fill="white">' + (formData.username ? formData.username.charAt(0).toUpperCase() : 'U') + '</text></svg>')}`} 
                   alt="Profil" 
+                  sx={{ width: '100%', height: '100%' }}
                   onLoad={() => console.log('Settings page profile image loaded successfully:', formData.profileImage)}
                   onError={(e) => {
                     console.log('Error loading image in settings page:', e.target.src);
@@ -702,19 +712,22 @@ function SettingsPage() {
                 onChange={handleFileChange}
               />
               
-              <UploadButton type="button" onClick={handleProfileImageClick}>
-                <FaUpload /> Profil Resmi Yükle
+              <UploadButton variant="outlined" onClick={handleProfileImageClick} startIcon={<FaUpload />}>
+                Profil Resmi Yükle
               </UploadButton>
               
               <ImageUploadProgress $uploading={uploading} $progress={uploadProgress} />
             </FormGroup>
             <FormGroup>
-              <label>Kullanıcı Adı</label>
-              <Input
-                type="text"
+              <Typography variant="body2" component="label" sx={{ display: 'block', marginBottom: 1, color: '#6c7293' }}>
+                Kullanıcı Adı
+              </Typography>
+              <StyledTextField
                 name="username"
                 value={formData.username}
                 onChange={handleInputChange}
+                variant="outlined"
+                fullWidth
               />
             </FormGroup>
           </>
@@ -723,17 +736,22 @@ function SettingsPage() {
       case 'language':
         return (
           <>
-            <h2>Dil ve Bölge</h2>
+            <Typography variant="h2" sx={{ marginBottom: 2 }}>Dil ve Bölge</Typography>
             <FormGroup>
-              <label>Dil</label>
-              <Select
-                name="language"
-                value={formData.language}
-                onChange={handleInputChange}
-              >
-                <option value="tr">Türkçe</option>
-                <option value="en">English</option>
-              </Select>
+              <Typography variant="body2" component="label" sx={{ display: 'block', marginBottom: 1, color: '#6c7293' }}>
+                Dil
+              </Typography>
+              <FormControl fullWidth>
+                <StyledSelect
+                  name="language"
+                  value={formData.language}
+                  onChange={handleInputChange}
+                  variant="outlined"
+                >
+                  <MenuItem value="tr">Türkçe</MenuItem>
+                  <MenuItem value="en">English</MenuItem>
+                </StyledSelect>
+              </FormControl>
             </FormGroup>
           </>
         );
@@ -741,28 +759,36 @@ function SettingsPage() {
       case 'notifications':
         return (
           <>
-            <h2>Bildirim Ayarları</h2>
+            <Typography variant="h2" sx={{ marginBottom: 2 }}>Bildirim Ayarları</Typography>
             <FormGroup>
-              <label>E-posta Bildirimleri</label>
-              <Switch>
-                <input
-                  type="checkbox"
-                  checked={formData.notifications.email}
-                  onChange={() => handleNotificationChange('email')}
-                />
-                <span></span>
-              </Switch>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={formData.notifications.email}
+                    onChange={() => handleNotificationChange('email')}
+                  />
+                }
+                label={
+                  <Typography variant="body2" sx={{ color: '#6c7293' }}>
+                    E-posta Bildirimleri
+                  </Typography>
+                }
+              />
             </FormGroup>
             <FormGroup>
-              <label>Push Bildirimleri</label>
-              <Switch>
-                <input
-                  type="checkbox"
-                  checked={formData.notifications.push}
-                  onChange={() => handleNotificationChange('push')}
-                />
-                <span></span>
-              </Switch>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={formData.notifications.push}
+                    onChange={() => handleNotificationChange('push')}
+                  />
+                }
+                label={
+                  <Typography variant="body2" sx={{ color: '#6c7293' }}>
+                    Push Bildirimleri
+                  </Typography>
+                }
+              />
             </FormGroup>
           </>
         );
@@ -770,17 +796,22 @@ function SettingsPage() {
       case 'theme':
         return (
           <>
-            <h2>Görünüm Ayarları</h2>
+            <Typography variant="h2" sx={{ marginBottom: 2 }}>Görünüm Ayarları</Typography>
             <FormGroup>
-              <label>Tema</label>
-              <Select
-                name="theme"
-                value={formData.theme}
-                onChange={handleInputChange}
-              >
-                <option value="dark">Koyu Tema</option>
-                <option value="light">Açık Tema</option>
-              </Select>
+              <Typography variant="body2" component="label" sx={{ display: 'block', marginBottom: 1, color: '#6c7293' }}>
+                Tema
+              </Typography>
+              <FormControl fullWidth>
+                <StyledSelect
+                  name="theme"
+                  value={formData.theme}
+                  onChange={handleInputChange}
+                  variant="outlined"
+                >
+                  <MenuItem value="dark">Koyu Tema</MenuItem>
+                  <MenuItem value="light">Açık Tema</MenuItem>
+                </StyledSelect>
+              </FormControl>
             </FormGroup>
           </>
         );
@@ -822,12 +853,12 @@ function SettingsPage() {
           </SettingsNav>
 
           <SettingsContent>
-            <form onSubmit={handleSubmit}>
+            <Box component="form" onSubmit={handleSubmit}>
               {renderContent()}
-              <SaveButton type="submit" disabled={loading}>
+              <SaveButton type="submit" disabled={loading} variant="contained">
                 {loading ? 'Kaydediliyor...' : 'Değişiklikleri Kaydet'}
               </SaveButton>
-            </form>
+            </Box>
           </SettingsContent>
         </SettingsGrid>
       </SettingsContainer>
