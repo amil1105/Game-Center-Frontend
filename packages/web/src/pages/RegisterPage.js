@@ -1,5 +1,5 @@
 // src/pages/RegisterPage.js
-import React, { useState } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { FaUser, FaEnvelope, FaLock, FaGoogle, FaEye, FaEyeSlash, FaChevronRight } from 'react-icons/fa';
 import { FaTelegramPlane } from 'react-icons/fa';
@@ -7,6 +7,7 @@ import { SiBinance } from 'react-icons/si';
 import { BsController, BsTrophy, BsPeople } from 'react-icons/bs';
 import { registerUser } from '../api/auth';
 import '../styles/Auth.css';
+import { UserContext } from '../context/UserContext';
 
 // Material UI imports
 import { 
@@ -122,6 +123,41 @@ function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
+  const { user, checkAuth } = useContext(UserContext) || {};
+
+  // Sayfa yüklendiğinde oturum durumunu kontrol et
+  useEffect(() => {
+    const checkAuthStatus = async () => {
+      // LocalStorage'dan token'ı kontrol et
+      const token = localStorage.getItem('token');
+      
+      // Token varsa ve kullanıcı oturumda ise ana sayfaya yönlendir
+      if (token && user) {
+        console.log("RegisterPage: Kullanıcı zaten giriş yapmış, ana sayfaya yönlendiriliyor");
+        navigate('/home');
+        return;
+      }
+      
+      // Token var ama kullanıcı bilgisi yoksa checkAuth ile token doğrulama yap
+      if (token && !user) {
+        try {
+          console.log("RegisterPage: Token var, checkAuth ile doğrulanıyor");
+          const isAuthenticated = await checkAuth();
+          
+          if (isAuthenticated) {
+            console.log("RegisterPage: Token doğrulandı, ana sayfaya yönlendiriliyor");
+            navigate('/home');
+          }
+        } catch (error) {
+          console.error("RegisterPage: Token doğrulama hatası:", error);
+          // Token geçersizse localStorage'dan temizle
+          localStorage.removeItem('token');
+        }
+      }
+    };
+    
+    checkAuthStatus();
+  }, [navigate, user, checkAuth]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

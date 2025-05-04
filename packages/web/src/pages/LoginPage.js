@@ -1,5 +1,5 @@
 // src/pages/LoginPage.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { FaEnvelope, FaLock, FaGoogle, FaEye, FaEyeSlash, FaChevronRight } from 'react-icons/fa';
 import { FaTelegramPlane } from 'react-icons/fa';
@@ -114,7 +114,41 @@ function LoginPage() {
 
   // UserContext'i React.useContext ile kullanmak yerine doğrudan değişkene atayalım
   const userContext = React.useContext(UserContext);
-  const login = userContext ? userContext.login : () => {};
+  const { login, user, checkAuth } = userContext || {};
+
+  // Sayfa yüklendiğinde oturum durumunu kontrol et
+  useEffect(() => {
+    const checkAuthStatus = async () => {
+      // LocalStorage'dan token'ı kontrol et
+      const token = localStorage.getItem('token');
+      
+      // Token varsa ve kullanıcı oturumda ise ana sayfaya yönlendir
+      if (token && user) {
+        console.log("LoginPage: Kullanıcı zaten giriş yapmış, ana sayfaya yönlendiriliyor");
+        navigate('/home');
+        return;
+      }
+      
+      // Token var ama kullanıcı bilgisi yoksa checkAuth ile token doğrulama yap
+      if (token && !user) {
+        try {
+          console.log("LoginPage: Token var, checkAuth ile doğrulanıyor");
+          const isAuthenticated = await checkAuth();
+          
+          if (isAuthenticated) {
+            console.log("LoginPage: Token doğrulandı, ana sayfaya yönlendiriliyor");
+            navigate('/home');
+          }
+        } catch (error) {
+          console.error("LoginPage: Token doğrulama hatası:", error);
+          // Token geçersizse localStorage'dan temizle
+          localStorage.removeItem('token');
+        }
+      }
+    };
+    
+    checkAuthStatus();
+  }, [navigate, user, checkAuth]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
