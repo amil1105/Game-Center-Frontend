@@ -25,6 +25,11 @@
 [![Lerna][lerna-shield]][lerna-url]
 [![MIT License][license-shield]][license-url]
 
+## Demo
+
+email: test@example.com
+password: toyota
+
 ## 🚩 Contents
 - [Project Structure](#-project-structure)
 - [Getting Started](#-getting-started)
