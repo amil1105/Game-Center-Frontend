@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { Box, Typography, Button, CircularProgress } from '@mui/material';
 import LoginPage from './pages/LoginPage';
@@ -13,8 +13,9 @@ import LobbyJoinPage from './pages/LobbyJoinPage';
 import LobbyPage from './pages/LobbyPage';
 import LobbiesPage from './pages/LobbiesPage';
 import LobbyManagementPage from './pages/LobbyManagementPage';
-import { UserProvider } from './context/UserContext';
+import { UserProvider, UserContext } from './context/UserContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import MainLayout from './components/Layout/MainLayout';
 
 // Bingo'dan Tombala'ya yönlendirme için özel bileşen
 function BingoRedirect() {
@@ -26,6 +27,7 @@ function BingoRedirect() {
 function TombalaGame() {
   const { lobbyCode } = useParams();
   const [iframeLoaded, setIframeLoaded] = useState(false);
+  const { user } = useContext(UserContext) || { user: null };
   
   useEffect(() => {
     console.log("TombalaGame bileşeni yüklendi. LobbyCode:", lobbyCode);
@@ -36,68 +38,100 @@ function TombalaGame() {
         if (frame && frame.contentWindow) {
           console.log('Tombala iframe lobbyId gönderiliyor:', lobbyCode);
           
-          // Veriyi iframe'e gönder
-          frame.contentWindow.postMessage({ 
+          // Kullanıcı kimliği ve lobi bilgilerini hazırla
+          const userData = {
             type: 'LOBBY_DATA', 
-            lobbyId: lobbyCode 
-          }, '*');
+            lobbyId: lobbyCode,
+            source: 'game-center',
+            playerId: user?.id || localStorage.getItem('tombala_playerId') || '',
+            playerName: user?.username || localStorage.getItem('username') || 'Oyuncu',
+            lobbyName: localStorage.getItem('tombala_lobbyName') || 'Tombala Lobisi'
+          };
+          
+          console.log('iframe\'e gönderilen veriler:', userData);
+          
+          // Veriyi iframe'e gönder
+          frame.contentWindow.postMessage(userData, '*');
+          
+          // 1 saniye sonra tekrar gönder (iframe tam yüklenmemiş olabilir)
+          setTimeout(() => {
+            frame.contentWindow.postMessage(userData, '*');
+          }, 1000);
+          
+          // 3 saniye sonra bir kez daha gönder (bazı durumlarda gecikme olabilir)
+          setTimeout(() => {
+            frame.contentWindow.postMessage(userData, '*');
+          }, 3000);
         }
       } catch (error) {
         console.error('Tombala iframe ile iletişim hatası:', error);
       }
     }
-  }, [iframeLoaded, lobbyCode]);
+  }, [iframeLoaded, lobbyCode, user]);
 
   if (!lobbyCode) {
     console.error('LobbyCode bulunamadı!');
     return (
-      <Box 
-        sx={{ 
-          display: 'flex', 
-          flexDirection: 'column', 
-          justifyContent: 'center', 
-          alignItems: 'center', 
-          height: '100vh',
-          bgcolor: '#0B0E17'
-        }}
-      >
-        <Typography variant="h5" color="error">
-          Lobi kodu bulunamadı!
-        </Typography>
-        <Button 
-          variant="contained" 
-          color="primary" 
-          sx={{ mt: 2 }}
-          onClick={() => window.location.href = '/home'}
+      <MainLayout>
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            justifyContent: 'center', 
+            alignItems: 'center', 
+            height: 'calc(100vh - 180px)',
+            bgcolor: '#0B0E17'
+          }}
         >
-          Ana Sayfaya Dön
-        </Button>
-      </Box>
+          <Typography variant="h5" color="error">
+            Lobi kodu bulunamadı!
+          </Typography>
+          <Button 
+            variant="contained" 
+            color="primary" 
+            sx={{ mt: 2 }}
+            onClick={() => window.location.href = '/home'}
+          >
+            Ana Sayfaya Dön
+          </Button>
+        </Box>
+      </MainLayout>
     );
   }
 
-  // Vite ile build edilmiş Tombala uygulamasına doğru path
-  const tombalaUrl = `/tombala/index.html?lobbyId=${encodeURIComponent(lobbyCode)}`;
+  // Vite ile build edilmiş Tombala uygulamasına doğru path - port 3100'e yönlendir
+  const hostname = window.location.hostname; // localhost veya domain adı
+  // Kullanıcı parametrelerini URL'ye ekle
+  const playerId = user?.id || localStorage.getItem('tombala_playerId') || '';
+  const playerName = user?.username || localStorage.getItem('username') || 'Oyuncu';
+  const lobbyName = localStorage.getItem('tombala_lobbyName') || 'Tombala Lobisi';
+  
+  // URL'yi hem query parametreleriyle hem de path parametresiyle oluştur (ikili güvenlik)
+  const tombalaUrl = `http://${hostname}:3100/tombala/game/${lobbyCode}?playerId=${encodeURIComponent(playerId)}&playerName=${encodeURIComponent(playerName)}&lobbyName=${encodeURIComponent(lobbyName)}`;
   
   console.log('Tombala iframe URL:', tombalaUrl);
   
   return (
-    <iframe 
-      src={tombalaUrl}
-      style={{ 
-        border: 'none', 
-        width: '100%', 
-        height: '100vh', 
-        backgroundColor: '#0B0E17' 
-      }}
-      title="Tombala Oyunu"
-      allow="fullscreen"
-      id="tombalaFrame"
-      onLoad={() => {
-        console.log('Tombala iframe yüklendi');
-        setIframeLoaded(true);
-      }}
-    />
+    <MainLayout>
+      <Box sx={{ height: 'calc(100vh - 180px)', width: '100%', overflow: 'hidden' }}>
+        <iframe 
+          src={tombalaUrl}
+          style={{ 
+            border: 'none', 
+            width: '100%', 
+            height: '100%',
+            backgroundColor: '#0B0E17' 
+          }}
+          title="Tombala Oyunu"
+          allow="fullscreen"
+          id="tombalaFrame"
+          onLoad={() => {
+            console.log('Tombala iframe yüklendi');
+            setIframeLoaded(true);
+          }}
+        />
+      </Box>
+    </MainLayout>
   );
 }
 
@@ -162,7 +196,9 @@ function App() {
           <Route
             path="/game/tombala/:lobbyCode"
             element={
-              <TombalaGame />
+              <ProtectedRoute>
+                <TombalaGame />
+              </ProtectedRoute>
             }
           />
 

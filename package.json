@@ -5,12 +5,14 @@
     "packages/*"
   ],
   "scripts": {
-    "start": "lerna run start --scope=@game-center/web --stream",
+    "start": "concurrently \"lerna run start --scope=@game-center/web --stream\" \"lerna run start --scope=@game-center/tombala --stream\"",
     "dev": "lerna run dev --parallel",
     "build": "lerna run build",
-    "tombala": "lerna run start --scope=@game-center/tombala --stream"
+    "tombala": "lerna run start --scope=@game-center/tombala --stream",
+    "web": "lerna run start --scope=@game-center/web --stream"
   },
   "devDependencies": {
+    "concurrently": "^9.1.2",
     "lerna": "^8.2.0"
   },
   "dependencies": {

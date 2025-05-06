@@ -1827,23 +1827,8 @@ function LobbyPage() {
         });
       }
       
-      // URL parametreleri ile direct-tombala'ya yönlendir
-      const playerId = currentUser.id;
-      const lobbyName = lobby?.name || 'Tombala Lobisi';
-      
-      // Frontend için sabit URL oluştur (port 5174)
-      const hostname = window.location.hostname; // localhost veya domain adı
-      const frontendURL = `http://${hostname}:5174`; // Doğrudan 5174 portunu belirt
-      
-      // URL parametrelerini oluştur - sabit frontend URL kullanarak
-      const directTombalaURL = `${frontendURL}/direct-tombala/${lobbyCode}?playerId=${encodeURIComponent(playerId)}&lobbyName=${encodeURIComponent(lobbyName)}`;
-      
-      console.log(`Oyun başlatılıyor, yönlendiriliyor: ${directTombalaURL}`);
-      
-      // Kısa bir gecikme ile yönlendir (status güncellemesinin tamamlanması için)
-      setTimeout(() => {
-        window.location.href = directTombalaURL;
-      }, 1000);
+      // Dahili rota yönlendirmesi kullan - ana uygulama içinde kalmak için
+      navigate(`/game/tombala/${lobbyCode}`);
       
     } catch (error) {
       console.error("Oyun başlatılırken hata oluştu:", error);
