@@ -32,69 +32,116 @@ function TombalaGame() {
   useEffect(() => {
     console.log("TombalaGame bileşeni yüklendi. LobbyCode:", lobbyCode);
     
+    // Lobby bilgilerini localStorage'a kaydet (iframe için)
+    if (lobbyCode) {
+      localStorage.setItem('tombala_lobbyId', lobbyCode);
+    }
+    
+    // Oyuncu bilgilerini kaydet
+    const playerId = user?.id || localStorage.getItem('tombala_playerId') || '';
+    const playerName = user?.username || localStorage.getItem('username') || 'Oyuncu';
+    
+    if (playerId) {
+      localStorage.setItem('tombala_playerId', playerId);
+    }
+    
+    if (playerName) {
+      localStorage.setItem('tombala_playerName', playerName);
+    }
+    
+    // iframe yüklendiyse veri gönder
     if (iframeLoaded && lobbyCode) {
-      try {
-        const frame = document.getElementById('tombalaFrame');
-        if (frame && frame.contentWindow) {
-          console.log('Tombala iframe lobbyId gönderiliyor:', lobbyCode);
-          
-          // Kullanıcı kimliği ve lobi bilgilerini hazırla
-          const userData = {
-            type: 'LOBBY_DATA', 
-            lobbyId: lobbyCode,
-            source: 'game-center',
-            playerId: user?.id || localStorage.getItem('tombala_playerId') || '',
-            playerName: user?.username || localStorage.getItem('username') || 'Oyuncu',
-            lobbyName: localStorage.getItem('tombala_lobbyName') || 'Tombala Lobisi'
-          };
-          
-          console.log('iframe\'e gönderilen veriler:', userData);
-          
-          // Veriyi iframe'e gönder
-          frame.contentWindow.postMessage(userData, '*');
-          
-          // 1 saniye sonra tekrar gönder (iframe tam yüklenmemiş olabilir)
-          setTimeout(() => {
-            frame.contentWindow.postMessage(userData, '*');
-          }, 1000);
-          
-          // 3 saniye sonra bir kez daha gönder (bazı durumlarda gecikme olabilir)
-          setTimeout(() => {
-            frame.contentWindow.postMessage(userData, '*');
-          }, 3000);
-        }
-      } catch (error) {
-        console.error('Tombala iframe ile iletişim hatası:', error);
-      }
+      sendDataToIframe();
     }
   }, [iframeLoaded, lobbyCode, user]);
+
+  // iframe'e veri gönderme fonksiyonu
+  const sendDataToIframe = () => {
+    try {
+      const frame = document.getElementById('tombalaFrame');
+      if (frame && frame.contentWindow) {
+        console.log('Tombala iframe lobbyId gönderiliyor:', lobbyCode);
+        
+        // Kullanıcı kimliği ve lobi bilgilerini hazırla
+        const userData = {
+          type: 'LOBBY_DATA', 
+          lobbyId: lobbyCode,
+          source: 'game-center',
+          playerId: user?.id || localStorage.getItem('tombala_playerId') || '',
+          playerName: user?.username || localStorage.getItem('username') || 'Oyuncu',
+          lobbyName: localStorage.getItem('tombala_lobbyName') || 'Tombala Lobisi'
+        };
+        
+        console.log('iframe\'e gönderilen veriler:', userData);
+        
+        // Veriyi iframe'e gönder
+        frame.contentWindow.postMessage(userData, '*');
+      }
+    } catch (error) {
+      console.error('Tombala iframe ile iletişim hatası:', error);
+    }
+  };
+  
+  // iframe mesajlarını dinle
+  useEffect(() => {
+    const messageListener = (event) => {
+      // Mesaj kaynağını kontrol et
+      if (event.data && event.data.type === 'TOMBALA_LOADED') {
+        console.log('Tombala iframe yüklendi');
+        
+        // Mesajı hemen gönder
+        sendDataToIframe();
+        
+        // 500ms sonra tekrar gönder
+        setTimeout(sendDataToIframe, 500);
+        
+        // 1.5s sonra bir kez daha gönder
+        setTimeout(sendDataToIframe, 1500);
+      }
+      
+      // Oyundan ana sayfaya yönlendirme mesajını dinle
+      if (event.data && event.data.type === 'NAVIGATE_HOME' && event.data.source === 'tombala-game') {
+        console.log('Tombala oyunundan ana sayfaya yönlendirme isteği alındı');
+        // Ana sayfaya yönlendir
+        window.location.href = '/home';
+      }
+    };
+    
+    // Mesaj dinleyicisi ekle
+    window.addEventListener('message', messageListener);
+    
+    // Temizleme fonksiyonu
+    return () => {
+      window.removeEventListener('message', messageListener);
+    };
+  }, [lobbyCode, user]);
 
   if (!lobbyCode) {
     console.error('LobbyCode bulunamadı!');
     return (
       <MainLayout>
-        <Box 
-          sx={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
-            justifyContent: 'center', 
-            alignItems: 'center', 
+      <Box 
+        sx={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
             height: 'calc(100vh - 180px)',
-            bgcolor: '#0B0E17'
-          }}
+          bgcolor: '#0B0E17'
+        }}
+      >
+        <Typography variant="h5" color="error">
+          Lobi kodu bulunamadı!
+        </Typography>
+        <Button 
+          variant="contained" 
+          color="primary" 
+          sx={{ mt: 2 }}
+          onClick={() => window.location.href = '/home'}
         >
-          <Typography variant="h5" color="error">
-            Lobi kodu bulunamadı!
-          </Typography>
-          <Button 
-            variant="contained" 
-            color="primary" 
-            sx={{ mt: 2 }}
-            onClick={() => window.location.href = '/home'}
-          >
-            Ana Sayfaya Dön
-          </Button>
-        </Box>
+          Ana Sayfaya Dön
+        </Button>
+      </Box>
       </MainLayout>
     );
   }
@@ -113,17 +160,30 @@ function TombalaGame() {
   
   return (
     <MainLayout>
-      <Box sx={{ height: 'calc(100vh - 180px)', width: '100%', overflow: 'hidden' }}>
+      <Box sx={{ 
+        height: 'calc(100vh - 70px)', 
+        width: '100%', 
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+        flex: 1,
+        position: 'relative'
+      }}>
         <iframe 
           src={tombalaUrl}
           style={{ 
             border: 'none', 
             width: '100%', 
             height: '100%',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
             backgroundColor: '#0B0E17' 
           }}
           title="Tombala Oyunu"
-          allow="fullscreen"
+          allow="fullscreen; autoplay; microphone; camera"
           id="tombalaFrame"
           onLoad={() => {
             console.log('Tombala iframe yüklendi');
@@ -197,7 +257,7 @@ function App() {
             path="/game/tombala/:lobbyCode"
             element={
               <ProtectedRoute>
-                <TombalaGame />
+              <TombalaGame />
               </ProtectedRoute>
             }
           />
