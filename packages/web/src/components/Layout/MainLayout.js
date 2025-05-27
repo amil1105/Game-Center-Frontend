@@ -1,12 +1,19 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { UserContext } from '../../context/UserContext';
-import styled, { keyframes } from 'styled-components';
+import styled, { keyframes, createGlobalStyle } from 'styled-components';
 import { FaHome, FaTrophy, FaUsers, FaGamepad, FaCog, FaDice, FaBomb, FaRocket, 
          FaDharmachakra, FaCoins, FaChartLine, FaPlayCircle, FaChess, FaBuilding,
          FaCircle, FaArrowUp, FaBullseye, FaAngleLeft, FaUser, FaWallet, FaSignOutAlt, FaPaperPlane } from 'react-icons/fa';
 import { BiChat } from 'react-icons/bi';
 import { TextField, InputAdornment, IconButton, Box } from '@mui/material';
+
+// Global stil tanımı
+const GlobalStyle = createGlobalStyle`
+  * {
+    font-family: 'Oxanium', 'Poppins', sans-serif !important;
+  }
+`;
 
 // Animasyonlar
 const fadeIn = keyframes`
@@ -17,7 +24,6 @@ const fadeIn = keyframes`
     opacity: 1;
   }
 `;
-
 
 const pulse = keyframes`
   0% {
@@ -37,18 +43,17 @@ const MainContainer = styled.div`
   color: white;
   min-height: 100vh;
   position: relative;
-  font-family: 'Poppins', sans-serif;
 `;
 
 const Sidebar = styled.div`
   position: fixed;
   top: 0;
   left: 0;
-  width: 70px;
+  width: 80px;
   height: 100vh;
   background: rgba(30, 32, 68, 0.5);
   backdrop-filter: blur(10px);
-  padding: 20px 10px;
+  padding: 20px 0px;
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -730,6 +735,7 @@ function MainLayout({ children }) {
 
   return (
     <MainContainer>
+      <GlobalStyle />
       <Sidebar>
         <Logo onClick={navigateToHome}>
           <span>

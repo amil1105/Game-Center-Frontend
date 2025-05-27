@@ -787,7 +787,7 @@ function GameDetailPage() {
     password: '',
     startDate: '',
     endDate: '',
-    betAmount: '',
+    maxPlayers: 6,
   });
   const [createdLobby, setCreatedLobby] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -1107,22 +1107,19 @@ function GameDetailPage() {
     setIsSubmitting(true);
     
     try {
-      // Bahis miktarını sayıya çevir
-      const betAmount = parseInt(lobbyData.betAmount) || 0;
-      
       const payload = {
         name: lobbyData.name,
         game: gameId,
         isPrivate: !!lobbyData.password,
         password: lobbyData.password || undefined,
         isEventLobby: lobbyType === 'event',
-        betAmount: betAmount,
         eventDetails: lobbyType === 'event' ? {
           title: lobbyData.name,
           description: '',
           startDate: lobbyData.startDate,
           endDate: lobbyData.endDate
-        } : undefined
+        } : undefined,
+        maxPlayers: Number(lobbyData.maxPlayers) || 6
       };
       
       console.log('Lobi oluşturma isteği:', payload);
@@ -1161,7 +1158,7 @@ function GameDetailPage() {
       password: '',
       startDate: '',
       endDate: '',
-      betAmount: '',
+      maxPlayers: 6,
     });
     setLobbyType('normal');
   };
@@ -1333,7 +1330,6 @@ function GameDetailPage() {
                             {Array.isArray(lobby.players)
                               ? `${lobby.players.length} / ${lobby.maxPlayers} Oyuncu`
                               : '0 Oyuncu'} 
-                            {lobby.betAmount > 0 && ` • ${lobby.betAmount} Token`}
                             {lobby.isPrivate && ` • Özel`}
                           </Typography>
                         </Box>
@@ -1479,21 +1475,6 @@ function GameDetailPage() {
                 </FormGroup>
 
                 <FormGroup fullWidth>
-                  <FormLabel component="label">Bahis Miktarı</FormLabel>
-                  <TextField
-                    type="number"
-                    placeholder="Bahis miktarını girin"
-                    value={lobbyData.betAmount}
-                    onChange={(e) => setLobbyData({ ...lobbyData, betAmount: e.target.value })}
-                    min="0"
-                    required
-                    fullWidth
-                    variant="outlined"
-                    inputProps={{ style: { color: 'white' } }}
-                  />
-                </FormGroup>
-
-                <FormGroup fullWidth>
                   <FormLabel component="label">Lobi Şifresi (Opsiyonel)</FormLabel>
                   <TextField
                     type="password"
@@ -1503,6 +1484,20 @@ function GameDetailPage() {
                     fullWidth
                     variant="outlined"
                     inputProps={{ style: { color: 'white' } }}
+                  />
+                </FormGroup>
+
+                <FormGroup fullWidth>
+                  <FormLabel component="label">Oyuncu Sayısı</FormLabel>
+                  <TextField
+                    type="number"
+                    placeholder="2-100"
+                    value={lobbyData.maxPlayers}
+                    onChange={(e) => setLobbyData({ ...lobbyData, maxPlayers: e.target.value })}
+                    required
+                    fullWidth
+                    variant="outlined"
+                    inputProps={{ min: 2, max: 100, style: { color: 'white' } }}
                   />
                 </FormGroup>
 

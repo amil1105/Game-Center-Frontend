@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
-import { FaSearch, FaFilter, FaUsers, FaLock, FaCalendarAlt, FaCoins, FaGamepad, FaCrown, FaStar } from 'react-icons/fa';
+import { FaSearch, FaFilter, FaUsers, FaLock, FaCalendarAlt, FaCoins, FaGamepad, FaCrown, FaStar, FaCheck, FaCopy, FaInfoCircle, FaClock } from 'react-icons/fa';
 import axiosInstance from '../api/axios';
 import { 
   Button, 
@@ -16,7 +16,14 @@ import {
   Grow,
   Divider,
   Badge,
-  IconButton
+  IconButton,
+  TextField,
+  FormLabel,
+  FormGroup as MuiFormGroup,
+  MenuItem,
+  Select,
+  FormControl,
+  InputLabel
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { theme } from '../styles/theme';
@@ -27,6 +34,7 @@ import {
   Refresh as RefreshIcon
 } from '@mui/icons-material';
 import MainLayout from '../components/Layout/MainLayout';
+import { UserContext } from '../context/UserContext';
 
 const PageContainer = styled(Box)`
   color: white;
@@ -522,6 +530,182 @@ const getCountdown = (dateString) => {
   return `${hours}s ${minutes}dk`;
 };
 
+// Modal bileşenleri
+const Modal = styled(Box)`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+`;
+
+const ModalContent = styled(Box)`
+  background: linear-gradient(145deg, #1e2044 0%, #171934 100%);
+  border-radius: 20px;
+  padding: 30px;
+  width: 100%;
+  max-width: 500px;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  max-height: 90vh;
+  overflow-y: auto;
+`;
+
+const ModalHeader = styled(Box)`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+`;
+
+const ModalTitle = styled(Typography)`
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: white;
+  margin: 0;
+`;
+
+const StyledFormGroup = styled(Box)`
+  margin-bottom: 20px;
+  
+  label {
+    display: block;
+    margin-bottom: 8px;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.9rem;
+  }
+  
+  .MuiFormLabel-root {
+    color: rgba(255, 255, 255, 0.7);
+  }
+  
+  .MuiInputBase-root {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    color: white;
+  }
+  
+  .MuiOutlinedInput-notchedOutline {
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+  
+  &:hover .MuiOutlinedInput-notchedOutline {
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+  
+  .MuiInputBase-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+    border-color: #7C4DFF;
+  }
+`;
+
+const LobbyTypeSelector = styled(Box)`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 20px;
+  
+  button {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.7);
+    padding: 12px;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    
+    &:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+    
+    &.active {
+      background: linear-gradient(45deg, #7C4DFF, #4A7DFF);
+      color: white;
+      border: none;
+    }
+  }
+`;
+
+const SubmitButton = styled(Button)`
+  background: linear-gradient(45deg, #7C4DFF, #4A7DFF);
+  color: white;
+  padding: 12px;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  width: 100%;
+  text-transform: none;
+  
+  &:hover {
+    background: linear-gradient(45deg, #6236FF, #3A6AE8);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(124, 77, 255, 0.3);
+  }
+  
+  &:disabled {
+    background: rgba(124, 77, 255, 0.5);
+    cursor: not-allowed;
+  }
+`;
+
+// Başarılı modal bileşenleri
+const SuccessModal = styled(Modal)``;
+
+const SuccessContent = styled(ModalContent)``;
+
+const LobbyCode = styled(Box)`
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  padding: 15px;
+  text-align: center;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #7C4DFF;
+  margin: 20px 0;
+  letter-spacing: 3px;
+  border: 1px dashed rgba(124, 77, 255, 0.3);
+`;
+
+const CopyButton = styled(Button)`
+  background: rgba(124, 77, 255, 0.1);
+  color: #7C4DFF;
+  border: 1px solid rgba(124, 77, 255, 0.2);
+  padding: 10px 15px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  margin-top: 10px;
+  transition: all 0.3s;
+  text-transform: none;
+  
+  &:hover {
+    background: rgba(124, 77, 255, 0.2);
+    border-color: rgba(124, 77, 255, 0.3);
+  }
+`;
+
+const ShareButtons = styled(Box)`
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  margin-top: 20px;
+`;
+
 function LobbiesPage() {
   const navigate = useNavigate();
   const [lobbies, setLobbies] = useState([]);
@@ -534,6 +718,33 @@ function LobbiesPage() {
     events: false,
   });
   const [showFilters, setShowFilters] = useState(false);
+  const [showCreateLobbyModal, setShowCreateLobbyModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [lobbyType, setLobbyType] = useState('normal');
+  const [lobbyData, setLobbyData] = useState({
+    name: '',
+    game: 'bingo',
+    password: '',
+    startDate: '',
+    endDate: '',
+    maxPlayers: 6,
+  });
+  const [createdLobby, setCreatedLobby] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
+  const [availableGames, setAvailableGames] = useState([
+    { id: 'bingo', name: 'Bingo' },
+    { id: 'mines', name: 'Mines' },
+    { id: 'crash', name: 'Crash' },
+    { id: 'wheel', name: 'Wheel' },
+    { id: 'dice', name: 'Dice' },
+    { id: 'coinflip', name: 'Coinflip' },
+    { id: 'hilo', name: 'HiLo' },
+    { id: 'blackjack', name: 'Blackjack' },
+    { id: 'tower', name: 'Tower' },
+    { id: 'roulette', name: 'Roulette' },
+    { id: 'stairs', name: 'Stairs' },
+  ]);
 
   useEffect(() => {
     fetchLobbies();
@@ -574,6 +785,69 @@ function LobbiesPage() {
         [filterName]: !filters[filterName],
       });
     }
+  };
+
+  const handleCreateLobby = async (e) => {
+    e.preventDefault();
+    
+    setIsSubmitting(true);
+    
+    try {
+      const payload = {
+        name: lobbyData.name,
+        game: lobbyData.game,
+        isPrivate: !!lobbyData.password,
+        password: lobbyData.password || undefined,
+        isEventLobby: lobbyType === 'event',
+        eventDetails: lobbyType === 'event' ? {
+          title: lobbyData.name,
+          description: '',
+          startDate: lobbyData.startDate,
+          endDate: lobbyData.endDate
+        } : undefined,
+        maxPlayers: Number(lobbyData.maxPlayers) || 6
+      };
+      
+      console.log('Lobi oluşturma isteği:', payload);
+      const response = await axiosInstance.post('/lobbies', payload);
+      console.log('Lobi oluşturma yanıtı:', response.data);
+      
+      setCreatedLobby(response.data);
+      setShowCreateLobbyModal(false);
+      setShowSuccessModal(true);
+      
+      // Lobi listesini güncelle
+      fetchLobbies();
+      
+    } catch (error) {
+      console.error('Lobi oluşturma hatası:', error);
+      alert(error.response?.data?.error || 'Lobi oluşturulurken bir hata oluştu');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleCopyCode = () => {
+    if (!createdLobby?.lobbyCode) return;
+    
+    navigator.clipboard.writeText(createdLobby.lobbyCode);
+    setCopySuccess(true);
+    
+    setTimeout(() => {
+      setCopySuccess(false);
+    }, 2000);
+  };
+  
+  const resetForm = () => {
+    setLobbyData({
+      name: '',
+      game: 'bingo',
+      password: '',
+      startDate: '',
+      endDate: '',
+      maxPlayers: 6,
+    });
+    setLobbyType('normal');
   };
 
   const filteredLobbies = lobbies.filter(lobby => {
@@ -617,7 +891,7 @@ function LobbiesPage() {
           <CreateButton
             variant="contained"
             startIcon={<AddIcon />}
-            onClick={() => navigate('/games/bingo')}
+            onClick={() => setShowCreateLobbyModal(true)}
           >
             Yeni Lobi Oluştur
           </CreateButton>
@@ -660,15 +934,6 @@ function LobbiesPage() {
                   {lobby.players.length}/{lobby.maxPlayers} Oyuncu
                 </Typography>
               </InfoRow>
-              
-              {lobby.betAmount > 0 && (
-                <InfoRow>
-                  <FaCoins size={16} />
-                  <Typography variant="body2">
-                    {lobby.betAmount} Jeton
-                  </Typography>
-                </InfoRow>
-              )}
               
               {lobby.isPrivate && (
                 <InfoRow>
@@ -755,7 +1020,7 @@ function LobbiesPage() {
             <CreateButton 
               variant="contained" 
               startIcon={<AddIcon />}
-              onClick={() => navigate('/games/bingo')}
+              onClick={() => setShowCreateLobbyModal(true)}
             >
               Lobi Oluştur
             </CreateButton>
@@ -828,6 +1093,234 @@ function LobbiesPage() {
           {renderLobbyCards()}
         </LobbiesList>
       </PageContainer>
+
+      {/* Lobi Oluşturma Modal */}
+      {showCreateLobbyModal && (
+        <Modal>
+          <ModalContent>
+            <ModalHeader>
+              <ModalTitle variant="h2">Yeni Lobi Oluştur</ModalTitle>
+              <IconButton 
+                onClick={() => setShowCreateLobbyModal(false)}
+                sx={{
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  color: 'rgba(255, 255, 255, 0.6)',
+                  fontSize: '1.8rem',
+                  height: '40px',
+                  width: '40px',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.3s',
+                  '&:hover': {
+                    background: 'rgba(255, 255, 255, 0.15)',
+                    color: 'white',
+                    transform: 'rotate(90deg)'
+                  }
+                }}
+              >
+                &times;
+              </IconButton>
+            </ModalHeader>
+            <Box component="form" onSubmit={handleCreateLobby}>
+              <LobbyTypeSelector>
+                <Button
+                  type="button"
+                  className={lobbyType === 'normal' ? 'active' : ''}
+                  onClick={() => setLobbyType('normal')}
+                >
+                  <FaUsers style={{ marginRight: '8px' }} />
+                  Normal Lobi
+                </Button>
+                <Button
+                  type="button"
+                  className={lobbyType === 'event' ? 'active' : ''}
+                  onClick={() => setLobbyType('event')}
+                >
+                  <FaCalendarAlt style={{ marginRight: '8px' }} />
+                  Etkinlik Lobi
+                </Button>
+              </LobbyTypeSelector>
+
+              <StyledFormGroup>
+                <FormLabel component="label">Oyun Seçimi</FormLabel>
+                <FormControl fullWidth variant="outlined">
+                  <Select
+                    value={lobbyData.game}
+                    onChange={(e) => setLobbyData({ ...lobbyData, game: e.target.value })}
+                    required
+                    sx={{
+                      color: 'white',
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: 'rgba(255, 255, 255, 0.1)'
+                      },
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: 'rgba(255, 255, 255, 0.2)'
+                      },
+                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#7C4DFF'
+                      }
+                    }}
+                  >
+                    {availableGames.map(game => (
+                      <MenuItem key={game.id} value={game.id}>{game.name}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </StyledFormGroup>
+
+              <StyledFormGroup>
+                <FormLabel component="label">Lobi Adı</FormLabel>
+                <TextField
+                  type="text"
+                  placeholder="Lobi adını girin"
+                  value={lobbyData.name}
+                  onChange={(e) => setLobbyData({ ...lobbyData, name: e.target.value })}
+                  required
+                  fullWidth
+                  variant="outlined"
+                  inputProps={{ style: { color: 'white' } }}
+                />
+              </StyledFormGroup>
+
+              <StyledFormGroup>
+                <FormLabel component="label">Lobi Şifresi (Opsiyonel)</FormLabel>
+                <TextField
+                  type="password"
+                  placeholder="Şifre belirleyin"
+                  value={lobbyData.password}
+                  onChange={(e) => setLobbyData({ ...lobbyData, password: e.target.value })}
+                  fullWidth
+                  variant="outlined"
+                  inputProps={{ style: { color: 'white' } }}
+                />
+              </StyledFormGroup>
+
+              {lobbyType === 'event' && (
+                <>
+                  <StyledFormGroup>
+                    <FormLabel component="label">
+                      <FaClock style={{ marginRight: '8px' }} />
+                      Başlangıç Tarihi ve Saati
+                    </FormLabel>
+                    <TextField
+                      type="datetime-local"
+                      value={lobbyData.startDate}
+                      onChange={(e) => setLobbyData({ ...lobbyData, startDate: e.target.value })}
+                      required={lobbyType === 'event'}
+                      fullWidth
+                      variant="outlined"
+                      inputProps={{ style: { color: 'white' } }}
+                    />
+                  </StyledFormGroup>
+
+                  <StyledFormGroup>
+                    <FormLabel component="label">
+                      <FaClock style={{ marginRight: '8px' }} />
+                      Bitiş Tarihi ve Saati
+                    </FormLabel>
+                    <TextField
+                      type="datetime-local"
+                      value={lobbyData.endDate}
+                      onChange={(e) => setLobbyData({ ...lobbyData, endDate: e.target.value })}
+                      required={lobbyType === 'event'}
+                      fullWidth
+                      variant="outlined"
+                      inputProps={{ style: { color: 'white' } }}
+                    />
+                  </StyledFormGroup>
+                </>
+              )}
+
+              <StyledFormGroup>
+                <FormLabel component="label">Oyuncu Sayısı</FormLabel>
+                <TextField
+                  type="number"
+                  placeholder="2-100"
+                  value={lobbyData.maxPlayers}
+                  onChange={e => setLobbyData({ ...lobbyData, maxPlayers: e.target.value })}
+                  required
+                  fullWidth
+                  variant="outlined"
+                  inputProps={{ min: 2, max: 100, style: { color: 'white' } }}
+                />
+              </StyledFormGroup>
+
+              <SubmitButton 
+                type="submit" 
+                disabled={isSubmitting} 
+                variant="contained"
+                sx={{ 
+                  marginTop: '20px', 
+                  marginBottom: '10px' 
+                }}
+              >
+                {isSubmitting ? 'Oluşturuluyor...' : 'Lobi Oluştur'}
+              </SubmitButton>
+            </Box>
+          </ModalContent>
+        </Modal>
+      )}
+
+      {/* Başarılı Modal */}
+      {showSuccessModal && createdLobby && (
+        <SuccessModal>
+          <SuccessContent>
+            <ModalHeader>
+              <ModalTitle variant="h2">Lobi Başarıyla Oluşturuldu!</ModalTitle>
+              <IconButton 
+                onClick={() => {
+                  setShowSuccessModal(false);
+                  resetForm();
+                }}
+                sx={{
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  color: 'rgba(255, 255, 255, 0.6)',
+                  fontSize: '1.8rem',
+                  height: '40px',
+                  width: '40px',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.3s',
+                  '&:hover': {
+                    background: 'rgba(255, 255, 255, 0.15)',
+                    color: 'white',
+                    transform: 'rotate(90deg)'
+                  }
+                }}
+              >
+                &times;
+              </IconButton>
+            </ModalHeader>
+            
+            <Typography variant="body1">Lobiye katılması için arkadaşlarınıza aşağıdaki kodu paylaşın:</Typography>
+            
+            <LobbyCode>
+              {createdLobby.lobbyCode}
+            </LobbyCode>
+            
+            <CopyButton onClick={handleCopyCode} variant="outlined">
+              {copySuccess ? <FaCheck /> : <FaCopy />}
+              {copySuccess ? 'Kopyalandı!' : 'Kodu Kopyala'}
+            </CopyButton>
+            
+            <ShareButtons>
+              {/* Buraya sosyal medya paylaşım butonları eklenebilir */}
+            </ShareButtons>
+            
+            <SubmitButton 
+              onClick={() => navigate(`/lobby/${createdLobby.lobbyCode}`)}
+              sx={{ marginTop: '20px' }}
+              variant="contained"
+            >
+              Lobiye Git
+            </SubmitButton>
+          </SuccessContent>
+        </SuccessModal>
+      )}
     </MainLayout>
   );
 }

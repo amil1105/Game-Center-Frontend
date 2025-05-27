@@ -386,13 +386,9 @@ function LobbyManagementPage() {
     const isEventLobby = formData.get('isEventLobby') === 'on';
     const isPrivate = formData.get('isPrivate') === 'on';
     
-    // Bahis miktarını sayıya çevir
-    const betAmount = parseInt(formData.get('betAmount')) || 0;
-    
     const updatedLobby = {
       name: formData.get('name'),
       maxPlayers: parseInt(formData.get('maxPlayers')),
-      betAmount: betAmount,
       isPrivate,
       password: isPrivate ? formData.get('password') : undefined,
       isEventLobby,
@@ -517,21 +513,6 @@ function LobbyManagementPage() {
                 type="number"
                 defaultValue={editingLobby.maxPlayers}
                 inputProps={{ min: "2", max: "8" }}
-                required
-                fullWidth
-                variant="outlined"
-                InputLabelProps={{ shrink: true }}
-              />
-            </FormGroupBox>
-
-            <FormGroupBox>
-              <Typography component="label" htmlFor="betAmount">Bahis Miktarı</Typography>
-              <StyledTextField 
-                id="betAmount"
-                name="betAmount"
-                type="number"
-                defaultValue={editingLobby.betAmount}
-                inputProps={{ min: "0" }}
                 required
                 fullWidth
                 variant="outlined"
@@ -667,13 +648,6 @@ function LobbyManagementPage() {
                         <FaUsers />
                         <Typography component="span">{lobby.players.length} / {lobby.maxPlayers} Oyuncu</Typography>
                       </DetailItem>
-                      
-                      {lobby.betAmount > 0 && (
-                        <DetailItem>
-                          <FaCoins />
-                          <Typography component="span">{lobby.betAmount} Jeton</Typography>
-                        </DetailItem>
-                      )}
                       
                       {lobby.isPrivate && (
                         <DetailItem>

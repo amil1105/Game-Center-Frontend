@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useContext, useMemo, Suspense, lazy } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { UserContext } from '../context/UserContext';
 import { 
@@ -42,6 +42,7 @@ import { useSnackbar } from 'notistack';
 import { io } from 'socket.io-client';
 import axiosInstance from '../api/axios';
 import MainLayout from '../components/Layout/MainLayout';
+import { QRCodeSVG } from 'qrcode.react';
 import { 
   ArrowBack as BackIcon, 
   ContentCopy as CopyIcon, 
@@ -61,7 +62,14 @@ import {
   Share as ShareIcon,
   Link as LinkIcon,
   MoreVert as MoreVertIcon,
-  ContentCopy
+  ContentCopy,
+  Settings as SettingsIcon,
+  MusicNote as MusicNoteIcon,
+  VolumeOff as VolumeOffIcon,
+  Timer as TimerIcon,
+  EmojiEvents as TrophyIcon,
+  VideogameAsset as GameIcon,
+  Close as CloseIcon
 } from '@mui/icons-material';
 import { 
   FaFacebook, 
@@ -340,8 +348,8 @@ const AnimatedChip = styled(Chip)(({ theme }) => ({
 
 // StyledListItem'ı div yerine Box'a dayalı olarak tanımlayalım ve shouldForwardProp ekleyelim
 const StyledListItem = styled(Box, {
-  shouldForwardProp: (prop) => !['$isReady', '$isCurrentUser'].includes(prop)
-})(({ theme, $isReady, $isCurrentUser }) => ({
+  shouldForwardProp: (prop) => !['$isReady', '$isCurrentUser', '$isOwner'].includes(prop)
+})(({ theme, $isReady, $isCurrentUser, $isOwner }) => ({
   borderRadius: 8,
   margin: theme.spacing(0.5, 0),
   padding: theme.spacing(1, 2),
@@ -385,13 +393,286 @@ const LeaveButton = styled(Button)(({ theme }) => ({
 
 // Avatar oluşturma yardımcı fonksiyonu ekleyelim
 function getPlayerAvatar(player) {
-  if (!player || !player.avatar) {
+  if (!player) return null;
+  
+  try {
+    // Avatar URL'sini oluşturmak için tüm olası yolları kontrol et
+    let avatar = player.avatar || 
+                player.profileImage || 
+                (player.user?.profileImage) || 
+                (typeof player.user === 'object' && player.user?.avatar);
+    
+    // Önbellekleme için timestamp ekle (URL cache problemini önler)
+    if (avatar && typeof avatar === 'string') {
+      // Halihazırda bir query string var mı kontrol et
+      if (avatar.includes('?')) {
+        avatar = `${avatar}&_t=${Date.now()}`;
+      } else {
+        avatar = `${avatar}?_t=${Date.now()}`;
+      }
+    }
+    
+    if (!avatar) {
     // Kullanıcı adının baş harfini içeren bir SVG döndür
     const initial = player?.name ? player.name.charAt(0).toUpperCase() : 'U';
-    return `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="150" height="150"><rect width="100" height="100" fill="#2a2c4e"/><text x="50" y="50" font-size="50" text-anchor="middle" dominant-baseline="middle" font-family="Arial" fill="white">' + initial + '</text></svg>')}`;
+      const color = stringToColor(player?.name || 'Oyuncu');
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="150" height="150">
+        <rect width="100" height="100" fill="${color}" />
+        <text x="50" y="56" font-size="50" text-anchor="middle" dominant-baseline="middle" 
+          font-family="Arial" fill="white" font-weight="bold">${initial}</text>
+      </svg>`;
+      return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+    }
+    
+    return avatar;
+  } catch (error) {
+    console.error("Avatar oluşturma hatası:", error);
+    // Hata durumunda basit bir varsayılan avatar döndür
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="150" height="150"><rect width="100" height="100" fill="#2a2c4e"/><text x="50" y="56" font-size="50" text-anchor="middle" dominant-baseline="middle" font-family="Arial" fill="white" font-weight="bold">?</text></svg>')}`;
   }
-  return player.avatar;
 }
+
+// İsimden renk üretmek için yardımcı fonksiyon
+function stringToColor(string) {
+  let hash = 0;
+  let i;
+
+  for (i = 0; i < string.length; i += 1) {
+    hash = string.charCodeAt(i) + ((hash << 5) - hash);
+  }
+
+  let color = '#';
+
+  for (i = 0; i < 3; i += 1) {
+    const value = (hash >> (i * 8)) & 0xff;
+    color += `00${value.toString(16)}`.slice(-2);
+  }
+
+  // Koyu bir renk oluşturmak için karıştırma
+  color = mixColors(color, '#2a2c4e', 0.5);
+
+  return color;
+}
+
+// İki rengi belirli bir oranda karıştırmak için yardımcı fonksiyon
+function mixColors(color1, color2, weight) {
+  function d2h(d) { return d.toString(16).padStart(2, '0'); }
+  function h2d(h) { return parseInt(h, 16); }
+  
+  let color = "#";
+  for(let i = 1; i <= 5; i += 2) {
+    const v1 = h2d(color1.substr(i, 2));
+    const v2 = h2d(color2.substr(i, 2));
+    let val = Math.floor(v2 + weight * (v1 - v2));
+    val = val > 255 ? 255 : val;
+    color += d2h(val);
+  }
+  return color;
+}
+
+// Host ID bulucu fonksiyon
+const getHostId = (creator) => {
+  if (!creator) return '';
+  if (typeof creator === 'object' && creator._id) return creator._id.toString();
+  return creator.toString();
+};
+
+// Kullanıcının lobi sahibi olup olmadığını kontrol eden yardımcı fonksiyon
+const isUserHost = (lobby, userId) => {
+  if (!lobby || !userId) return false;
+  
+  // Olası tüm ID alanlarını kontrol et
+  const hostId = getHostId(lobby.creator);
+  const createdById = lobby.createdBy ? lobby.createdBy.toString() : '';
+  const ownerId = lobby.owner ? lobby.owner.toString() : '';
+  const userIdStr = userId.toString();
+  
+  return userIdStr === hostId || userIdStr === createdById || userIdStr === ownerId;
+};
+
+// Kendi Avatar bileşenimizi tanımlayalım - hata durumlarını daha iyi yönetecek
+const PlayerAvatar = ({ player, isOwner, isReady, isCurrentUser, isHostViewing, onKickPlayer }) => {
+  const [error, setError] = useState(false);
+  const [avatarSrc, setAvatarSrc] = useState('');
+  const [isHovering, setIsHovering] = useState(false);
+  
+  // İsimden renk üreten fonksiyon
+  const getColorFromName = (name) => {
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    let color = '#';
+    for (let i = 0; i < 3; i++) {
+      const value = (hash >> (i * 8)) & 0xFF;
+      color += ('00' + value.toString(16)).substr(-2);
+    }
+    return color;
+  };
+  
+  // SVG avatar oluşturma fonksiyonu
+  const generateAvatarSvg = (name) => {
+    const initial = name ? name.charAt(0).toUpperCase() : 'U';
+    const color = getColorFromName(name || 'Oyuncu');
+    
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="150" height="150">
+      <rect width="100" height="100" fill="${color}" />
+      <text x="50" y="56" font-size="50" text-anchor="middle" dominant-baseline="middle" 
+        font-family="Arial" fill="white" font-weight="bold">${initial}</text>
+    </svg>`;
+    
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  };
+  
+  // Kaynak avatarı işleme fonksiyonu
+  useEffect(() => {
+    if (!player) return;
+    
+    try {
+      if (error) {
+        // Hata durumunda SVG avatar kullan
+        setAvatarSrc(generateAvatarSvg(player.name));
+        return;
+      }
+      
+      // Bot avatarı
+      if (player.isBot) {
+        setAvatarSrc(`https://api.dicebear.com/6.x/bottts/svg?seed=${player.name || 'Bot'}&_t=${Date.now()}`);
+        return;
+  }
+      
+      // Normal avatar yolu
+      let avatarUrl = player.avatar || player.profileImage || null;
+      
+      if (!avatarUrl) {
+        // Avatar yoksa SVG oluştur
+        setAvatarSrc(generateAvatarSvg(player.name));
+        return;
+      }
+      
+      // Cache busting ekle
+      if (typeof avatarUrl === 'string' && !avatarUrl.startsWith('data:')) {
+        if (avatarUrl.includes('?')) {
+          avatarUrl = `${avatarUrl}&_t=${Date.now()}`;
+        } else {
+          avatarUrl = `${avatarUrl}?_t=${Date.now()}`;
+        }
+      }
+      
+      setAvatarSrc(avatarUrl);
+    } catch (err) {
+      console.error('Avatar oluşturma hatası:', err);
+      setError(true);
+      setAvatarSrc(generateAvatarSvg(player?.name));
+    }
+  }, [player, error]);
+  
+  // Avatar dış kenarlık rengini belirleme
+  const getBorderColor = () => {
+    if (isOwner) return '#FFD700'; // Altın rengi (lobi sahibi)
+    if (isReady) return '#4CAF50'; // Yeşil (hazır)
+    if (isCurrentUser) return 'rgba(74, 125, 255, 0.3)'; // Mavi (kendisi)
+    return 'rgba(255, 255, 255, 0.05)'; // Varsayılan
+  };
+  
+  // Avatar gölgesini belirleme
+  const getBoxShadow = () => {
+    if (isOwner) return '0 0 10px rgba(255, 215, 0, 0.5)';
+    return 'none';
+  };
+  
+  // Kick işlemi için tıklama işleyicisi
+  const handleKickClick = () => {
+    if (isHostViewing && !isCurrentUser && !isOwner && onKickPlayer) {
+      onKickPlayer(player);
+    }
+  };
+
+  // Sadece host için ve kendi veya host olmayan oyuncular için kick işlemi göster
+  const showKickAction = isHostViewing && !isCurrentUser && !isOwner;
+  
+  return (
+    <Box
+      component="div"
+      sx={{
+        width: 45,
+        height: 45,
+        borderRadius: '12px',
+        border: `2px solid ${getBorderColor()}`,
+        transition: 'all 0.3s ease',
+        boxShadow: getBoxShadow(),
+        overflow: 'hidden',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        position: 'relative',
+        background: '#1e2044',
+        cursor: showKickAction ? 'pointer' : 'default',
+        '&:hover': {
+          borderColor: isOwner ? '#FFD700' : '#4a7dff',
+          transform: 'scale(1.05)'
+        }
+      }}
+      onMouseEnter={() => setIsHovering(true)}
+      onMouseLeave={() => setIsHovering(false)}
+      onClick={handleKickClick}
+    >
+      {avatarSrc ? (
+        <Box
+          component="img"
+          src={avatarSrc}
+          alt={player?.name || 'Oyuncu'}
+          onError={() => setError(true)}
+          sx={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            filter: showKickAction && isHovering ? 'brightness(0.4)' : 'none',
+          }}
+        />
+      ) : (
+        <Box
+          component="div"
+          sx={{
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: getColorFromName(player?.name || 'Oyuncu'),
+            filter: showKickAction && isHovering ? 'brightness(0.4)' : 'none',
+          }}
+        >
+          <Typography variant="h6" color="white" fontWeight="bold">
+            {player?.name ? player.name.charAt(0).toUpperCase() : 'U'}
+          </Typography>
+        </Box>
+      )}
+      
+      {/* Kick işlemi göster  - X işareti */}
+      {showKickAction && isHovering && (
+        <Box
+          component="div"
+          sx={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(244, 67, 54, 0.3)',
+            zIndex: 2,
+            borderRadius: '10px'
+          }}
+        >
+          <CloseIcon sx={{ color: '#F44336', fontSize: 24, fontWeight: 'bold' }} />
+        </Box>
+      )}
+    </Box>
+  );
+};
 
 function LobbyPage() {
   const { lobbyCode: codeParam } = useParams();
@@ -413,12 +694,32 @@ function LobbyPage() {
   const [copySuccess, setCopySuccess] = useState(false);
   const [error, setError] = useState(null);
   
+  // Ayarlar için eklenen state'ler
+  const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
+  const [activeSettingsTab, setActiveSettingsTab] = useState(0); // Yeni tab state'i
+  const [lobbySettings, setLobbySettings] = useState({
+    // Lobi ayarları
+    name: 'Tombala Lobisi',
+    maxPlayers: 6,
+    
+    // Oyun ayarları
+    gameSpeed: 'normal',
+    enableMusic: true,
+    enableVoiceChat: false,
+    roundTime: 60,
+    pointsToWin: 100,
+    manualNumberDrawPermission: 'host-only' // 'host-only' veya 'all-players'
+  });
+  
   // Sosyal Medya Paylaşım özellikleri için state'ler
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [shareMenuAnchorEl, setShareMenuAnchorEl] = useState(null);
   const [shareLink, setShareLink] = useState('');
   const [shareLinkType, setShareLinkType] = useState('code'); // 'code' veya 'url'
   const [shareSuccessMessage, setShareSuccessMessage] = useState('');
+  
+  // Atılma durumu için state tanımı
+  const [kickedDialogOpen, setKickedDialogOpen] = useState(false);
   
   const messagesEndRef = useRef(null);
   const socketRef = useRef(null);
@@ -490,6 +791,10 @@ function LobbyPage() {
   // Son değerleri saklama referansları
   const lastKnownReadyState = useRef(null);
   const hasClientSideReadyUpdate = useRef(false);
+  // Son API isteği zamanını takip etmek için
+  const lastApiRequestTimeRef = useRef(0);
+  // API istekleri arasında minimum süre (ms)
+  const API_REQUEST_THROTTLE = 5000; // 5 saniye
 
   // CustomTheme tanımını düzeltiyorum
   const customTheme = useMemo(() => 
@@ -525,7 +830,6 @@ function LobbyPage() {
         
         // API'den lobi bilgilerini al
         const response = await axiosInstance.get(`/lobbies/code/${lobbyCode}`);
-          console.log("İlk lobi verileri yüklendi:", response.data);
           
           if (!response.data) {
             console.error("Lobi verisi alınamadı");
@@ -536,13 +840,16 @@ function LobbyPage() {
           // Lobi bilgisini set et
           setLobby(response.data);
           
+          // Lobi sahibi ID'sini belirle
+          const hostId = getHostId(response.data.creator);
+          console.log("Lobi sahibi ID:", hostId);
+          
           // Tüm oyuncuları kontrol et - players ve playersDetail dizilerini birleştir
           let allPlayers = [];
           const playerIds = new Set();
           
           // Önce players dizisinden bilgileri topla
         if (response.data.players && Array.isArray(response.data.players)) {
-            console.log("players dizisinden veriler alınıyor:", response.data.players);
             response.data.players.forEach(player => {
             const playerId = player._id || player.id;
               if (playerId) {
@@ -553,10 +860,10 @@ function LobbyPage() {
                   allPlayers.push({
                     id: playerIdStr,
                     name: player.username || player.name || 'Oyuncu',
-            avatar: player.profileImage || player.avatar,
+                    avatar: player.profileImage || player.avatar || null,
                     isReady: player.isReady || false,
                     isBot: player.isBot || false,
-                    isOwner: response.data.createdBy === playerIdStr || response.data.owner === playerIdStr
+                    isOwner: String(response.data.createdBy) === String(getHostId(response.data.creator)) || String(response.data.owner) === String(getHostId(response.data.creator))
                   });
                   
                   playerIds.add(playerIdStr);
@@ -567,7 +874,6 @@ function LobbyPage() {
           
           // Sonra playersDetail dizisinden bilgileri topla
           if (response.data.playersDetail && Array.isArray(response.data.playersDetail)) {
-            console.log("playersDetail dizisinden veriler alınıyor:", response.data.playersDetail);
             response.data.playersDetail.forEach(player => {
               let playerId = player.user;
               if (typeof playerId === 'object') {
@@ -581,11 +887,11 @@ function LobbyPage() {
                 if (!playerIds.has(playerIdStr)) {
                   allPlayers.push({
                     id: playerIdStr,
-                    name: player.name || player.user?.username || 'Oyuncu',
-                    avatar: player.user?.profileImage,
+                    name: player.name || (player.user?.username) || 'Oyuncu',
+                    avatar: player.avatar || (typeof player.user === 'object' ? player.user?.profileImage || player.user?.avatar : null),
                     isReady: player.isReady || false,
                     isBot: player.isBot || false,
-                    isOwner: response.data.createdBy === playerIdStr || response.data.owner === playerIdStr
+                    isOwner: String(response.data.createdBy) === String(getHostId(response.data.creator)) || String(response.data.owner) === String(getHostId(response.data.creator))
                   });
                   
                   playerIds.add(playerIdStr);
@@ -596,14 +902,13 @@ function LobbyPage() {
           
           // Kendimizi ekleyelim
           if (user?.id && !playerIds.has(user.id)) {
-            console.log("İlk yüklemede kendimi listeye ekliyorum");
             allPlayers.push({
               id: user.id,
             name: user.username || 'Oyuncu',
             avatar: user.profileImage,
               isReady: false,
               isBot: false,
-              isOwner: response.data.createdBy === user.id || response.data.owner === user.id
+              isOwner: String(user.id) === String(hostId) // Lobi sahibi kontrolü
             });
           }
           
@@ -615,21 +920,22 @@ function LobbyPage() {
           
           if (currentUserInLobby) {
             setIsReady(currentUserInLobby.isReady || false);
-            console.log("Hazır durumu API'den yüklendi:", currentUserInLobby.isReady);
           }
           
           // Oyuncular listesini güncelle ve tüm hazır durumlarını yansıt
-          console.log("İlk oyuncu listesi oluşturuldu:", allPlayers);
+          console.log("Oyuncular ve host durumları:", allPlayers.map(p => ({
+            name: p.name,
+            isOwner: p.isOwner,
+            id: p.id
+          })));
           setPlayers(allPlayers);
           
           // Son olarak lobiye katılma durumunu kontrol et
           if (response.data.createdBy === user.id || response.data.owner === user.id) {
-            console.log("Ben lobi sahibiyim, katılmış sayılıyorum");
             setHasJoinedLobby(true);
         } else {
             const amIInLobby = allPlayers.some(p => p.id === user.id);
             if (amIInLobby) {
-              console.log("Lobide zaten varım");
               setHasJoinedLobby(true);
             }
         }
@@ -663,18 +969,27 @@ function LobbyPage() {
     // Sayfa yüklenince ilk verileri hemen al
     fetchLobbyData(true); // İlk seferde API'den hazır durumunu al
     
-    // Polling sıklığını 2 saniyeye ayarlayalım
+    // Polling sıklığını 5 saniyeye çıkaralım (2 saniye yerine)
     if (!pollingIntervalRef.current) {
       console.log('Polling başlatılıyor...');
       
       pollingIntervalRef.current = setInterval(() => {
+        // Son API isteğinden beri geçen süreyi kontrol et
+        const timeSinceLastRequest = Date.now() - lastApiRequestTimeRef.current;
+        
+        // Eğer son istekten beri yeterli süre geçmediyse, isteği atla
+        if (timeSinceLastRequest < API_REQUEST_THROTTLE) {
+          console.log(`Son API isteğinden beri sadece ${timeSinceLastRequest}ms geçti, istek atlanıyor`);
+          return;
+        }
+        
         // Hazır durum geçişinden itibaren belirli bir süre geçtiyse zorunlu güncelleme yap
         const timeSinceLastTransition = Date.now() - readyStateTransitionTimeRef.current;
         const shouldOverride = timeSinceLastTransition > 5000; // 5 saniyeden fazla geçtiyse
         
         // Güncellenme zamanına göre override değerini ayarla
         fetchLobbyData(shouldOverride);
-      }, 2000); // 2 saniyede bir güncelle
+      }, 5000); // 5 saniyede bir güncelle (2 saniye yerine)
     }
   };
 
@@ -698,6 +1013,51 @@ function LobbyPage() {
       
       if (lobbyResponse.data) {
         console.log("API'den tüm lobi bilgileri alındı:", lobbyResponse.data);
+        
+        // Lobinin durumunu kontrol et - eğer durum "waiting" değilse katılma
+        if (lobbyResponse.data.status !== 'waiting') {
+          console.log("Lobi bekleme durumunda değil, katılma işlemi iptal ediliyor");
+          enqueueSnackbar('Bu lobiye şu anda katılamazsınız, oyun zaten başlamış veya bitmiş.', { 
+            variant: 'warning',
+            autoHideDuration: 3000
+          });
+          
+          // Mevcut lobi durumunu güncelle (oyun seyretme gibi özellikleri aktif etmek için)
+          setLobby(lobbyResponse.data);
+          return;
+        }
+
+        // Lobi dolu mu kontrol et
+        if (lobbyResponse.data.players && lobbyResponse.data.players.length >= lobbyResponse.data.maxPlayers) {
+          console.log("Lobi dolu, katılma işlemi iptal ediliyor");
+          enqueueSnackbar('Bu lobi dolu, katılamazsınız.', { 
+            variant: 'warning',
+            autoHideDuration: 3000
+          });
+          
+          // Mevcut lobi durumunu güncelle
+          setLobby(lobbyResponse.data);
+          return;
+        }
+        
+        // Zaten katılmış mıyım kontrol et
+        const alreadyJoined = lobbyResponse.data.players?.some(player => {
+          const playerId = player._id || player.id || player;
+          const playerIdStr = typeof playerId === 'string' ? playerId : String(playerId || '');
+          return playerIdStr === user.id;
+        });
+        
+        if (alreadyJoined) {
+          console.log("Bu lobiye zaten katılmışım, tekrar katılma işlemini atlıyorum");
+          setHasJoinedLobby(true);
+          setLobby(lobbyResponse.data);
+          
+          // Tam bir güncelleme için hemen çağır
+          await fetchLobbyData(false);
+          return;
+        }
+        
+        // Lobi bilgisini güncelle
         setLobby(lobbyResponse.data);
         
         // Lobi yanıtında hem players hem de playersDetail var mı kontrol et
@@ -723,7 +1083,7 @@ function LobbyPage() {
               avatar: player.profileImage || player.avatar || null,
               isReady: player.isReady || false,
               isBot: player.isBot || false,
-              isOwner: lobbyResponse.data.createdBy === playerIdStr || lobbyResponse.data.owner === playerIdStr
+              isOwner: String(lobbyResponse.data.createdBy) === String(getHostId(lobbyResponse.data.creator)) || String(lobbyResponse.data.owner) === String(getHostId(lobbyResponse.data.creator))
             };
           });
           
@@ -740,13 +1100,25 @@ function LobbyPage() {
             }
             const playerIdStr = typeof playerId === 'string' ? playerId : String(playerId || '');
             
+            // Avatar bilgisini güvenli şekilde çıkar
+            let avatarUrl = null;
+            
+            // Doğrudan avatar alanı
+            if (player.avatar) {
+              avatarUrl = player.avatar;
+            } 
+            // Eğer user nesnesi varsa onun profileImage veya avatar alanı
+            else if (typeof player.user === 'object') {
+              avatarUrl = player.user.profileImage || player.user.avatar || null;
+            }
+            
             return {
               id: playerIdStr,
               name: player.name || player.user?.username || `Oyuncu #${playerIdStr?.substring(0, 6) || 'Bilinmeyen'}`,
-              avatar: player.user?.profileImage || null,
+              avatar: avatarUrl,
               isReady: player.isReady || false,
               isBot: player.isBot || false,
-              isOwner: lobbyResponse.data.createdBy === playerIdStr || lobbyResponse.data.owner === playerIdStr
+              isOwner: String(lobbyResponse.data.createdBy) === String(getHostId(lobbyResponse.data.creator)) || String(lobbyResponse.data.owner) === String(getHostId(lobbyResponse.data.creator))
             };
           });
           
@@ -777,7 +1149,7 @@ function LobbyPage() {
             avatar: user.profileImage,
             isReady: false,
             isBot: false,
-            isOwner: lobbyResponse.data.createdBy === user.id || lobbyResponse.data.owner === user.id
+            isOwner: String(user.id) === String(getHostId(lobby?.creator)) || String(lobby?.owner) === String(getHostId(lobby?.creator))
           });
         }
         
@@ -791,7 +1163,13 @@ function LobbyPage() {
       }
       
       // Şimdi API'ye katılma isteği gönder
-      console.log("API'ye katılma isteği gönderiliyor:", { lobbyCode, userId: user.id });
+      console.log("API'ye katılma isteği gönderiliyor:", { 
+        lobbyCode, 
+        playerId: user.id,
+        playerName: user.username || 'Oyuncu' 
+      });
+      
+      try {
       const joinResponse = await axiosInstance.post(`/lobbies/join`, {
         lobbyCode: lobbyCode,
         playerId: user.id,
@@ -831,6 +1209,33 @@ function LobbyPage() {
         enqueueSnackbar(`Lobiye katılırken hata: ${joinResponse.data.error || 'Bilinmeyen hata'}`, { 
           variant: 'error',
           autoHideDuration: 3000
+          });
+        }
+      } catch (error) {
+        console.error("Lobiye katılırken hata:", error);
+        // Hata detaylarını logla
+        if (error.response && error.response.data) {
+          console.error("Sunucu hata detayları:", error.response.data);
+          enqueueSnackbar(`Lobiye katılırken hata: ${error.response.data.error || error.message}`, { 
+            variant: 'error',
+            autoHideDuration: 3000
+          });
+        } else {
+          enqueueSnackbar('Lobiye katılırken bir hata oluştu', { 
+            variant: 'error',
+            autoHideDuration: 3000
+          });
+        }
+        
+        // Uzaktan hata ayıklama için ek bilgiler
+        console.log("Katılma isteği yapılandırması:", {
+          url: `/lobbies/join`,
+          data: {
+            lobbyCode: lobbyCode,
+            playerId: user.id,
+            playerName: user.username || 'Oyuncu'
+          },
+          headers: axiosInstance.defaults.headers
         });
       }
     } catch (error) {
@@ -842,24 +1247,108 @@ function LobbyPage() {
     }
   };
 
-  // useEffect içinde lobiye katılma işlemini çağıralım
+  // useEffect içinde lobiye katılma işlemini çağıralım - sadece bir kez katılma işlemini çalıştırmak için
   useEffect(() => {
+    // Katılma işlemlerinin kontrolü için bir bayrak kullanacağız
+    let isJoiningAttempted = false;
+    
     if (lobbyCode && user?.id && socketRef.current) {
       console.log("Lobiye katılma işlemi başlatılıyor...");
+      
+      // Lobi bilgisi var mı kontrol et
+      if (!lobby) {
+        console.log("Henüz lobi verisi yok, katılma işlemi ertelendi");
+        return;
+      }
+      
       // Eğer lobi zaten inceleniyorsa tekrar kaydolmamıza gerek yok
-      if (lobby && (lobby.createdBy === user.id || lobby.owner === user.id)) {
+      const creatorId = lobby.creator?._id || lobby.creator;
+      const isLobbyOwner = user.id === creatorId || 
+                           lobby.createdBy === user.id || 
+                           lobby.owner === user.id;
+      
+      if (isLobbyOwner) {
         console.log("Ben lobi sahibiyim, ayrıca katılma işlemi gereksiz.");
         setHasJoinedLobby(true); // Lobi sahibi olarak katılmış sayılırız
         return;
       }
       
-      // Henüz katılmadıysak, lobiye katıl
-      if (!hasJoinedLobby) {
+      // Zaten players listesinde olup olmadığımızı kontrol et - client tarafında
+      const isAlreadyInPlayersList = players.some(p => p.id === user.id);
+      
+      if (isAlreadyInPlayersList) {
+        console.log("Oyuncu listesinde zaten varım, katılma işlemi atlanıyor");
+        setHasJoinedLobby(true);
+        return;
+      }
+      
+      // Zaten players veya playersDetail listesinde olup olmadığımızı kontrol et - backend verisi
+      let isInLobbyData = false;
+      
+      if (lobby.players) {
+        isInLobbyData = lobby.players.some(player => {
+          const playerId = player._id || player.id || player;
+          return playerId && playerId.toString() === user.id.toString();
+        });
+      }
+      
+      if (!isInLobbyData && lobby.playersDetail) {
+        isInLobbyData = lobby.playersDetail.some(playerDetail => {
+          if (!playerDetail.user) return false;
+          const userId = typeof playerDetail.user === 'object' 
+            ? playerDetail.user._id || playerDetail.user.id
+            : playerDetail.user;
+          return userId && userId.toString() === user.id.toString();
+        });
+      }
+      
+      if (isInLobbyData) {
+        console.log("Lobi verisinde zaten varım, katılma işlemi atlanıyor");
+        setHasJoinedLobby(true);
+        return;
+      }
+      
+      // Lobinin oyun durumunu kontrol et, eğer playing ise katılma
+      if (lobby.status !== 'waiting') {
+        console.log("Lobi oyun durumunda, katılma işlemi yapılamaz");
+        enqueueSnackbar('Bu lobiye şu anda katılamazsınız, oyun zaten başlamış.', { 
+          variant: 'warning',
+          autoHideDuration: 3000
+        });
+        return;
+      }
+      
+      // Lobi dolu mu kontrol et
+      if (lobby.players && lobby.maxPlayers && lobby.players.length >= lobby.maxPlayers) {
+        console.log(`Lobi dolu (${lobby.players.length}/${lobby.maxPlayers}), katılma işlemi iptal ediliyor`);
+        enqueueSnackbar('Bu lobi dolu, katılamazsınız.', { 
+          variant: 'warning',
+          autoHideDuration: 3000
+        });
+        return;
+      }
+      
+      // Henüz katılmadıysak ve katılma işlemi halihazırda yapılmadıysa, lobiye katıl
+      if (!hasJoinedLobby && !isJoiningAttempted) {
         console.log("Socket ve kullanıcı bilgileri hazır, lobiye katılıyorum");
+        isJoiningAttempted = true; // Sadece bir kere denemek için
+        
+        // Async olarak çalıştığı için trycatch içinde olmalı
+        try {
       registerPlayerToLobby();
+        } catch (error) {
+          console.error("Lobiye katılma işlemi sırasında hata:", error);
+          // Kritik hata durumunda bile temizlik işlemleri çalışsın
+          isJoiningAttempted = false;
     }
     }
-  }, [lobbyCode, user?.id, lobby, hasJoinedLobby, socketRef.current]);
+    }
+    
+    return () => {
+      // Cleanup
+      isJoiningAttempted = false;
+    };
+  }, [lobbyCode, user?.id, lobby, hasJoinedLobby, socketRef.current, players]);
 
   // Hazır durumu değiştirme fonksiyonu
   const toggleReadyStatus = async () => {
@@ -898,15 +1387,12 @@ function LobbyPage() {
       addSystemMessage(`${user?.username || 'Oyuncu'} ${newReadyState ? 'hazır' : 'hazır değil'}.`);
       
       // Sonra API'ye hazır durumunu gönderiyoruz
-      console.log(`API'ye hazır durumu gönderiliyor: ${newReadyState}`);
       const response = await axiosInstance.post(`/lobbies/player-ready`, {
         lobbyId: lobby._id, 
         isReady: newReadyState
       });
       
       if (response.data && response.data.success) {
-        console.log("API'ye hazır durumu gönderildi ve başarılı cevap alındı:", response.data);
-        
         // Socket üzerinden diğer oyunculara bildirelim
         if (socketRef.current) {
           // Herkesin görebilmesi için önce socket event'ini gönder
@@ -918,7 +1404,6 @@ function LobbyPage() {
             timestamp: Date.now()
           };
           
-          console.log("Socket üzerinden hazır durumu gönderiliyor:", socketData);
           socketRef.current.emit('playerStatusUpdate', socketData);
           
           // Kendimize özel status güncelleme event'i
@@ -928,19 +1413,16 @@ function LobbyPage() {
         // 5 saniye sonra client-side güncellemeyi sıfırla
         setTimeout(() => {
           hasClientSideReadyUpdate.current = false;
-          console.log("Client tarafı değişiklik koruması kaldırıldı");
         }, 5000);
         
         // Polling sırasında hazır durumunu ezmeyi engellemek için geçici olarak polling'i durdur
         if (pollingIntervalRef.current) {
-          console.log("Polling geçici olarak duraklatılıyor (4 saniye)");
           clearInterval(pollingIntervalRef.current);
           pollingIntervalRef.current = null;
           
           // 4 saniye sonra polling'i yeniden başlat
           setTimeout(() => {
             if (!pollingIntervalRef.current) {
-              console.log("Polling yeniden başlatılıyor");
               startPolling();
             }
           }, 4000);
@@ -949,7 +1431,6 @@ function LobbyPage() {
         // UI'da hazır durumun doğru göründüğünden emin ol
         setTimeout(() => {
           if (isReady !== newReadyState) {
-            console.log(`Hazır durumu kontrolü sonrası senkronizasyon: ${newReadyState}`);
             setIsReady(newReadyState);
           }
         }, 300);
@@ -966,7 +1447,6 @@ function LobbyPage() {
               });
               
               if (myDetails && myDetails.isReady !== isReady) {
-                console.log(`Server durumu (${myDetails.isReady}) ile UI durumu (${isReady}) uyuşmuyor, düzeltiliyor`);
                 setIsReady(myDetails.isReady);
                 lastKnownReadyState.current = myDetails.isReady;
               }
@@ -1113,22 +1593,21 @@ function LobbyPage() {
         return;
       }
       
+      // Son API isteği zamanını güncelle
+      lastApiRequestTimeRef.current = Date.now();
+      
       // Client tarafında güncelleme varsa ve override true değilse, işlemi atla
       if (hasClientSideReadyUpdate.current && !overrideReady) {
-        console.log("Client tarafında yakın zamanda bir güncelleme yapıldı, mevcut veriyi koruyorum");
         return;
       }
       
       // Mevcut hazır durumu koru
       const currentReadyState = isReady;
-      console.log(`Polling: Mevcut hazır durumum: ${currentReadyState}, override: ${overrideReady}`);
       
       // Bağlantı durumunu önceden bilinen hazır durumunu güncelle
       if (currentReadyState !== null) {
         lastKnownReadyState.current = currentReadyState;
       }
-      
-      console.log('API\'den güncel lobi bilgileri alınıyor:', lobbyCode);
       
       try {
         const response = await axiosInstance.get(`/lobbies/code/${lobbyCode}`);
@@ -1137,6 +1616,9 @@ function LobbyPage() {
           console.error('API yanıtı geçersiz');
           return;
         }
+        
+        // Lobi sahibi ID'sini belirle
+        const hostId = getHostId(response.data.creator);
         
         // API yanıtında kendi hazır durumumu kontrol et ve logla
         const apiPlayerData = response.data.players?.find(p => (p._id || p.id) === user?.id) || 
@@ -1147,18 +1629,21 @@ function LobbyPage() {
                               });
                               
         if (apiPlayerData) {
-          console.log("Database'deki hazır durumu:", apiPlayerData.isReady);
-          console.log("Mevcut UI hazır durumu:", currentReadyState);
-          
           // Eğer socket bağlantısı kopuksa veya override true ise ve database yanıtı güvenilir ise
           if (apiPlayerData.isReady !== undefined && (overrideReady || !isSocketConnected)) {
             // Database'den gelen hazır durumu kullan
             const databaseReadyState = apiPlayerData.isReady;
             
             if (databaseReadyState !== currentReadyState) {
-              console.log(`Hazır durumunu database'den güncelliyorum: ${databaseReadyState} (önceki durum: ${currentReadyState})`);
               setIsReady(databaseReadyState);
               lastKnownReadyState.current = databaseReadyState;
+              
+              // Oyuncular listesinde de güncelle
+              setPlayers(prevPlayers => 
+                prevPlayers.map(player => 
+                  player.id === user.id ? { ...player, isReady: databaseReadyState } : player
+                )
+              );
             }
           }
         }
@@ -1167,11 +1652,10 @@ function LobbyPage() {
         setLobby(response.data);
         
         // Lobi sahibi mi kontrol et
-        const isLobbyOwner = response.data.createdBy === user?.id || response.data.owner === user?.id;
+        const isLobbyOwner = String(response.data.createdBy) === String(hostId) || String(response.data.owner) === String(hostId);
         
         // Lobi sahibiyse katılmış olarak işaretle
         if (isLobbyOwner && !hasJoinedLobby) {
-          console.log("Lobi sahibi olduğum tespit edildi, katılmış olarak işaretliyorum");
           setHasJoinedLobby(true);
         }
         
@@ -1183,18 +1667,15 @@ function LobbyPage() {
         if (response.data.playersDetail && Array.isArray(response.data.playersDetail) && response.data.playersDetail.length > 0) {
           apiPlayers = response.data.playersDetail;
           foundApiPlayers = true;
-          console.log('API\'den oyuncular alındı (playersDetail):', apiPlayers);
         }
         // Sonra players dizisiyle çalış
         else if (response.data.players && Array.isArray(response.data.players) && response.data.players.length > 0) {
           apiPlayers = response.data.players;
           foundApiPlayers = true;
-          console.log('API\'den oyuncular alındı (players):', apiPlayers);
         }
         
         // API'den oyuncu bilgisi bulunamadıysa mevcut oyuncuları koru
         if (!foundApiPlayers || apiPlayers.length === 0) {
-          console.log('API\'den oyuncu bilgisi alınamadı, mevcut listeyi koruyorum');
           return;
         }
         
@@ -1217,11 +1698,8 @@ function LobbyPage() {
               const apiReadyStatus = player.isReady || false;
               currentUserReadyState = apiReadyStatus; // Kullanıcı hazır durumunu kaydet
               
-              console.log(`API'den gelen kendi hazır durumum (detail): ${apiReadyStatus}, mevcut durumum: ${currentReadyState}`);
-              
               // Durum değiştiyse ve override yapılması gerekiyorsa local state'i güncelle
               if (apiReadyStatus !== currentReadyState && overrideReady) {
-                console.log(`Hazır durumumu API'den güncelliyorum (detail): ${apiReadyStatus}`);
                 setIsReady(apiReadyStatus);
                 lastKnownReadyState.current = apiReadyStatus;
               }
@@ -1232,7 +1710,7 @@ function LobbyPage() {
                 avatar: user?.profileImage || null,
                 isReady: overrideReady ? apiReadyStatus : currentReadyState,
                 isBot: false,
-                isOwner: isLobbyOwner
+                isOwner: String(user?.id) === String(hostId) // Lobi sahibi kontrolü
               };
             }
             
@@ -1241,10 +1719,10 @@ function LobbyPage() {
             return {
               id: playerIdStr,
               name: player.name || player.user?.username || (existingPlayer?.name || `Oyuncu #${playerIdStr?.substring(0, 6) || 'Bilinmeyen'}`),
-              avatar: player.user?.profileImage || (existingPlayer?.avatar || null),
+              avatar: player.avatar || (typeof player.user === 'object' ? player.user?.profileImage || player.user?.avatar : null) || (existingPlayer?.avatar || null),
               isReady: player.isReady || false,
               isBot: player.isBot || false,
-              isOwner: response.data.createdBy === playerIdStr || response.data.owner === playerIdStr
+              isOwner: String(playerIdStr) === String(hostId) // Lobi sahibi kontrolü
             };
           });
           
@@ -1270,17 +1748,15 @@ function LobbyPage() {
                   avatar: user?.profileImage || player.profileImage || player.avatar || null,
                   isReady: overrideReady ? currentUserReadyState : currentReadyState,
                   isBot: false,
-                  isOwner: isLobbyOwner
+                  isOwner: String(user?.id) === String(hostId) // Lobi sahibi kontrolü
                 };
               }
               
               // Detail'den hazır durumu almadıysak, bu durumu kullan
-              console.log(`API'den gelen kendi hazır durumum: ${apiReadyStatus}, mevcut durumum: ${currentReadyState}`);
               currentUserReadyState = apiReadyStatus; // Kullanıcı hazır durumunu kaydet
               
               // Durum değiştiyse ve override yapılması gerekiyorsa local state'i güncelle
               if (apiReadyStatus !== currentReadyState && overrideReady) {
-                console.log(`Hazır durumumu API'den güncelliyorum: ${apiReadyStatus}`);
                 setIsReady(apiReadyStatus);
                 lastKnownReadyState.current = apiReadyStatus;
               }
@@ -1291,7 +1767,7 @@ function LobbyPage() {
                 avatar: user?.profileImage || player.profileImage || player.avatar || null,
                 isReady: overrideReady ? apiReadyStatus : currentReadyState,
                 isBot: false,
-                isOwner: isLobbyOwner
+                isOwner: String(user?.id) === String(hostId) // Lobi sahibi kontrolü
               };
             }
             
@@ -1303,7 +1779,7 @@ function LobbyPage() {
               avatar: player.profileImage || player.avatar || (existingPlayer?.avatar || null),
               isReady: player.isReady || false,
               isBot: player.isBot || false,
-              isOwner: response.data.createdBy === playerIdStr || response.data.owner === playerIdStr
+              isOwner: String(playerIdStr) === String(hostId) // Lobi sahibi kontrolü
             };
           });
           
@@ -1334,11 +1810,10 @@ function LobbyPage() {
             
             uniquePlayers.push({
               ...selfPlayer,
-              isReady: finalReadyState // Hazır durumu kontrolünü sağlamlaştır
+              isReady: finalReadyState, // Hazır durumu kontrolünü sağlamlaştır
+              isOwner: String(user?.id) === String(hostId) // Lobi sahibi kontrolü
             });
             playerIds.add(user.id);
-            
-            console.log(`Kendi hazır durumumu ${overrideReady ? 'API\'den güncelliyorum' : 'koruyorum'}: ${finalReadyState}`);
           } else {
             uniquePlayers.push({
               id: user.id,
@@ -1346,11 +1821,9 @@ function LobbyPage() {
               avatar: user.profileImage,
               isReady: currentReadyState, // Kendi hazır durumunu koru
               isBot: false,
-              isOwner: isLobbyOwner
+              isOwner: String(user.id) === String(hostId) // Lobi sahibi kontrolü
             });
             playerIds.add(user.id);
-            
-            console.log(`Kendimi oyuncu listesine ekliyorum, hazır durumum: ${currentReadyState}`);
           }
         }
         
@@ -1361,19 +1834,38 @@ function LobbyPage() {
           // Zaten eklenmiş oyuncuları atla
           if (playerIds.has(player.id)) continue;
           
-          uniquePlayers.push(player);
+          uniquePlayers.push({
+            ...player,
+            isOwner: String(player.id) === String(hostId) // Lobi sahibi kontrolü
+          });
           playerIds.add(player.id);
         }
         
-        console.log('İşlenmiş benzersiz oyuncular (final liste):', uniquePlayers);
+        // Oyuncuları güncelle
+        const playersWithCachedAvatars = uniquePlayers.map(player => {
+          if (!player) return player;
         
-        // Hazır durumlarını detaylı kontrol et
-        uniquePlayers.forEach(player => {
-          console.log(`Oyuncu: ${player.name}, Hazır: ${player.isReady}, Ben mi: ${player.id === user?.id}`);
+          // Avatar önbellekleme işlemi uygula
+          const cachedPlayer = { ...player };
+          
+          // Bot için DiceBear avatarı kullan
+          if (cachedPlayer.isBot) {
+            cachedPlayer.avatar = `https://api.dicebear.com/6.x/bottts/svg?seed=${cachedPlayer.name || 'Bot'}&_t=${Date.now()}`;
+          } 
+          // Normal avatar işleme
+          else if (cachedPlayer.avatar && typeof cachedPlayer.avatar === 'string' && !cachedPlayer.avatar.startsWith('data:')) {
+            // Önbellekleme için timestamp ekle
+            if (cachedPlayer.avatar.includes('?')) {
+              cachedPlayer.avatar = `${cachedPlayer.avatar}&_t=${Date.now()}`;
+            } else {
+              cachedPlayer.avatar = `${cachedPlayer.avatar}?_t=${Date.now()}`;
+            }
+          }
+          
+          return cachedPlayer;
         });
         
-        // Oyuncuları güncelle
-        setPlayers(uniquePlayers);
+        setPlayers(playersWithCachedAvatars);
         
         // Mesaj bilgilerini al
         if (response.data.messages && Array.isArray(response.data.messages)) {
@@ -1446,8 +1938,6 @@ function LobbyPage() {
       
       // Hata durumunda kendimizi koruyalım
       if (user?.id && (hasJoinedLobby || (lobby && (lobby.createdBy === user.id || lobby.owner === user.id)))) {
-        console.log("Hata durumunda kendimi oyuncu listesinde koruyorum");
-        
         setPlayers(prevPlayers => {
           if (!prevPlayers.some(p => p.id === user.id)) {
             return [...prevPlayers, {
@@ -1456,22 +1946,21 @@ function LobbyPage() {
               avatar: user.profileImage,
               isReady: isReady, // Mevcut hazır durumunu koru
               isBot: false,
-              isOwner: lobby?.createdBy === user.id || lobby?.owner === user.id
+              isOwner: String(lobby?.createdBy) === String(getHostId(lobby?.creator)) || String(lobby?.owner) === String(getHostId(lobby?.creator))
             }];
           }
           return prevPlayers;
         });
       }
       
-      // Polling olmadan tekrar denemek için 10 saniye sonra manuel güncelleme
+      // Polling olmadan tekrar denemek için 20 saniye sonra manuel güncelleme
       setTimeout(() => {
-        console.log("Hata sonrası 10 saniye beklenildi, tekrar deneniyor...");
         try {
           fetchLobbyData(false);
         } catch (retryError) {
           console.error("Yeniden deneme başarısız oldu:", retryError);
         }
-      }, 10000);
+      }, 20000); // 20 saniye (10 saniye yerine)
     }
   };
 
@@ -1944,22 +2433,13 @@ function LobbyPage() {
   useEffect(() => {
     if (!socketRef.current || !user) return;
 
-    console.log("Socket bağlantısı için event listener'lar ayarlanıyor...");
-
     // Socket event'lerinin çalıştığından emin olmak için debug
     const socketDebug = () => {
       const connected = socketRef.current.connected;
-      console.log("Socket bağlantı durumu:", connected);
-      console.log("Socket ID:", socketRef.current.id);
-      console.log("Socket event'leri:", socketRef.current.hasListeners('playerStatusUpdate'));
-      
-      // Bağlantı durumunu state'e kaydet
       setIsSocketConnected(connected);
       
       // Bağlantı durumu değiştiyse ve hazır durumu varsa kontrol et
       if (connected && lastKnownReadyState.current !== null && lobby?._id) {
-        console.log("Socket bağlantısı kuruldu, hazır durumumu yeniden gönderiyorum:", lastKnownReadyState.current);
-        
         // Hazır durumunu socket üzerinden yeniden gönder
         socketRef.current.emit('playerStatusUpdate', {
           lobbyId: lobby._id,
@@ -1985,8 +2465,8 @@ function LobbyPage() {
       }
     };
 
-    // 3 saniyede bir soket durumunu kontrol et
-    const debugInterval = setInterval(socketDebug, 3000);
+    // 10 saniyede bir soket durumunu kontrol et (3 saniye yerine)
+    const debugInterval = setInterval(socketDebug, 10000);
 
     // Direkt olarak kullanılacak oyuncu durum güncellemesi fonksiyonu
     const handlePlayerStatus = (data) => {
@@ -2006,14 +2486,12 @@ function LobbyPage() {
       // Eğer sadece isReady ve updateTime varsa, bu muhtemelen bizim kendi güncellememiz
       if (!userId && data.isReady !== undefined && data.updateTime) {
         userId = user?.id;
-        console.log("updateTime içeren veri bizim için gelmiş bir güncelleme, kendi ID'miz kullanılıyor:", user?.id);
       }
       
       // Hala userId yoksa ve farklı veri formatında olabilir
       if (!userId && data.lobbyId && (data.isReady !== undefined)) {
         // Bu durumda kendimize gelen bir güncelleme varsayalım
         userId = user?.id;
-        console.log("Socket event'inden userId tespit edilemedi, kendimize ait kabul ediyoruz:", data);
       }
       
       if (!userId) {
@@ -2021,13 +2499,10 @@ function LobbyPage() {
         // Hata olsa bile isReady durumu güncellenmek isteniyorsa işlemi devam ettir
         if (data.isReady !== undefined) {
           userId = user?.id; // Varsayılan olarak kendi kullanıcımız için güncelleme kabul et
-          console.log("Kullanıcı tanımlanamadı ama isReady bilgisi var, kendi ID'mizi kullanıyoruz:", userId);
         } else {
           return; // İşlenebilir veri yok, çık
         }
       }
-      
-      console.log("Socket: Oyuncu durumu güncelleme verisi alındı:", { userId, isReady: data.isReady });
       
       // UI'ı hemen güncelle - bu kısım hızlı tepki için
       setPlayers(prevPlayers => {
@@ -2038,7 +2513,6 @@ function LobbyPage() {
           
           // ID eşleşmesi kontrolü
           if (playerIdStr === userIdStr) {
-            console.log(`Socket üzerinden ${player.name} hazır durumu güncelleniyor: ${data.isReady}`);
             return { ...player, isReady: data.isReady };
           }
           return player;
@@ -2049,7 +2523,6 @@ function LobbyPage() {
       
       // Kendimiz için güncelleme ise hazır durumu state'ini de güncelle
       if (userId.toString() === user?.id?.toString()) {
-        console.log(`Kendi hazır durumumu socket event'inden güncelliyorum: ${data.isReady}`);
         setIsReady(data.isReady);
         lastKnownReadyState.current = data.isReady;
         
@@ -2064,30 +2537,25 @@ function LobbyPage() {
     socketRef.current.on('botAdded', handleBotAdded);
     socketRef.current.on('playerJoined', handlePlayerJoined);
     socketRef.current.on('playerLeft', handlePlayerLeft);
+    socketRef.current.on('playerKicked', handlePlayerKicked);
     socketRef.current.on('lobbyDeleted', handleLobbyDeleted);
     socketRef.current.on('lobbyUpdated', () => {
-      console.log('Socket: Lobi güncellendi, veriler yenileniyor');
       fetchLobbyData(false);
     });
     
     // Socket'e tekrar bağlan
     socketRef.current.connect();
-    console.log("Socket bağlantısı yeniden kuruldu.");
     
     // Bağlantı kontrolü
     socketRef.current.on('connect', () => {
-      console.log('Socket bağlantısı kuruldu:', socketRef.current.id);
       setIsSocketConnected(true);
       
       // Bağlantı sonrası kimlik doğrulama yap
       if (user?.id) {
         socketRef.current.emit('identify', user.id);
-        console.log('Socket kimlik bilgisi gönderildi:', user.id);
         
         // Hazır durumunu yeniden gönder (eğer varsa)
         if (lastKnownReadyState.current !== null && lobby?._id) {
-          console.log("Bağlantı sonrası hazır durumumu gönderiyorum:", lastKnownReadyState.current);
-          
           // Kısa bir gecikme ile gönder (kimlik doğrulamasının tamamlanması için)
           setTimeout(() => {
             socketRef.current.emit('playerStatusUpdate', {
@@ -2103,33 +2571,28 @@ function LobbyPage() {
     });
     
     socketRef.current.on('disconnect', () => {
-      console.log('Socket bağlantısı koptu');
       setIsSocketConnected(false);
       
       // Son bilinen hazır durumunu kaydet
       lastKnownReadyState.current = isReady;
-      console.log("Bağlantı koptuğunda son hazır durumum:", isReady);
     });
 
-    // Her 10 saniyede bir tam yenileme yap - daha sık olsun
+    // Her 30 saniyede bir tam yenileme yap (10 saniye yerine)
     const fullRefreshInterval = setInterval(() => {
       // Socket bağlantısı yoksa daha sık güncelle
       if (!isSocketConnected) {
-        console.log('Socket bağlantısı yok, daha sık güncelleme yapıyorum');
+        fetchLobbyData(false);
       }
-      
-      console.log('Tam yenileme: Tüm lobi verilerini API\'den alıyorum');
-      fetchLobbyData(false);
-    }, 10000);
+    }, 30000); // 30 saniyede bir (10 saniye yerine)
 
     // Cleanup fonksiyonu
     return () => {
-      console.log("Socket listener'lar temizleniyor...");
       socketRef.current.off('playerStatusUpdate', handlePlayerStatus);
       socketRef.current.off('myStatusUpdate', handlePlayerStatus);
       socketRef.current.off('botAdded', handleBotAdded);
       socketRef.current.off('playerJoined', handlePlayerJoined);
       socketRef.current.off('playerLeft', handlePlayerLeft);
+      socketRef.current.off('playerKicked', handlePlayerKicked);
       socketRef.current.off('lobbyDeleted', handleLobbyDeleted);
       socketRef.current.off('lobbyUpdated');
       socketRef.current.off('connect');
@@ -2333,8 +2796,6 @@ function LobbyPage() {
   
   // Yeni bir oyuncu katıldı eventi - güçlendirilmiş işleme
   const handlePlayerJoined = (data) => {
-    console.log('Socket: Yeni oyuncu katıldı', data);
-    
     if (!data || !data.player || !data.player.id) {
       console.error('Socket: Geçersiz oyuncu verisi', data);
       return;
@@ -2352,23 +2813,33 @@ function LobbyPage() {
           return prevPlayers;
         }
         
+        // Avatar URL'sini önbellekleme ile hazırla
+        let avatarUrl = data.player.avatar || data.player.profileImage || null;
+        
+        // Avatar URL'sine önbellekleme parametresi ekle
+        if (avatarUrl && typeof avatarUrl === 'string' && !avatarUrl.startsWith('data:')) {
+          if (avatarUrl.includes('?')) {
+            avatarUrl = `${avatarUrl}&_t=${Date.now()}`;
+          } else {
+            avatarUrl = `${avatarUrl}?_t=${Date.now()}`;
+          }
+        }
+        
         // Yeni oyuncuyu ekle
         const newPlayer = {
           id: data.player.id,
           name: data.player.name || 'Oyuncu',
-          avatar: data.player.avatar || null,
+          avatar: avatarUrl,
           isReady: data.player.isReady || false,
           isBot: data.player.isBot || false
         };
         
-        console.log('Socket üzerinden yeni oyuncu ekleniyor:', newPlayer);
         return [...prevPlayers, newPlayer];
       });
     }
     
     // Hem ekleme hem de tam güncelleme yap
     setTimeout(() => {
-      console.log('Socket: Yeni oyuncu katıldı, lobi verilerini güncelliyorum');
       fetchLobbyData(false);
     }, 250);
   };
@@ -2390,10 +2861,14 @@ function LobbyPage() {
         return prevPlayers;
       }
       
+      // Bot avatarı için DiceBear kullanılıyor - önbellekleme ile
+      const botAvatar = data.botAvatar || 
+        `https://api.dicebear.com/6.x/bottts/svg?seed=${data.botName || 'Bot'}&_t=${Date.now()}`;
+      
       const botPlayer = {
         id: data.botId,
         name: data.botName || 'Bot',
-        avatar: data.botAvatar || null,
+        avatar: botAvatar,
         isReady: true, // Botlar her zaman hazır
         isBot: true
       };
@@ -2412,6 +2887,33 @@ function LobbyPage() {
       setPlayers(prev => prev.filter(p => p.id !== data.userId));
       // Sistem mesajı ekle
       addSystemMessage(`${data.playerName || 'Bir oyuncu'} lobiden ayrıldı.`);
+      // Tam bir güncelleme yap
+      setTimeout(() => fetchLobbyData(false), 250);
+    }
+  };
+  
+  // Oyuncu atılma eventi
+  const handlePlayerKicked = (data) => {
+    console.log('Socket: Oyuncu atıldı', data);
+    if (data.playerId) {
+      // Eğer kendimiz atıldıysak ana sayfaya yönlendir
+      if (data.playerId === user.id) {
+        enqueueSnackbar('Lobi sahibi tarafından lobiden atıldınız.', { 
+          variant: 'warning',
+          autoHideDuration: 5000 
+        });
+        
+        // Kullanıcı atıldığında gösterilecek diyaloğu aç
+        setKickedDialogOpen(true);
+        return;
+      }
+      
+      // Oyuncu listesinden atılan oyuncuyu çıkar
+      setPlayers(prev => prev.filter(p => p.id !== data.playerId));
+      
+      // Sistem mesajı ekle
+      addSystemMessage(`${data.playerName || 'Bir oyuncu'} lobiden atıldı.`);
+      
       // Tam bir güncelleme yap
       setTimeout(() => fetchLobbyData(false), 250);
     }
@@ -2484,6 +2986,224 @@ function LobbyPage() {
     );
   }
   
+  // Ayarlar diyaloğu için gerekli fonksiyonları ekleyelim
+  const handleSettingsDialogOpen = () => {
+    // Mevcut lobi ayarlarını al
+    if (lobby) {
+      setLobbySettings({
+        // Lobi ayarları
+        name: lobby.name || 'Tombala Lobisi',
+        maxPlayers: lobby.maxPlayers || 6
+      });
+    }
+    setSettingsDialogOpen(true);
+  };
+
+  const handleSettingsDialogClose = () => {
+    setSettingsDialogOpen(false);
+  };
+
+  const handleSettingsChange = (event) => {
+    const { name, value, checked, type } = event.target;
+    // Checkbox için checked, diğer input tipleri için value kullan
+    const newValue = type === 'checkbox' ? checked : value;
+    
+    setLobbySettings((prev) => ({
+      ...prev,
+      [name]: newValue
+    }));
+  };
+
+  const saveSettings = async () => {
+    try {
+      if (!lobby?._id) {
+        enqueueSnackbar('Lobi bilgisi bulunamadı', { 
+          variant: 'error', 
+          autoHideDuration: 3000 
+        });
+        return;
+      }
+
+      // İstek gönderilmeden önce kontrolleri yap
+      if (!lobbySettings.name || lobbySettings.name.trim() === '') {
+        enqueueSnackbar('Lobi adı boş olamaz', { 
+          variant: 'error', 
+          autoHideDuration: 3000 
+        });
+        return;
+      }
+
+      // Number olarak dönüştürme
+      const maxPlayersNum = parseInt(lobbySettings.maxPlayers, 10);
+
+      if (!maxPlayersNum || maxPlayersNum < 2 || maxPlayersNum > 100) {
+        enqueueSnackbar('Oyuncu sayısı 2-100 arasında olmalıdır', { 
+          variant: 'error', 
+          autoHideDuration: 3000 
+        });
+        return;
+      }
+
+      // Mevcut oyuncu sayısı kontrolü - lobideki oyuncu sayısından düşük olamaz
+      if (players.length > maxPlayersNum) {
+        enqueueSnackbar(`Lobide şu anda ${players.length} oyuncu var. Maksimum oyuncu sayısı daha yüksek olmalıdır.`, { 
+          variant: 'error', 
+          autoHideDuration: 3000 
+        });
+        return;
+      }
+
+      console.log("Lobi ayarları gönderiliyor:", {
+        name: lobbySettings.name,
+        maxPlayers: maxPlayersNum
+      });
+
+      // Değişen ayarları belirle - sadece değişenleri gönder
+      const updatedSettings = {};
+      
+      if (lobbySettings.name !== lobby.name) {
+        updatedSettings.name = lobbySettings.name;
+      }
+      
+      if (maxPlayersNum !== lobby.maxPlayers) {
+        updatedSettings.maxPlayers = maxPlayersNum;
+      }
+      
+      // Herhangi bir değişiklik yoksa çık
+      if (Object.keys(updatedSettings).length === 0) {
+        enqueueSnackbar('Değişiklik yapılmadı', { 
+          variant: 'info', 
+          autoHideDuration: 3000 
+        });
+        handleSettingsDialogClose();
+        return;
+      }
+
+      // API'ye ayarları gönder
+      const response = await axiosInstance.put(`/lobbies/${lobby._id}`, updatedSettings);
+
+      if (response.data) {
+        // Lobi bilgilerini güncelle
+        setLobby({
+          ...lobby,
+          ...updatedSettings
+        });
+
+        // Başarı mesajı göster
+        enqueueSnackbar('Lobi ayarları güncellendi', { 
+          variant: 'success', 
+          autoHideDuration: 3000 
+        });
+
+        // Socket üzerinden diğer oyunculara bildir
+        if (socketRef.current) {
+          socketRef.current.emit('lobbyUpdated', {
+            lobbyId: lobby._id,
+            lobbyCode: lobby.lobbyCode,
+            settings: updatedSettings
+          });
+        }
+
+        // Diyaloğu kapat
+        handleSettingsDialogClose();
+        
+        // API'den tüm lobi verilerini yeniden çek
+        await fetchLobbyData(true);
+      }
+    } catch (error) {
+      console.error('Ayarlar kaydedilirken hata:', error);
+      console.error('Hata detayları:', error.response?.data);
+      
+      // Hata cevabını detaylı bir şekilde kontrol et ve kullanıcıya anlamlı mesaj göster
+      const errorMessage = error.response?.data?.error || 
+                           error.response?.data?.message || 
+                           error.message || 
+                           'Ayarlar kaydedilemedi';
+                         
+      enqueueSnackbar('Ayarlar kaydedilemedi: ' + errorMessage, { 
+        variant: 'error', 
+        autoHideDuration: 5000 
+      });
+    }
+  };
+  
+  // Oyuncuları lobiden atma (kick) fonksiyonu - sadece lobi sahibi kullanabilir
+  const kickPlayer = async (playerToKick) => {
+    if (!isUserHost(lobby, user.id)) {
+      console.error("Sadece lobi sahibi oyuncuları atabilir!");
+      enqueueSnackbar('Bu işlemi yapabilmek için lobi sahibi olmanız gerekiyor.', { 
+        variant: 'error',
+        autoHideDuration: 3000
+      });
+      return;
+    }
+
+    // Kendini atamaz
+    if (playerToKick.id === user.id) {
+      console.error("Kendinizi atamazsınız!");
+      enqueueSnackbar('Kendinizi lobiden atamazsınız.', { 
+        variant: 'error',
+        autoHideDuration: 3000
+      });
+      return;
+    }
+
+    // Başka bir lobi sahibini atamaz
+    if (playerToKick.isOwner) {
+      console.error("Lobi sahibini atamazsınız!");
+      enqueueSnackbar('Lobi sahibini lobiden atamazsınız.', { 
+        variant: 'error',
+        autoHideDuration: 3000
+      });
+      return;
+    }
+
+    try {
+      console.log(`${playerToKick.name} adlı oyuncuyu lobiden atmak için istek gönderiliyor...`);
+      
+      // API isteği için parametreler hazırlama
+      const requestData = {
+        lobbyId: lobby._id,
+        lobbyCode: lobby.lobbyCode,
+        playerId: playerToKick.id,
+        isBot: playerToKick.isBot || false
+      };
+      
+      console.log('Atma isteği verileri:', requestData);
+      
+      // Atma API'sini çağır
+      const response = await axiosInstance.post('/lobbies/kick-player', requestData);
+      
+      console.log('Atma işlemi yanıtı:', response.data);
+      
+      if (response.data.success) {
+        // Başarılı atma işlemi
+        enqueueSnackbar(`${playerToKick.name} lobiden atıldı.`, { 
+          variant: 'success',
+          autoHideDuration: 3000
+        });
+        
+        // Oyuncu listesinden manuel olarak oyuncuyu kaldır (socket eventi beklemeden)
+        setPlayers(prevPlayers => prevPlayers.filter(p => p.id !== playerToKick.id));
+        
+        // Socket olayı ile diğer oyuncuları bilgilendirmek için lobiyi anlık günceller
+        setTimeout(() => fetchLobbyData(false), 250);
+      } else {
+        // Başarısız atma işlemi
+        enqueueSnackbar(response.data.message || 'Oyuncu atma işlemi başarısız oldu.', { 
+          variant: 'error',
+          autoHideDuration: 3000
+        });
+      }
+    } catch (error) {
+      console.error('Oyuncu atma işlemi sırasında hata:', error);
+      enqueueSnackbar('Oyuncu atma işlemi sırasında bir hata oluştu.', { 
+        variant: 'error',
+        autoHideDuration: 3000
+      });
+    }
+  };
+  
   return (
     <MainLayout>
       <ThemeProvider theme={customTheme}>
@@ -2520,7 +3240,7 @@ function LobbyPage() {
                     {lobby?.name || 'Tombala Lobisi'}
                   </Typography>
                   <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
-                    {lobby?.game?.toUpperCase() || 'BINGO'} • Bahis: {lobby?.betAmount || 100} Token
+                    {lobby?.game?.toUpperCase() || 'BINGO'}
                   </Typography>
                 </Box>
               </Box>
@@ -2536,6 +3256,28 @@ function LobbyPage() {
                       Oyunu Başlat
                     </StartGameButton>
                   </Fade>
+                )}
+                
+                {/* Ayarlar butonunu sadece lobi sahibi görecek - Düzeltildi */}
+                {lobby && user && (isUserHost(lobby, user.id) || players.some(p => p.id === user.id && p.isOwner)) && (
+                  <Tooltip title="Lobi Ayarları">
+                    <IconButton
+                      onClick={handleSettingsDialogOpen}
+                      sx={{
+                        background: 'rgba(74, 125, 255, 0.1)', 
+                        transition: 'all 0.3s ease',
+                        border: '1px solid rgba(74, 125, 255, 0.3)',
+                        p: 1,
+                        '&:hover': {
+                          background: 'rgba(74, 125, 255, 0.2)',
+                          transform: 'scale(1.1)',
+                          borderColor: '#4a7dff'
+                        }
+                      }}
+                    >
+                      <SettingsIcon color="primary" />
+                    </IconButton>
+                  </Tooltip>
                 )}
                 
                 <Tooltip title="Lobi Kodunu Kopyala">
@@ -2626,13 +3368,140 @@ function LobbyPage() {
             onClose={handleShareDialogClose}
             PaperProps={{
               sx: {
+                background: 'linear-gradient(135deg, #23244d 0%, #181a2f 100%)',
+                borderRadius: '20px',
+                boxShadow: '0 8px 32px 0 rgba(74,125,255,0.15), 0 1.5px 8px 0 #4a7dff30',
+                border: '1.5px solid rgba(74,125,255,0.15)',
+                width: { xs: '90%', sm: '400px' },
+                maxWidth: '500px',
+                overflow: 'visible',
+                p: 0
+              }
+            }}
+          >
+            <DialogTitle
+              sx={{
+                borderBottom: 'none',
+                pb: 2,
+                background: 'linear-gradient(90deg, #4a7dff, #ff53f0)',
+                borderTopLeftRadius: '20px',
+                borderTopRightRadius: '20px',
+                color: '#fff',
+                textAlign: 'center',
+                fontWeight: 700,
+                fontSize: 22,
+                letterSpacing: 0.5
+              }}
+            >
+                Lobi Davetiyesini Paylaş
+            </DialogTitle>
+            <DialogContent sx={{ pt: 3, pb: 2, overflow: 'visible', maxHeight: 'none' }}>
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" sx={{ mb: 1, color: 'rgba(255,255,255,0.8)' }}>
+                  Lobi bağlantısı:
+                </Typography>
+                <Box sx={{ 
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                  background: 'rgba(74,125,255,0.08)',
+                  padding: '10px 12px',
+                  borderRadius: '10px',
+                  border: '1.5px solid #4a7dff40',
+                  boxShadow: '0 0 8px #4a7dff30',
+                  mb: 2
+                }}>
+                  <Typography 
+                    variant="body2" 
+                    sx={{ 
+                      flex: 1, 
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      color: '#4a7dff',
+                      fontWeight: 600
+                    }}
+                  >
+                    {shareLink}
+                  </Typography>
+                  <IconButton 
+                    size="small" 
+                    onClick={() => {
+                      navigator.clipboard.writeText(shareLink);
+                      setShareSuccessMessage('Link kopyalandı!');
+                      setTimeout(() => setShareSuccessMessage(''), 2000);
+                    }}
+                    sx={{ color: '#4a7dff', transition: 'all 0.2s', '&:hover': { color: '#ff53f0', background: 'rgba(255,255,255,0.08)' } }}
+                  >
+                    <ContentCopy fontSize="small" />
+                  </IconButton>
+                </Box>
+                {/* QR Kod Alanı */}
+                <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+                  <QRCodeSVG 
+                    value={shareLink} 
+                    size={96} 
+                    bgColor="#23244d" 
+                    fgColor="#4a7dff" 
+                    style={{ borderRadius: 8 }}
+                  />
+              </Box>
+              </Box>
+              <Typography variant="body2" sx={{ mb: 1, color: 'rgba(255,255,255,0.8)' }}>
+                Sosyal medyada paylaş:
+              </Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'center', gap: 3, mb: 2, flexWrap: 'wrap' }}>
+                <IconButton onClick={() => handleShare('facebook')} sx={{ backgroundColor: 'rgba(24, 119, 242, 0.12)', p: 1.5, transition: 'all 0.3s', '&:hover': { backgroundColor: 'rgba(24, 119, 242, 0.22)', transform: 'scale(1.1)' } }}>
+                  <FaFacebook color="#1877F2" size={24} />
+                </IconButton>
+                <IconButton onClick={() => handleShare('twitter')} sx={{ backgroundColor: 'rgba(29, 161, 242, 0.12)', p: 1.5, transition: 'all 0.3s', '&:hover': { backgroundColor: 'rgba(29, 161, 242, 0.22)', transform: 'scale(1.1)' } }}>
+                  <FaTwitter color="#1DA1F2" size={24} />
+                </IconButton>
+                <IconButton onClick={() => handleShare('whatsapp')} sx={{ backgroundColor: 'rgba(37, 211, 102, 0.12)', p: 1.5, transition: 'all 0.3s', '&:hover': { backgroundColor: 'rgba(37, 211, 102, 0.22)', transform: 'scale(1.1)' } }}>
+                  <FaWhatsapp color="#25D366" size={24} />
+                </IconButton>
+                <IconButton onClick={() => handleShare('telegram')} sx={{ backgroundColor: 'rgba(0, 136, 204, 0.12)', p: 1.5, transition: 'all 0.3s', '&:hover': { backgroundColor: 'rgba(0, 136, 204, 0.22)', transform: 'scale(1.1)' } }}>
+                  <FaTelegram color="#0088cc" size={24} />
+                </IconButton>
+                <IconButton onClick={() => handleShare('email')} sx={{ backgroundColor: 'rgba(255, 87, 34, 0.12)', p: 1.5, transition: 'all 0.3s', '&:hover': { backgroundColor: 'rgba(255, 87, 34, 0.22)', transform: 'scale(1.1)' } }}>
+                  <FaEnvelope color="#FF5722" size={24} />
+                </IconButton>
+              </Box>
+              {shareSuccessMessage && (
+                <Box sx={{ backgroundColor: 'rgba(76, 175, 80, 0.1)', border: '1px solid rgba(76, 175, 80, 0.3)', borderRadius: '8px', padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                  <CheckIcon fontSize="small" color="success" />
+                  <Typography variant="body2" color="success.main">
+                    {shareSuccessMessage}
+                  </Typography>
+                </Box>
+              )}
+            </DialogContent>
+            <DialogActions sx={{ px: 3, pb: 2, pt: 0 }}>
+              <Button
+                onClick={handleShareDialogClose}
+                variant="outlined"
+                sx={{ borderRadius: '8px', borderColor: 'rgba(255,255,255,0.2)', width: '100%', fontWeight: 600, color: '#fff', background: 'rgba(74,125,255,0.08)', '&:hover': { background: 'rgba(74,125,255,0.15)' } }}
+              >
+                KAPAT
+              </Button>
+            </DialogActions>
+          </Dialog>
+          
+          {/* Ayarlar Diyaloğu */}
+          <Dialog
+            open={settingsDialogOpen}
+            onClose={handleSettingsDialogClose}
+            PaperProps={{
+              sx: {
                 background: 'rgba(30, 32, 68, 0.95)',
                 backdropFilter: 'blur(10px)',
                 borderRadius: '16px',
                 boxShadow: '0 10px 25px rgba(0, 0, 0, 0.3)',
                 border: '1px solid rgba(255, 255, 255, 0.1)',
-                width: { xs: '90%', sm: '400px' },
-                maxWidth: '500px'
+                width: { xs: '95%', sm: '500px' },
+                maxWidth: '600px',
+                overflow: 'visible', // scroll'u engelle
+                maxHeight: 'none'   // yükseklik kısıtlamasını kaldır
               }
             }}
           >
@@ -2645,162 +3514,200 @@ function LobbyPage() {
                 background: 'linear-gradient(90deg, #4a7dff, #ff53f0)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
-                textAlign: 'center'
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1
               }}>
-                Lobi Davetiyesini Paylaş
+                <SettingsIcon />
+                Ayarlar
               </Typography>
-            </DialogTitle>
-            <DialogContent sx={{ pt: 3, pb: 2 }}>
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="body2" sx={{ mb: 1, color: 'rgba(255, 255, 255, 0.7)' }}>
-                  Lobi bağlantısı:
-                </Typography>
-                <Box sx={{ 
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1,
-                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                  padding: '10px 12px',
-                  borderRadius: '8px',
-                  border: '1px solid rgba(255, 255, 255, 0.1)'
-                }}>
-                  <Typography 
-                    variant="body2" 
-                    sx={{ 
-                      flex: 1, 
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      color: '#4a7dff'
-                    }}
-                  >
-                    {shareLink}
-                  </Typography>
-                  <IconButton 
-                    size="small" 
-                    onClick={() => {
-                      navigator.clipboard.writeText(shareLink);
-                      setShareSuccessMessage('Link kopyalandı!');
-                      setTimeout(() => setShareSuccessMessage(''), 2000);
-                    }}
-                    sx={{ color: '#4a7dff' }}
-                  >
-                    <ContentCopy fontSize="small" />
-                  </IconButton>
-                </Box>
-              </Box>
-              
-              <Typography variant="body2" sx={{ mb: 1, color: 'rgba(255, 255, 255, 0.7)' }}>
-                Sosyal medyada paylaş:
-              </Typography>
+
+              {/* Tab Butonları */}
               <Box sx={{ 
+                mt: 2, 
                 display: 'flex', 
-                justifyContent: 'center', 
-                gap: 2, 
-                mb: 2,
-                flexWrap: 'wrap'
+                borderBottom: '1px solid rgba(255, 255, 255, 0.1)' 
               }}>
-                <IconButton 
-                  onClick={() => handleShare('facebook')}
+                <Button 
+                  onClick={() => setActiveSettingsTab(0)}
                   sx={{ 
-                    backgroundColor: 'rgba(24, 119, 242, 0.1)', 
-                    p: 1.5,
-                    transition: 'all 0.3s',
-                    '&:hover': {
-                      backgroundColor: 'rgba(24, 119, 242, 0.2)',
-                      transform: 'translateY(-3px)'
-                    }
+                    flex: 1, 
+                    pb: 1,
+                    fontWeight: 600,
+                    color: '#4a7dff',
+                    borderBottom: '2px solid #4a7dff'
                   }}
                 >
-                  <FaFacebook color="#1877F2" size={24} />
-                </IconButton>
-                <IconButton 
-                  onClick={() => handleShare('twitter')}
-                  sx={{ 
-                    backgroundColor: 'rgba(29, 161, 242, 0.1)', 
-                    p: 1.5,
-                    transition: 'all 0.3s',
-                    '&:hover': {
-                      backgroundColor: 'rgba(29, 161, 242, 0.2)',
-                      transform: 'translateY(-3px)'
-                    }
-                  }}
-                >
-                  <FaTwitter color="#1DA1F2" size={24} />
-                </IconButton>
-                <IconButton 
-                  onClick={() => handleShare('whatsapp')}
-                  sx={{ 
-                    backgroundColor: 'rgba(37, 211, 102, 0.1)', 
-                    p: 1.5,
-                    transition: 'all 0.3s',
-                    '&:hover': {
-                      backgroundColor: 'rgba(37, 211, 102, 0.2)',
-                      transform: 'translateY(-3px)'
-                    }
-                  }}
-                >
-                  <FaWhatsapp color="#25D366" size={24} />
-                </IconButton>
-                <IconButton 
-                  onClick={() => handleShare('telegram')}
-                  sx={{ 
-                    backgroundColor: 'rgba(0, 136, 204, 0.1)', 
-                    p: 1.5,
-                    transition: 'all 0.3s',
-                    '&:hover': {
-                      backgroundColor: 'rgba(0, 136, 204, 0.2)',
-                      transform: 'translateY(-3px)'
-                    }
-                  }}
-                >
-                  <FaTelegram color="#0088cc" size={24} />
-                </IconButton>
-                <IconButton 
-                  onClick={() => handleShare('email')}
-                  sx={{ 
-                    backgroundColor: 'rgba(255, 87, 34, 0.1)', 
-                    p: 1.5,
-                    transition: 'all 0.3s',
-                    '&:hover': {
-                      backgroundColor: 'rgba(255, 87, 34, 0.2)',
-                      transform: 'translateY(-3px)'
-                    }
-                  }}
-                >
-                  <FaEnvelope color="#FF5722" size={24} />
-                </IconButton>
+                  Lobi Ayarları
+                </Button>
               </Box>
-              
-              {shareSuccessMessage && (
-                <Box sx={{ 
-                  backgroundColor: 'rgba(76, 175, 80, 0.1)',
-                  border: '1px solid rgba(76, 175, 80, 0.3)',
-                  borderRadius: '8px',
-                  padding: '8px 12px',
+            </DialogTitle>
+            <DialogContent
+                  sx={{ 
+                pt: 3,
+                pb: 2,
+                overflow: 'visible', // scroll'u engelle
+                maxHeight: 'none'    // yükseklik kısıtlamasını kaldır
+                  }}
+                >
+              <Box
+                  sx={{ 
                   display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 1
-                }}>
-                  <CheckIcon fontSize="small" color="success" />
-                  <Typography variant="body2" color="success.main">
-                    {shareSuccessMessage}
+                  flexDirection: 'column',
+                  gap: 4,
+                  background: 'linear-gradient(135deg, #23244d 0%, #181a2f 100%)',
+                  borderRadius: 4,
+                  boxShadow: '0 8px 32px 0 rgba(74,125,255,0.10), 0 1.5px 8px 0 #4a7dff30',
+                  p: 4,
+                  mt: 2,
+                  mb: 2,
+                  border: '1.5px solid rgba(74,125,255,0.15)',
+                  position: 'relative',
+                  overflow: 'visible', // scroll'u engelle
+                  maxHeight: 'none',  // yükseklik kısıtlamasını kaldır
+                  '&::after': {
+                    content: '""',
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: 8,
+                    background: 'linear-gradient(90deg, #4a7dff 0%, #ff53f0 100%)',
+                    borderTopLeftRadius: 16,
+                    borderTopRightRadius: 16,
+                    opacity: 0.7
+                    }
+                  }}
+                >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                  <GameIcon color="primary" sx={{ fontSize: 32 }} />
+                  <Typography variant="h6" sx={{ fontWeight: 700, color: '#fff', letterSpacing: 0.5 }}>
+                    Lobi Ayarları
                   </Typography>
                 </Box>
-              )}
+
+                {/* Lobi Adı */}
+                <Box>
+                  <Typography variant="body2" sx={{ mb: 1, color: 'rgba(255,255,255,0.8)', fontWeight: 500 }}>
+                    Lobi Adı
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    name="name"
+                    value={lobbySettings.name}
+                    onChange={handleSettingsChange}
+                    variant="outlined"
+                    size="medium"
+                    placeholder="Lobi adını girin"
+                  sx={{ 
+                      '& .MuiOutlinedInput-root': {
+                        background: 'rgba(255,255,255,0.08)',
+                        borderRadius: 3,
+                        color: '#fff',
+                        fontWeight: 600,
+                        fontSize: 18,
+                        boxShadow: '0 0 0 2px #4a7dff20',
+                        transition: 'box-shadow 0.2s',
+                    '&:hover': {
+                          boxShadow: '0 0 0 3px #4a7dff60',
+                        },
+                        '&.Mui-focused': {
+                          boxShadow: '0 0 0 3px #ff53f080',
+                          borderColor: '#ff53f0',
+                        },
+                        '& input': {
+                          color: '#fff',
+                        },
+                        '&::placeholder': {
+                          color: '#fff',
+                          opacity: 1
+                        }
+                      }
+                    }}
+                    inputProps={{ maxLength: 32 }}
+                  />
+                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', mt: 0.5 }}>
+                    Lobi adınız diğer oyuncular tarafından görülecek.
+                  </Typography>
+                </Box>
+
+                {/* Maksimum Oyuncu Sayısı */}
+                <Box>
+                  <Typography variant="body2" sx={{ mb: 1, color: 'rgba(255,255,255,0.8)', fontWeight: 500 }}>
+                    Maksimum Oyuncu Sayısı
+                  </Typography>
+                  <TextField
+                    select
+                    fullWidth
+                    name="maxPlayers"
+                    value={lobbySettings.maxPlayers}
+                    onChange={handleSettingsChange}
+                    variant="outlined"
+                    size="medium"
+                  sx={{ 
+                      '& .MuiOutlinedInput-root': {
+                        background: 'rgba(255,255,255,0.08)',
+                        borderRadius: 3,
+                        color: '#fff',
+                        fontWeight: 600,
+                        fontSize: 18,
+                        boxShadow: '0 0 0 2px #4a7dff20',
+                        transition: 'box-shadow 0.2s',
+                    '&:hover': {
+                          boxShadow: '0 0 0 3px #4a7dff60',
+                        },
+                        '&.Mui-focused': {
+                          boxShadow: '0 0 0 3px #ff53f080',
+                          borderColor: '#ff53f0',
+                        },
+                        '& input': {
+                          color: '#fff',
+                        },
+                        '& .MuiSelect-select': {
+                          color: '#fff',
+                        }
+                      }
+                    }}
+                  >
+                    {[2, 4, 6, 8, 10, 12, 16, 20, 30, 50, 100].map((option) => (
+                      <MenuItem key={option} value={option} sx={{ color: '#4a7dff', fontWeight: 600 }}>
+                        {option} Oyuncu
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', mt: 0.5 }}>
+                    Lobiye katılabilecek maksimum oyuncu sayısı.
+                  </Typography>
+                </Box>
+              </Box>
             </DialogContent>
-            <DialogActions sx={{ px: 3, pb: 2, pt: 0 }}>
+            <DialogActions sx={{ px: 3, pb: 3, pt: 0, display: 'flex', gap: 2 }}>
               <Button 
-                onClick={handleShareDialogClose}
+                onClick={handleSettingsDialogClose}
                 variant="outlined" 
                 sx={{ 
+                  flex: 1,
                   borderRadius: '8px',
                   borderColor: 'rgba(255, 255, 255, 0.2)'
                 }}
-                fullWidth
               >
-                Kapat
+                İptal
+              </Button>
+              <Button 
+                onClick={saveSettings}
+                variant="contained"
+                color="primary" 
+                sx={{ 
+                  flex: 2,
+                  borderRadius: '8px',
+                  background: 'linear-gradient(45deg, #4a7dff 0%, #ff53f0 100%)',
+                  '&:hover': {
+                    background: 'linear-gradient(45deg, #5a8dff 0%, #ff65f0 100%)',
+                    boxShadow: '0 5px 15px rgba(74, 125, 255, 0.3)'
+                  }
+                }}
+              >
+                Kaydet
               </Button>
             </DialogActions>
           </Dialog>
@@ -2846,6 +3753,7 @@ function LobbyPage() {
                           <StyledListItem
                             $isReady={player.isReady}
                             $isCurrentUser={isCurrentUser}
+                            $isOwner={player.isOwner}
                           >
                             <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
                               <ListItemAvatar>
@@ -2858,29 +3766,13 @@ function LobbyPage() {
                                       null
                                   }
                                 >
-                                  <Avatar 
-                                    src={player.isBot ? `https://api.dicebear.com/6.x/bottts/svg?seed=${player.name}` : getPlayerAvatar(player)}
-                                    alt={player.name}
-                                    sx={{ 
-                                      width: 45,
-                                      height: 45,
-                                      borderRadius: '12px',
-                                      border: player.isReady 
-                                        ? '2px solid #4CAF50'
-                                        : player.id === user.id 
-                                          ? '2px solid rgba(74, 125, 255, 0.3)'
-                                          : '2px solid rgba(255, 255, 255, 0.05)',
-                                      transition: 'all 0.3s ease',
-                                      '&:hover': {
-                                        borderColor: '#4a7dff',
-                                        transform: 'scale(1.05)'
-                                      }
-                                    }}
-                                    onError={(e) => {
-                                      e.target.onerror = null;
-                                      const initial = player?.name ? player.name.charAt(0).toUpperCase() : 'U';
-                                      e.target.src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="150" height="150"><rect width="100" height="100" fill="#2a2c4e"/><text x="50" y="50" font-size="50" text-anchor="middle" dominant-baseline="middle" font-family="Arial" fill="white">' + initial + '</text></svg>')}`;
-                                    }}
+                                  <PlayerAvatar 
+                                    player={player}
+                                    isOwner={player.isOwner}
+                                    isReady={player.isReady}
+                                    isCurrentUser={player.id === user.id}
+                                    isHostViewing={isUserHost(lobby, user.id)}
+                                    onKickPlayer={kickPlayer}
                                   />
                                 </Badge>
                               </ListItemAvatar>
@@ -2909,6 +3801,17 @@ function LobbyPage() {
                                 <Typography variant="body2" color="rgba(255, 255, 255, 0.7)">
                                   {player.isBot 
                                     ? 'Bot Oyuncu' 
+                                    : player.isOwner
+                                      ? <Box component="span" sx={{ 
+                                          color: '#FFD700',
+                                          fontWeight: 600,
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: 0.5
+                                        }}>
+                                          <CelebrationIcon fontSize="small" />
+                                          Host
+                                        </Box>
                                     : player.username || player.name
                                   }
                                 </Typography>
@@ -3149,6 +4052,72 @@ function LobbyPage() {
               Lobi kodu kopyalandı!
             </Alert>
           </Snackbar>
+          
+          {/* Kullanıcı atıldığında gösterilecek diyalog */}
+          <Dialog
+            open={kickedDialogOpen}
+            onClose={() => {}}
+            PaperProps={{
+              sx: {
+                background: 'rgba(30, 32, 68, 0.95)',
+                backdropFilter: 'blur(10px)',
+                borderRadius: '16px',
+                boxShadow: '0 10px 25px rgba(0, 0, 0, 0.3)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                width: { xs: '95%', sm: '500px' },
+                maxWidth: '600px',
+              }
+            }}
+          >
+            <DialogTitle sx={{ 
+              borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+              pb: 2
+            }}>
+              <Typography variant="h6" sx={{ 
+                fontWeight: 700, 
+                color: '#F44336',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1
+              }}>
+                <InfoIcon />
+                Lobiden Atıldınız
+              </Typography>
+            </DialogTitle>
+            <DialogContent sx={{ pt: 3, pb: 2 }}>
+              <Box
+                sx={{ 
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 3,
+                  alignItems: 'center'
+                }}
+              >
+                <CloseIcon sx={{ color: '#F44336', fontSize: 80 }} />
+                <Typography variant="body1" sx={{ textAlign: 'center' }}>
+                  Lobi sahibi tarafından lobiden atıldınız. Ana sayfaya yönlendiriliyorsunuz.
+                </Typography>
+              </Box>
+            </DialogContent>
+            <DialogActions sx={{ px: 3, pb: 3, pt: 0 }}>
+              <Button
+                onClick={() => navigate('/home')}
+                variant="contained"
+                color="primary"
+                fullWidth
+                sx={{ 
+                  borderRadius: '8px',
+                  background: 'linear-gradient(45deg, #4a7dff 0%, #ff53f0 100%)',
+                  '&:hover': {
+                    background: 'linear-gradient(45deg, #5a8dff 0%, #ff65f0 100%)',
+                    boxShadow: '0 5px 15px rgba(74, 125, 255, 0.3)'
+                  }
+                }}
+              >
+                Ana Sayfaya Dön
+              </Button>
+            </DialogActions>
+          </Dialog>
         </PageContainer>
       </ThemeProvider>
     </MainLayout>

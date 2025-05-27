@@ -88,12 +88,7 @@ const lobbySchema = new mongoose.Schema({
     type: Number,
     required: true,
     min: 2,
-    max: 8
-  },
-  betAmount: {
-    type: Number,
-    default: 0,
-    min: 0
+    max: 100
   },
   isPrivate: {
     type: Boolean,
@@ -119,6 +114,38 @@ const lobbySchema = new mongoose.Schema({
     type: String,
     enum: ['waiting', 'playing', 'finished'],
     default: 'waiting'
+  },
+  // Oyun Ayarları
+  gameSpeed: {
+    type: String,
+    enum: ['slow', 'normal', 'fast', 'turbo'],
+    default: 'normal'
+  },
+  enableMusic: {
+    type: Boolean,
+    default: true
+  },
+  enableVoiceChat: {
+    type: Boolean,
+    default: false
+  },
+  roundTime: {
+    type: Number,
+    min: 10,
+    max: 300,
+    default: 60
+  },
+  pointsToWin: {
+    type: Number,
+    min: 50,
+    max: 500,
+    default: 100
+  },
+  // Bingo ve Tombala için manuel sayı çekme izni
+  manualNumberDrawPermission: {
+    type: String,
+    enum: ['host-only', 'all-players'],
+    default: 'host-only'
   },
   // Tombala için çekilen sayılar
   drawnNumbers: {

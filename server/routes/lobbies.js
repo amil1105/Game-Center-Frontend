@@ -163,7 +163,7 @@ router.post('/', auth, async (req, res) => {
       password,
       isEventLobby,
       eventDetails,
-      betAmount
+      manualNumberDrawPermission
     } = req.body;
     
     console.log('Lobi oluşturma isteği:', req.body);
@@ -184,10 +184,10 @@ router.post('/', auth, async (req, res) => {
       creator: req.user._id,
       players: [req.user._id], // Creator otomatik olarak oyuncu listesine eklenir
       maxPlayers: resolvedMaxPlayers,
-      betAmount: betAmount || 0, // Bahis miktarı yoksa 0 olarak ayarla
       isPrivate,
       password: isPrivate ? password : undefined,
       isEventLobby: !!isEventLobby,
+      manualNumberDrawPermission: manualNumberDrawPermission || 'host-only',
       eventDetails: isEventLobby ? {
         title: eventDetails?.title || name,
         description: eventDetails?.description || '',
@@ -549,12 +549,61 @@ router.post('/add-bot', auth, async (req, res) => {
     // Botu players dizisine ekle
     lobby.players.push(botId);
     
+    // Bot kartlarını oluştur
+    const createBotCards = (count = 1) => {
+      try {
+        // Server.js içindeki generateTombalaCards fonksiyonunu kullan
+        if (typeof req.app.get('generateTombalaCards') === 'function') {
+          return req.app.get('generateTombalaCards')(count);
+        }
+        
+        // Eğer fonksiyon yoksa, basit bir kart oluştur
+        const cards = [];
+        for (let c = 0; c < count; c++) {
+          const cardMatrix = Array(3).fill().map(() => Array(9).fill(null));
+          
+          // Her satır için 5 rastgele sayı ekle
+          for (let row = 0; row < 3; row++) {
+            const usedPositions = new Set();
+            const usedNumbers = new Set();
+            
+            // Her satıra 5 sayı ekle
+            for (let i = 0; i < 5; i++) {
+              let col;
+              do {
+                col = Math.floor(Math.random() * 9);
+              } while (usedPositions.has(col));
+              usedPositions.add(col);
+              
+              const min = col * 10 + 1;
+              const max = col * 10 + 10;
+              let num;
+              do {
+                num = Math.floor(Math.random() * (max - min + 1)) + min;
+              } while (usedNumbers.has(num));
+              usedNumbers.add(num);
+              
+              cardMatrix[row][col] = num;
+            }
+          }
+          cards.push(cardMatrix);
+        }
+        return cards;
+      } catch (error) {
+        console.error('Bot kartları oluşturulurken hata:', error);
+        return [];
+      }
+    };
+    
     const botPlayer = {
       user: botId,
       name: `Bot ${botNumber}`,
       isBot: true,
-      isReady: true // Botlar otomatik hazır
+      isReady: true, // Botlar otomatik hazır
+      cards: createBotCards(1) // Her bot için bir tane kart oluştur
     };
+    
+    console.log(`Bot ${botPlayer.name} için kartlar oluşturuldu:`, botPlayer.cards);
 
     // Bot oyuncusunu playersDetail dizisine ekle
     if (lobby.playersDetail && Array.isArray(lobby.playersDetail)) {
@@ -937,7 +986,20 @@ router.patch('/code/:code', async (req, res) => {
 router.put('/:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, maxPlayers, betAmount, isPrivate, password, isEventLobby, eventDetails } = req.body;
+    const { 
+      name, 
+      maxPlayers, 
+      isPrivate, 
+      password, 
+      isEventLobby, 
+      eventDetails,
+      manualNumberDrawPermission,
+      gameSpeed,
+      enableMusic,
+      enableVoiceChat,
+      roundTime,
+      pointsToWin
+    } = req.body;
     
     console.log('Lobi güncelleme isteği:', req.body);
     
@@ -954,10 +1016,15 @@ router.put('/:id', auth, async (req, res) => {
     // Güncellenecek alanları kontrol et
     if (name) lobby.name = name;
     if (maxPlayers) lobby.maxPlayers = maxPlayers;
-    if (betAmount !== undefined) lobby.betAmount = betAmount;
     if (isPrivate !== undefined) lobby.isPrivate = isPrivate;
     if (password !== undefined) lobby.password = password;
     if (isEventLobby !== undefined) lobby.isEventLobby = isEventLobby;
+    if (manualNumberDrawPermission) lobby.manualNumberDrawPermission = manualNumberDrawPermission;
+    if (gameSpeed) lobby.gameSpeed = gameSpeed;
+    if (enableMusic !== undefined) lobby.enableMusic = enableMusic;
+    if (enableVoiceChat !== undefined) lobby.enableVoiceChat = enableVoiceChat;
+    if (roundTime) lobby.roundTime = roundTime;
+    if (pointsToWin) lobby.pointsToWin = pointsToWin;
     
     // Etkinlik detaylarını güncelle
     if (eventDetails && isEventLobby) {
@@ -1325,6 +1392,140 @@ router.get('/:id/players', async (req, res) => {
     res.status(500).json({ 
       success: false,
       error: 'Lobi oyuncuları alınırken bir hata oluştu' 
+    });
+  }
+});
+
+// Lobi sahibinin diğer oyuncuları atması için endpoint
+router.post('/kick-player', auth, async (req, res) => {
+  try {
+    const { lobbyId, lobbyCode, playerId, isBot } = req.body;
+    
+    console.log('Oyuncu atma isteği alındı:', { lobbyId, lobbyCode, playerId, isBot });
+    
+    if (!lobbyId && !lobbyCode) {
+      return res.status(400).json({ 
+        message: 'Lobi ID veya lobi kodu gereklidir',
+        success: false
+      });
+    }
+    
+    if (!playerId) {
+      return res.status(400).json({ 
+        message: 'Atılacak oyuncu ID gereklidir',
+        success: false
+      });
+    }
+    
+    // Lobi ID veya koduna göre lobi bilgilerini getir
+    const lobby = lobbyId 
+      ? await Lobby.findById(lobbyId)
+      : await Lobby.findOne({ lobbyCode });
+    
+    if (!lobby) {
+      return res.status(404).json({ 
+        message: 'Lobi bulunamadı',
+        success: false
+      });
+    }
+    
+    // Kullanıcı ID'sini al (işlemi yapan kullanıcı)
+    const userId = req.user.id || req.user._id;
+    
+    // Kullanıcının lobi sahibi olup olmadığını kontrol et
+    const isHost = lobby.creator.toString() === userId.toString();
+    
+    if (!isHost) {
+      return res.status(403).json({ 
+        message: 'Bu işlemi sadece lobi sahibi yapabilir',
+        success: false
+      });
+    }
+    
+    // Kendini atamaz
+    if (playerId === userId.toString()) {
+      return res.status(400).json({ 
+        message: 'Kendinizi lobiden atamazsınız',
+        success: false
+      });
+    }
+    
+    // Atılacak kullanıcı lobide mi kontrol et
+    const isPlayerInLobby = lobby.players.some(id => 
+      id.toString() === playerId.toString()
+    );
+    
+    if (!isPlayerInLobby && !isBot) {
+      return res.status(400).json({ 
+        message: 'Atılmak istenen oyuncu lobide bulunamadı',
+        success: false
+      });
+    }
+    
+    // Oyuncunun adını burada alalım - atılan mesajda kullanmak için
+    let playerName = "Bir oyuncu";
+    const playerDetail = lobby.playersDetail?.find(player => {
+      // Her iki durumu da kontrol et: doğrudan ID veya user nesnesi
+      const pid = (player.user?._id || player.user || player.id || player._id || '').toString();
+      return pid === playerId.toString();
+    });
+    
+    if (playerDetail) {
+      playerName = playerDetail.name || playerDetail.user?.username || "Bir oyuncu";
+    }
+    
+    // Oyuncuyu oyuncu listesinden çıkar
+    lobby.players = lobby.players.filter(id => 
+      id.toString() !== playerId.toString()
+    );
+    
+    // Oyuncu detay listesinden de çıkarılır
+    if (lobby.playersDetail && lobby.playersDetail.length > 0) {
+      lobby.playersDetail = lobby.playersDetail.filter(player => {
+        // Eğer bu bir bot ise ve ID eşleşiyorsa çıkar
+        if (player.isBot && player._id && player._id.toString() === playerId.toString()) {
+          return false;
+        }
+        
+        // Normal bir oyuncu ise user ID'sine göre kontrol et
+        if (player.user) {
+          const playerUserId = (typeof player.user === 'object') 
+            ? (player.user._id || player.user.id || '').toString()
+            : player.user.toString();
+          
+          return playerUserId !== playerId.toString();
+        }
+        
+        return true;
+      });
+    }
+    
+    await lobby.save();
+    
+    // Socket.io ile diğer kullanıcılara bildir
+    if (req.app.get('io')) {
+      const io = req.app.get('io');
+      // Tüm lobiye oyuncunun atıldığını bildir
+      io.to(lobby.lobbyCode || lobby._id.toString()).emit('playerKicked', {
+        playerId: playerId,
+        playerName: playerName,
+        kickedBy: userId,
+        lobbyId: lobby._id.toString(),
+        lobbyCode: lobby.lobbyCode
+      });
+    }
+    
+    res.json({ 
+      success: true, 
+      message: `${playerName} lobiden atıldı.`,
+      lobby
+    });
+  } catch (error) {
+    console.error('Oyuncu atma işlemi sırasında hata:', error);
+    res.status(500).json({ 
+      message: 'Sunucu hatası',
+      error: error.message,
+      success: false
     });
   }
 });
