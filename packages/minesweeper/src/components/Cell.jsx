@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Typography, useMediaQuery } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import FlagIcon from '@mui/icons-material/Flag';
 import BugReportIcon from '@mui/icons-material/BugReport';
@@ -51,10 +51,10 @@ const explodeAnimation = keyframes`
 const CellContainer = styled(Box, {
   // Props'ları filtreleme - DOM'a aktarılmasını önler
   shouldForwardProp: (prop) => 
-    !['isOpen', 'isFlagged', 'isMine', 'gameOver', 'isExploded', 'adjacentMines', 'isSmallScreen'].includes(prop)
-})(({ theme, isOpen, isFlagged, isMine, gameOver, isExploded, adjacentMines, isSmallScreen }) => ({
-  width: isSmallScreen ? 28 : 32,
-  height: isSmallScreen ? 28 : 32,
+    !['isOpen', 'isFlagged', 'isMine', 'gameOver', 'isExploded', 'adjacentMines'].includes(prop)
+})(({ theme, isOpen, isFlagged, isMine, gameOver, isExploded, adjacentMines }) => ({
+  width: { xs: '28px', sm: '32px', md: '36px' },
+  height: { xs: '28px', sm: '32px', md: '36px' },
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -63,7 +63,7 @@ const CellContainer = styled(Box, {
   userSelect: 'none',
   transition: 'all 0.15s ease-in-out',
   borderRadius: '4px',
-  margin: isSmallScreen ? '1px' : '2px',
+  margin: { xs: '1px', sm: '1.5px', md: '2px' },
   
   // Kapalı hücre için 3D efekt
   border: isOpen ? 'none' : '1px solid',
@@ -85,35 +85,33 @@ const CellContainer = styled(Box, {
   // Gölgelendirme ve 3D efekt
   boxShadow: isOpen 
     ? 'none' 
-    : `inset 1px 1px 2px ${theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.7)'}, 
-       inset -1px -1px 2px ${theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)'}`,
+    : `inset 1px 1px 3px ${theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.7)'}, 
+       inset -1px -1px 3px ${theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)'}`,
   
   // Kapalı hücre hover efekti
-  '@media (hover: hover)': {
-    '&:hover': {
-      backgroundColor: !isOpen && !gameOver 
-        ? theme.palette.action.hover
-        : isOpen 
-          ? (isMine ? theme.palette.error.dark : theme.palette.background.default)
-          : theme.palette.background.paper,
-      transform: !isOpen && !gameOver ? 'translateY(-1px)' : 'none',
-      boxShadow: !isOpen && !gameOver 
-        ? `inset 1px 1px 2px ${theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.8)'}, 
-           inset -1px -1px 2px ${theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.2)'}, 
-           0 2px 4px rgba(0,0,0,0.1)`
-        : isOpen ? 'none' : `inset 1px 1px 2px ${theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.7)'}, 
-                              inset -1px -1px 2px ${theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)'}`,
-    }
+  '&:hover': {
+    backgroundColor: !isOpen && !gameOver 
+      ? theme.palette.action.hover
+      : isOpen 
+        ? (isMine ? theme.palette.error.dark : theme.palette.background.default)
+        : theme.palette.background.paper,
+    transform: !isOpen && !gameOver ? 'translateY(-1px)' : 'none',
+    boxShadow: !isOpen && !gameOver 
+      ? `inset 1px 1px 3px ${theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.8)'}, 
+         inset -1px -1px 3px ${theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.2)'}, 
+         0 2px 4px rgba(0,0,0,0.1)`
+      : isOpen ? 'none' : `inset 1px 1px 3px ${theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.7)'}, 
+                            inset -1px -1px 3px ${theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)'}`,
   },
   
   // Aktif (basılı) efekti
   '&:active': {
     transform: !isOpen && !gameOver ? 'translateY(1px)' : 'none',
     boxShadow: !isOpen && !gameOver 
-      ? `inset -1px -1px 2px ${theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.5)'}, 
-         inset 1px 1px 2px ${theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.3)'}` 
-      : isOpen ? 'none' : `inset 1px 1px 2px ${theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.7)'}, 
-                            inset -1px -1px 2px ${theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)'}`,
+      ? `inset -1px -1px 3px ${theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.5)'}, 
+         inset 1px 1px 3px ${theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.3)'}` 
+      : isOpen ? 'none' : `inset 1px 1px 3px ${theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.7)'}, 
+                            inset -1px -1px 3px ${theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)'}`,
   },
   
   // Animasyonlar
@@ -147,10 +145,6 @@ const Cell = ({
   onRightClick,
   gameStatus = 0
 }) => {
-  // Ekran boyutu kontrolü
-  const isSmallScreen = useMediaQuery('(max-width:600px)');
-  const isVerySmallScreen = useMediaQuery('(max-width:400px)');
-  
   // Oyun bitti mi kontrolü
   const gameOver = gameStatus !== 0;
   
@@ -163,11 +157,11 @@ const Cell = ({
       return (
         <FlagIcon 
           color="secondary" 
-          fontSize={isVerySmallScreen ? "small" : "small"} 
+          fontSize="small" 
           sx={{ 
-            fontSize: isVerySmallScreen ? '0.9rem' : '1.1rem',
             filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.2))',
-            animation: `${flagAnimation} 0.3s ease`
+            animation: `${flagAnimation} 0.3s ease`,
+            fontSize: { xs: '0.9rem', sm: '1rem', md: '1.1rem' }
           }} 
         />
       );
@@ -181,11 +175,11 @@ const Cell = ({
       return (
         <BugReportIcon 
           color="error" 
-          fontSize={isVerySmallScreen ? "small" : "small"} 
+          fontSize="small" 
           sx={{ 
-            fontSize: isVerySmallScreen ? '0.9rem' : '1.1rem',
             filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))',
-            animation: isExploded ? `${explodeAnimation} 0.5s ease` : 'none'
+            animation: isExploded ? `${explodeAnimation} 0.5s ease` : 'none',
+            fontSize: { xs: '0.9rem', sm: '1rem', md: '1.1rem' }
           }} 
         />
       );
@@ -197,7 +191,7 @@ const Cell = ({
           variant="body2" 
           sx={{ 
             fontWeight: 'bold',
-            fontSize: isVerySmallScreen ? '0.8rem' : '0.9rem',
+            fontSize: { xs: '0.8rem', sm: '0.9rem', md: '1rem' },
             color: colorMap[adjacentMines] || 'text.primary',
             textShadow: '0 1px 1px rgba(0,0,0,0.1)'
           }}
@@ -222,7 +216,6 @@ const Cell = ({
       gameOver={gameOver}
       isExploded={isExploded}
       adjacentMines={adjacentMines}
-      isSmallScreen={isSmallScreen}
       onClick={handleClick}
       onContextMenu={handleRightClick}
     >
