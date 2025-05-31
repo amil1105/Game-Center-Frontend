@@ -1,0 +1,854 @@
+import React, { useState, useEffect, useRef, useCallback, useContext, useMemo, Suspense, lazy } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { UserContext } from '../context/UserContext';
+import { 
+  Box, 
+  Typography, 
+  Button, 
+  CircularProgress, 
+  IconButton,
+  Avatar,
+  Tooltip,
+  List,
+  ListItem,
+  ListItemAvatar,
+  Card,
+  TextField,
+  Badge,
+  Chip,
+  Divider,
+  Paper,
+  AppBar,
+  Toolbar,
+  useTheme,
+  useMediaQuery,
+  createTheme,
+  ThemeProvider,
+  Grow,
+  Zoom,
+  Fade,
+  Slide,
+  Snackbar,
+  Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Menu,
+  MenuItem,
+  Switch,
+  FormControlLabel,
+  FormControl,
+  FormLabel,
+  RadioGroup,
+  FormControlLabel as MuiFormControlLabel,
+  Radio,
+  DialogContentText
+} from '@mui/material';
+import { styled } from '@mui/material/styles';
+import { useSnackbar } from 'notistack';
+import { io } from 'socket.io-client';
+import axiosInstance from '../api/axios';
+import MainLayout from '../components/Layout/MainLayout';
+import { QRCodeSVG } from 'qrcode.react';
+import { 
+  ArrowBack as BackIcon, 
+  ContentCopy as CopyIcon, 
+  Check as CheckIcon,
+  ExitToApp as ExitIcon,
+  SmartToy as BotIcon,
+  PeopleOutline as PeopleIcon,
+  CheckCircleOutlined,
+  CancelOutlined,
+  CheckCircle as ReadyIcon,
+  Cancel as NotReadyIcon,
+  Chat as ChatIcon,
+  Info as InfoIcon,
+  Celebration as CelebrationIcon,
+  Send as SendIcon,
+  PlayArrow as PlayIcon,
+  Share as ShareIcon,
+  Link as LinkIcon,
+  MoreVert as MoreVertIcon,
+  ContentCopy,
+  Settings as SettingsIcon,
+  MusicNote as MusicNoteIcon,
+  VolumeOff as VolumeOffIcon,
+  Timer as TimerIcon,
+  EmojiEvents as TrophyIcon,
+  VideogameAsset as GameIcon,
+  Close as CloseIcon,
+  NotificationsActive as NotificationIcon,
+  Notifications as NotificationOffIcon
+} from '@mui/icons-material';
+import { 
+  FaFacebook, 
+  FaTwitter, 
+  FaWhatsapp, 
+  FaTelegram, 
+  FaDiscord, 
+  FaInstagram,
+  FaLink,
+  FaEnvelope
+} from 'react-icons/fa';
+
+// Glow efekti için animasyon
+const glow = (color) => `
+  box-shadow: 0 0 10px ${color}40,
+              0 0 20px ${color}20,
+              0 0 30px ${color}10,
+              inset 0 0 10px ${color}05;
+`;
+
+// Yeni stil tanımlamaları
+const PageContainer = styled(Box)(({ theme }) => ({
+  padding: theme.spacing(3),
+  minHeight: 'calc(100vh - 100px)',
+  background: '#0B0E17',
+  color: 'white',
+  position: 'relative',
+  overflow: 'hidden',
+  '&::after': {
+    content: '""',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    background: `radial-gradient(circle at top right, #4a7dff10, transparent 70%)`,
+    zIndex: 0,
+    pointerEvents: 'none',
+  }
+}));
+
+const LobbyContainer = styled(Box)(({ theme }) => ({
+  display: 'grid',
+  gridTemplateColumns: '1fr 2fr',
+  gap: theme.spacing(3),
+  height: 'calc(100vh - 180px)',
+  position: 'relative',
+  zIndex: 1,
+  [theme.breakpoints.down('md')]: {
+    gridTemplateColumns: '1fr',
+    gridTemplateRows: 'auto 1fr',
+    height: 'auto',
+    gap: theme.spacing(2)
+  }
+}));
+
+const GlassPaper = styled(Paper)(({ theme }) => ({
+  backgroundColor: 'rgba(30, 32, 68, 0.7)',
+  backdropFilter: 'blur(10px)',
+  borderRadius: 12,
+  border: '1px solid rgba(255, 255, 255, 0.05)',
+  overflow: 'hidden',
+  display: 'flex',
+  flexDirection: 'column',
+  height: '100%',
+  transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+  boxShadow: '0 5px 15px rgba(0, 0, 0, 0.2)',
+  '&:hover': {
+    boxShadow: `0 8px 32px 0 rgba(0, 0, 0, 0.2), 0 0 16px #4a7dff20`,
+    transform: 'translateY(-5px)',
+  }
+}));
+
+const PlayerListContainer = styled(GlassPaper)(({ theme }) => ({
+  display: 'flex',
+  flexDirection: 'column'
+}));
+
+const ChatContainer = styled(GlassPaper)(({ theme }) => ({
+  display: 'flex',
+  flexDirection: 'column'
+}));
+
+const SectionHeader = styled(Box)(({ theme }) => ({
+  padding: theme.spacing(2),
+  borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+  display: 'flex',
+  alignItems: 'center',
+  gap: theme.spacing(1.5),
+  '& .MuiSvgIcon-root': {
+    color: '#4a7dff'
+  }
+}));
+
+const ChatMessages = styled(Box)(({ theme }) => ({
+  flex: 1,
+  overflowY: 'auto',
+  padding: theme.spacing(2),
+  display: 'flex',
+  flexDirection: 'column',
+  gap: theme.spacing(1.5),
+  '&::-webkit-scrollbar': {
+    width: '6px'
+  },
+  '&::-webkit-scrollbar-track': {
+    background: '#151921'
+  },
+  '&::-webkit-scrollbar-thumb': {
+    background: '#1F2937',
+    borderRadius: '3px'
+  }
+}));
+
+const MessageInputContainer = styled(Box)(({ theme }) => ({
+  padding: theme.spacing(2),
+  display: 'flex',
+  gap: theme.spacing(1),
+  borderTop: '1px solid rgba(255, 255, 255, 0.08)'
+}));
+
+const Message = styled(Box, {
+  shouldForwardProp: (prop) => !['$isCurrentUser', '$isSystem'].includes(prop)
+})(({ theme, $isCurrentUser, $isSystem }) => ({
+  alignSelf: $isCurrentUser ? 'flex-end' : $isSystem ? 'center' : 'flex-start',
+  backgroundColor: $isSystem 
+    ? 'rgba(74, 125, 255, 0.1)' 
+    : $isCurrentUser 
+      ? 'rgba(74, 125, 255, 0.15)' 
+      : 'rgba(255, 255, 255, 0.05)',
+  borderRadius: 12,
+  padding: theme.spacing(1.5, 2),
+  maxWidth: $isSystem ? '85%' : '70%',
+  wordBreak: 'break-word',
+  position: 'relative',
+  transition: 'all 0.2s ease',
+  '&:hover': {
+    transform: 'scale(1.01)',
+    backgroundColor: $isSystem 
+      ? 'rgba(74, 125, 255, 0.15)' 
+      : $isCurrentUser 
+        ? 'rgba(74, 125, 255, 0.25)' 
+        : 'rgba(255, 255, 255, 0.08)',
+  }
+}));
+
+const PlayerListContent = styled(Box)(({ theme }) => ({
+  flex: 1,
+  overflowY: 'auto',
+  '&::-webkit-scrollbar': {
+    width: '6px'
+  },
+  '&::-webkit-scrollbar-track': {
+    background: '#151921'
+  },
+  '&::-webkit-scrollbar-thumb': {
+    background: '#1F2937',
+    borderRadius: '3px'
+  }
+}));
+
+const PlayerActions = styled(Box)(({ theme }) => ({
+  padding: theme.spacing(2),
+  borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+  display: 'flex',
+  justifyContent: 'space-between',
+  gap: theme.spacing(1),
+  alignItems: 'center',
+  flexWrap: 'wrap'
+}));
+
+const LobbyInfoContainer = styled(GlassPaper)(({ theme }) => ({
+  padding: theme.spacing(2.5, 3),
+  marginBottom: theme.spacing(3),
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  transition: 'all 0.3s ease',
+  backgroundImage: 'linear-gradient(145deg, #1e2044 0%, #171934 100%)',
+  '&:hover': {
+    boxShadow: glow('#4a7dff'),
+  }
+}));
+
+const ReadyButton = styled(Button, {
+  shouldForwardProp: (prop) => prop !== '$isReady'
+})(({ theme, $isReady }) => ({
+  backgroundColor: $isReady 
+    ? 'rgba(76, 175, 80, 0.15)' 
+    : 'rgba(244, 67, 54, 0.15)',
+  color: $isReady ? '#4CAF50' : '#F44336',
+  transition: 'all 0.3s ease',
+  borderRadius: 8,
+  padding: theme.spacing(1, 2),
+  border: $isReady ? '1px solid rgba(76, 175, 80, 0.3)' : '1px solid rgba(244, 67, 54, 0.3)',
+  '&:hover': {
+    backgroundColor: $isReady 
+      ? 'rgba(76, 175, 80, 0.25)' 
+      : 'rgba(244, 67, 54, 0.25)',
+    transform: 'translateY(-2px)',
+    boxShadow: $isReady 
+      ? '0 4px 12px rgba(76, 175, 80, 0.3)' 
+      : '0 4px 12px rgba(244, 67, 54, 0.3)',
+  }
+}));
+
+const StartGameButton = styled(Button)(({ theme }) => ({
+  backgroundImage: 'linear-gradient(45deg, #4a7dff 0%, #ff53f0 100%)',
+  color: 'white',
+  padding: theme.spacing(1, 3),
+  borderRadius: 12,
+  fontWeight: 600,
+  transition: 'all 0.3s ease',
+  boxShadow: '0 4px 15px rgba(74, 125, 255, 0.3)',
+  position: 'relative',
+  overflow: 'hidden',
+  '&::before': {
+    content: '""',
+    position: 'absolute',
+    top: 0,
+    left: '-100%',
+    width: '100%',
+    height: '100%',
+    background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent)',
+    transition: 'all 0.6s ease',
+  },
+  '&:hover': {
+    transform: 'translateY(-3px)',
+    boxShadow: '0 8px 25px rgba(74, 125, 255, 0.4)',
+    '&::before': {
+      left: '100%'
+    }
+  },
+  '&:disabled': {
+    background: 'rgba(255, 255, 255, 0.15)',
+    color: 'rgba(255, 255, 255, 0.4)',
+    boxShadow: 'none',
+    transform: 'none'
+  }
+}));
+
+const LobbyCode = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  alignItems: 'center',
+  gap: theme.spacing(1),
+  background: 'rgba(74, 125, 255, 0.1)',
+  borderRadius: 12,
+  padding: theme.spacing(0.8, 2),
+  cursor: 'pointer',
+  transition: 'all 0.3s ease',
+  border: '1px solid rgba(74, 125, 255, 0.3)',
+  '&:hover': {
+    background: 'rgba(74, 125, 255, 0.2)',
+    transform: 'translateY(-2px)',
+    borderColor: '#4a7dff',
+  }
+}));
+
+const AnimatedChip = styled(Chip)(({ theme }) => ({
+  animation: 'pulse 2s infinite',
+  backgroundColor: 'rgba(76, 175, 80, 0.1)',
+  color: '#4CAF50',
+  border: '1px solid rgba(76, 175, 80, 0.3)',
+  fontWeight: 500,
+  '@keyframes pulse': {
+    '0%': {
+      boxShadow: '0 0 0 0 rgba(76, 175, 80, 0.4)'
+    },
+    '70%': {
+      boxShadow: '0 0 0 10px rgba(76, 175, 80, 0)'
+    },
+    '100%': {
+      boxShadow: '0 0 0 0 rgba(76, 175, 80, 0)'
+    }
+  }
+}));
+
+// StyledListItem'ı div yerine Box'a dayalı olarak tanımlayalım ve shouldForwardProp ekleyelim
+const StyledListItem = styled(Box, {
+  shouldForwardProp: (prop) => !['$isReady', '$isCurrentUser', '$isOwner'].includes(prop)
+})(({ theme, $isReady, $isCurrentUser, $isOwner }) => ({
+  borderRadius: 8,
+  margin: theme.spacing(0.5, 0),
+  padding: theme.spacing(1, 2),
+  transition: 'all 0.3s ease',
+  display: 'flex',
+  alignItems: 'center',
+  background: $isReady 
+    ? 'rgba(76, 175, 80, 0.1)' 
+    : $isCurrentUser 
+      ? 'rgba(74, 125, 255, 0.1)' 
+      : 'rgba(26, 27, 38, 0.5)',
+  border: `1px solid ${$isReady 
+    ? 'rgba(76, 175, 80, 0.15)' 
+    : $isCurrentUser 
+      ? 'rgba(74, 125, 255, 0.15)' 
+      : 'transparent'}`,
+  '&:hover': {
+    background: $isReady 
+      ? 'rgba(76, 175, 80, 0.15)' 
+      : $isCurrentUser 
+        ? 'rgba(74, 125, 255, 0.15)' 
+        : 'rgba(255, 255, 255, 0.05)',
+    transform: 'translateX(5px)'
+  }
+}));
+
+// Çıkış butonu için stil
+const LeaveButton = styled(Button)(({ theme }) => ({
+  backgroundColor: 'rgba(244, 67, 54, 0.1)',
+  color: '#F44336',
+  padding: theme.spacing(1, 2),
+  borderRadius: 8,
+  border: '1px solid rgba(244, 67, 54, 0.3)',
+  transition: 'all 0.3s ease',
+  '&:hover': {
+    backgroundColor: 'rgba(244, 67, 54, 0.2)',
+    transform: 'translateY(-2px)',
+    boxShadow: '0 4px 12px rgba(244, 67, 54, 0.3)',
+  }
+}));
+
+// Avatar oluşturma yardımcı fonksiyonu ekleyelim
+function getPlayerAvatar(player) {
+  if (!player) return null;
+  
+  try {
+    // Avatar URL'sini oluşturmak için tüm olası yolları kontrol et
+    let avatar = player.avatar || 
+                player.profileImage || 
+                (player.user?.profileImage) || 
+                (player.user?.avatar);
+    
+    // Önbellekleme için timestamp ekle (URL cache problemini önler)
+    if (avatar && typeof avatar === 'string') {
+      // Halihazırda bir query string var mı kontrol et
+      if (avatar.includes('?')) {
+        avatar = `${avatar}&_t=${Date.now()}`;
+      } else {
+        avatar = `${avatar}?_t=${Date.now()}`;
+      }
+    }
+    
+    if (!avatar) {
+    // Kullanıcı adının baş harfini içeren bir SVG döndür
+    const initial = player?.name ? player.name.charAt(0).toUpperCase() : 'U';
+      const color = stringToColor(player?.name || 'Oyuncu');
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="150" height="150">
+        <rect width="100" height="100" fill="${color}" />
+        <text x="50" y="56" font-size="50" text-anchor="middle" dominant-baseline="middle" 
+          font-family="Arial" fill="white" font-weight="bold">${initial}</text>
+      </svg>`;
+      return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+    }
+    
+    return avatar;
+  } catch (error) {
+    console.error("Avatar oluşturma hatası:", error);
+    // Hata durumunda basit bir varsayılan avatar döndür
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="150" height="150"><rect width="100" height="100" fill="#2a2c4e"/><text x="50" y="56" font-size="50" text-anchor="middle" dominant-baseline="middle" font-family="Arial" fill="white" font-weight="bold">?</text></svg>')}`;
+  }
+}
+
+// İsimden renk üretmek için yardımcı fonksiyon
+function stringToColor(string) {
+  let hash = 0;
+  let i;
+
+  for (i = 0; i < string.length; i += 1) {
+    hash = string.charCodeAt(i) + ((hash << 5) - hash);
+  }
+
+  let color = '#';
+
+  for (i = 0; i < 3; i += 1) {
+    const value = (hash >> (i * 8)) & 0xff;
+    color += `00${value.toString(16)}`.slice(-2);
+  }
+
+  // Koyu bir renk oluşturmak için karıştırma
+  color = mixColors(color, '#2a2c4e', 0.5);
+
+  return color;
+}
+
+// İki rengi belirli bir oranda karıştırmak için yardımcı fonksiyon
+function mixColors(color1, color2, weight) {
+  function d2h(d) { return d.toString(16).padStart(2, '0'); }
+  function h2d(h) { return parseInt(h, 16); }
+  
+  let color = "#";
+  for(let i = 1; i <= 5; i += 2) {
+    const v1 = h2d(color1.substr(i, 2));
+    const v2 = h2d(color2.substr(i, 2));
+    let val = Math.floor(v2 + weight * (v1 - v2));
+    val = val > 255 ? 255 : val;
+    color += d2h(val);
+  }
+  return color;
+}
+
+// Host ID bulucu fonksiyon
+const getHostId = (creator) => {
+  if (!creator) return '';
+  if (typeof creator === 'object' && creator._id) return creator._id.toString();
+  return creator.toString();
+};
+
+// Kullanıcının lobi sahibi olup olmadığını kontrol eden yardımcı fonksiyon
+const isUserHost = (lobby, userId) => {
+  if (!lobby || !userId) return false;
+  
+  // Olası tüm ID alanlarını kontrol et
+  const hostId = getHostId(lobby.creator);
+  const createdById = lobby.createdBy ? lobby.createdBy.toString() : '';
+  const ownerId = lobby.owner ? lobby.owner.toString() : '';
+  const userIdStr = userId.toString();
+  
+  return userIdStr === hostId || userIdStr === createdById || userIdStr === ownerId;
+};
+
+// Kendi Avatar bileşenimizi tanımlayalım - hata durumlarını daha iyi yönetecek
+const PlayerAvatar = ({ player, isOwner, isReady, isCurrentUser, isHostViewing, onKickPlayer }) => {
+  const [error, setError] = useState(false);
+  const [avatarSrc, setAvatarSrc] = useState('');
+  const [isHovering, setIsHovering] = useState(false);
+  
+  // İsimden renk üreten fonksiyon
+  const getColorFromName = (name) => {
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    let color = '#';
+    for (let i = 0; i < 3; i++) {
+      const value = (hash >> (i * 8)) & 0xFF;
+      color += ('00' + value.toString(16)).substr(-2);
+    }
+    return color;
+  };
+  
+  // SVG avatar oluşturma fonksiyonu
+  const generateAvatarSvg = (name) => {
+    const initial = name ? name.charAt(0).toUpperCase() : 'U';
+    const color = getColorFromName(name || 'Oyuncu');
+    
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="150" height="150">
+      <rect width="100" height="100" fill="${color}" />
+      <text x="50" y="56" font-size="50" text-anchor="middle" dominant-baseline="middle" 
+        font-family="Arial" fill="white" font-weight="bold">${initial}</text>
+    </svg>`;
+    
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  };
+  
+  // Kaynak avatarı işleme fonksiyonu
+  useEffect(() => {
+    if (!player) return;
+    
+    try {
+      if (error) {
+        // Hata durumunda SVG avatar kullan
+        setAvatarSrc(generateAvatarSvg(player.name));
+        return;
+      }
+      
+      // Bot avatarı
+      if (player.isBot) {
+        setAvatarSrc(`https://api.dicebear.com/6.x/bottts/svg?seed=${player.name || 'Bot'}&_t=${Date.now()}`);
+        return;
+  }
+      
+      // Normal avatar yolu
+      let avatarUrl = player.avatar || player.profileImage || null;
+      
+      if (!avatarUrl) {
+        // Avatar yoksa SVG oluştur
+        setAvatarSrc(generateAvatarSvg(player.name));
+        return;
+      }
+      
+      // Cache busting ekle
+      if (typeof avatarUrl === 'string' && !avatarUrl.startsWith('data:')) {
+        if (avatarUrl.includes('?')) {
+          avatarUrl = `${avatarUrl}&_t=${Date.now()}`;
+        } else {
+          avatarUrl = `${avatarUrl}?_t=${Date.now()}`;
+        }
+      }
+      
+      setAvatarSrc(avatarUrl);
+    } catch (err) {
+      console.error('Avatar oluşturma hatası:', err);
+      setError(true);
+      setAvatarSrc(generateAvatarSvg(player?.name));
+    }
+  }, [player, error]);
+  
+  // Avatar dış kenarlık rengini belirleme
+  const getBorderColor = () => {
+    if (isOwner) return '#FFD700'; // Altın rengi (lobi sahibi)
+    if (isReady) return '#4CAF50'; // Yeşil (hazır)
+    if (isCurrentUser) return 'rgba(74, 125, 255, 0.3)'; // Mavi (kendisi)
+    return 'rgba(255, 255, 255, 0.05)'; // Varsayılan
+  };
+  
+  // Avatar gölgesini belirleme
+  const getBoxShadow = () => {
+    if (isOwner) return '0 0 10px rgba(255, 215, 0, 0.5)';
+    return 'none';
+  };
+  
+  // Kick işlemi için tıklama işleyicisi
+  const handleKickClick = () => {
+    if (isHostViewing && !isCurrentUser && !isOwner && onKickPlayer) {
+      onKickPlayer(player);
+    }
+  };
+
+  // Sadece host için ve kendi veya host olmayan oyuncular için kick işlemi göster
+  const showKickAction = isHostViewing && !isCurrentUser && !isOwner;
+  
+  return (
+    <Box
+      component="div"
+      sx={{
+        width: 45,
+        height: 45,
+        borderRadius: '12px',
+        border: `2px solid ${getBorderColor()}`,
+        transition: 'all 0.3s ease',
+        boxShadow: getBoxShadow(),
+        overflow: 'hidden',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        position: 'relative',
+        background: '#1e2044',
+        cursor: showKickAction ? 'pointer' : 'default',
+        '&:hover': {
+          borderColor: isOwner ? '#FFD700' : '#4a7dff',
+          transform: 'scale(1.05)'
+        }
+      }}
+      onMouseEnter={() => setIsHovering(true)}
+      onMouseLeave={() => setIsHovering(false)}
+      onClick={handleKickClick}
+    >
+      {avatarSrc ? (
+        <Box
+          component="img"
+          src={avatarSrc}
+          alt={player?.name || 'Oyuncu'}
+          onError={() => setError(true)}
+          sx={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            filter: showKickAction && isHovering ? 'brightness(0.4)' : 'none',
+          }}
+        />
+      ) : (
+        <Box
+          component="div"
+          sx={{
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: getColorFromName(player?.name || 'Oyuncu'),
+            filter: showKickAction && isHovering ? 'brightness(0.4)' : 'none',
+          }}
+        >
+          <Typography variant="h6" color="white" fontWeight="bold">
+            {player?.name ? player.name.charAt(0).toUpperCase() : 'U'}
+          </Typography>
+        </Box>
+      )}
+      
+      {/* Kick işlemi göster  - X işareti */}
+      {showKickAction && isHovering && (
+        <Box
+          component="div"
+          sx={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(244, 67, 54, 0.3)',
+            zIndex: 2,
+            borderRadius: '10px'
+          }}
+        >
+          <CloseIcon sx={{ color: '#F44336', fontSize: 24, fontWeight: 'bold' }} />
+        </Box>
+      )}
+    </Box>
+  );
+};
+
+function LobbyPage() {
+  const { lobbyCode: codeParam } = useParams();
+  const [lobbyCode, setLobbyCode] = useState(codeParam);
+  const { user } = useContext(UserContext);
+  const navigate = useNavigate();
+  const { enqueueSnackbar } = useSnackbar();
+  const [loading, setLoading] = useState(true);
+  const [lobby, setLobby] = useState(null);
+  const [players, setPlayers] = useState([]);
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [isConnected, setIsConnected] = useState(false);
+  const [isReady, setIsReady] = useState(false);
+  const [socketConnected, setSocketConnected] = useState(false);
+  const [hasJoinedLobby, setHasJoinedLobby] = useState(false);
+  const [allPlayersReady, setAllPlayersReady] = useState(false);
+  const [startCountdown, setStartCountdown] = useState(null);
+  const [copySuccess, setCopySuccess] = useState(false);
+  const [error, setError] = useState(null);
+  
+  // Bildirim sistemi için eklenen state'ler
+  const [isTabActive, setIsTabActive] = useState(true);
+  const [notificationPermission, setNotificationPermission] = useState('default');
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [soundsEnabled, setSoundsEnabled] = useState(true);
+  const [pendingNotifications, setPendingNotifications] = useState(0);
+  const [originalTitle, setOriginalTitle] = useState(document.title);
+  
+  // Ses dosyaları için referanslar
+  const joinSoundRef = useRef(null);
+  const readySoundRef = useRef(null);
+  
+  // Oyunu başlat
+  const startGame = () => {
+    console.log("Oyun başlatılıyor...");
+    
+    // Sistem mesajı ekle
+    addSystemMessage('Oyun başlatılıyor...');
+    
+    // Bildirim ve ses çal
+    playSound('startGame');
+    sendNotification(
+      'Oyun Başlıyor!',
+      'Lobide oyun başlatıldı, hazırlanın!',
+      '/game-logo.png'
+    );
+    
+    try {
+      // Şu anki kullanıcı veya varsayılan değer
+      const currentUser = user || { id: `guest_${Date.now()}` };
+      
+      // Önce lobi durumunu "playing" olarak güncelle
+      try {
+        // Lobi ID kontrolü
+        if (lobby?._id) {
+          console.log("Lobi durumu 'playing' olarak güncelleniyor...");
+          
+          // API isteği gönder
+          axiosInstance.patch(`/lobbies/${lobby._id}`, { 
+            status: 'playing' 
+          })
+          .then(response => {
+            console.log("Lobi durumu başarıyla güncellendi:", response.data);
+            
+            // Socket üzerinden diğer oyunculara bildirelim
+            if (socketRef.current) {
+              socketRef.current.emit('lobbyStatusUpdated', {
+                lobbyId: lobby._id,
+                status: 'playing'
+              });
+            }
+          })
+          .catch(err => {
+            console.error("Lobi durumu güncellenirken hata:", err);
+          });
+          
+          // Lobi kodu ile de güncelleme yapalım (yedekleme)
+          axiosInstance.patch(`/lobbies/code/${lobbyCode}`, { 
+            status: 'playing' 
+          })
+          .then(response => {
+            console.log("Lobi durumu (kod ile) başarıyla güncellendi:", response.data);
+          })
+          .catch(err => {
+            console.error("Lobi durumu (kod ile) güncellenirken hata:", err);
+          });
+        } else if (lobbyCode) {
+          // Sadece lobbyCode varsa onunla güncelle
+          axiosInstance.patch(`/lobbies/code/${lobbyCode}`, { 
+            status: 'playing' 
+          })
+          .then(response => {
+            console.log("Lobi durumu (kod ile) başarıyla güncellendi:", response.data);
+          })
+          .catch(err => {
+            console.error("Lobi durumu (kod ile) güncellenirken hata:", err);
+          });
+        }
+      } catch (updateError) {
+        console.error("Lobi durumu güncellenirken beklenmeyen hata:", updateError);
+      }
+      
+      // LocalStorage'a oyuncu bilgilerini kaydet
+      try {
+        // Oyun tipine göre farklı veriler kaydet
+        const gameType = lobby?.game?.toLowerCase() || "tombala"; // Varsayılan olarak tombala
+        
+        if (gameType === "mines" || gameType === "minesweeper") {
+          // Mayın Tarlası için localStorage
+          localStorage.setItem('mines_playerId', currentUser.id);
+          localStorage.setItem('mines_lobbyId', lobby?._id || "");
+          localStorage.setItem('mines_lobbyCode', lobbyCode);
+          localStorage.setItem('mines_timestamp', Date.now());
+          localStorage.setItem('mines_lobbyName', lobby?.name || "Mayın Tarlası Lobisi");
+          
+          // Socket bildirim
+          if (socketRef.current) {
+            socketRef.current.emit('gameStarted', {
+              lobbyId: lobby?._id || lobbyCode,
+              startedBy: currentUser.id,
+              gameType: 'mines',
+              status: 'playing'
+            });
+          }
+          
+          // Mayın Tarlası oyununa yönlendir
+          navigate(`/game/mines/${lobbyCode}`);
+          
+        } else {
+          // Tombala için localStorage
+          localStorage.setItem('tombala_playerId', currentUser.id);
+          localStorage.setItem('tombala_lobbyId', lobby?._id || "");
+          localStorage.setItem('tombala_lobbyCode', lobbyCode);
+          localStorage.setItem('tombala_timestamp', Date.now());
+          localStorage.setItem('tombala_lobbyName', lobby?.name || "Tombala Lobisi");
+          
+          // Socket bildirim
+          if (socketRef.current) {
+            socketRef.current.emit('gameStarted', {
+              lobbyId: lobby?._id || lobbyCode,
+              startedBy: currentUser.id,
+              gameType: 'tombala',
+              status: 'playing'
+            });
+          }
+          
+          // Tombala oyununa yönlendir
+          navigate(`/game/tombala/${lobbyCode}`);
+        }
+        
+      } catch (e) {
+        console.warn('localStorage hatası:', e);
+      }
+      
+    } catch (error) {
+      console.error("Oyun başlatılırken hata oluştu:", error);
+      addSystemMessage('Oyun başlatılırken bir hata oluştu.');
+      enqueueSnackbar('Oyun başlatılırken bir hata oluştu.', { 
+        variant: 'error',
+        autoHideDuration: 3000
+      });
+    }
+  };
+  
+  // ... diğer kodlar
+}
+
+export default LobbyPage; 

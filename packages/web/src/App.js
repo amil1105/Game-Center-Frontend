@@ -195,6 +195,177 @@ function TombalaGame() {
   );
 }
 
+// Mayın Tarlası iframe bileşeni
+function MinesGame() {
+  const { lobbyCode } = useParams();
+  const [iframeLoaded, setIframeLoaded] = useState(false);
+  const { user } = useContext(UserContext) || { user: null };
+  
+  useEffect(() => {
+    console.log("MinesGame bileşeni yüklendi. LobbyCode:", lobbyCode);
+    
+    // Lobby bilgilerini localStorage'a kaydet (iframe için)
+    if (lobbyCode) {
+      localStorage.setItem('mines_lobbyId', lobbyCode);
+    }
+    
+    // Oyuncu bilgilerini kaydet
+    const playerId = user?.id || localStorage.getItem('mines_playerId') || '';
+    const playerName = user?.username || localStorage.getItem('username') || 'Oyuncu';
+    
+    if (playerId) {
+      localStorage.setItem('mines_playerId', playerId);
+    }
+    
+    if (playerName) {
+      localStorage.setItem('mines_playerName', playerName);
+    }
+    
+    // iframe yüklendiyse veri gönder
+    if (iframeLoaded && lobbyCode) {
+      sendDataToIframe();
+    }
+  }, [iframeLoaded, lobbyCode, user]);
+
+  // iframe'e veri gönderme fonksiyonu
+  const sendDataToIframe = () => {
+    try {
+      const frame = document.getElementById('minesFrame');
+      if (frame && frame.contentWindow) {
+        console.log('Mayın Tarlası iframe lobbyId gönderiliyor:', lobbyCode);
+        
+        // Kullanıcı kimliği ve lobi bilgilerini hazırla
+        const userData = {
+          type: 'LOBBY_DATA', 
+          lobbyId: lobbyCode,
+          source: 'game-center',
+          playerId: user?.id || localStorage.getItem('mines_playerId') || '',
+          playerName: user?.username || localStorage.getItem('username') || 'Oyuncu',
+          lobbyName: localStorage.getItem('mines_lobbyName') || 'Mayın Tarlası Lobisi'
+        };
+        
+        console.log('iframe\'e gönderilen veriler:', userData);
+        
+        // Veriyi iframe'e gönder
+        frame.contentWindow.postMessage(userData, '*');
+      }
+    } catch (error) {
+      console.error('Mayın Tarlası iframe ile iletişim hatası:', error);
+    }
+  };
+  
+  // iframe mesajlarını dinle
+  useEffect(() => {
+    const messageListener = (event) => {
+      // Mesaj kaynağını kontrol et
+      if (event.data && event.data.type === 'MINES_LOADED') {
+        console.log('Mayın Tarlası iframe yüklendi');
+        
+        // Mesajı hemen gönder
+        sendDataToIframe();
+        
+        // 500ms sonra tekrar gönder
+        setTimeout(sendDataToIframe, 500);
+        
+        // 1.5s sonra bir kez daha gönder
+        setTimeout(sendDataToIframe, 1500);
+      }
+      
+      // Oyundan ana sayfaya yönlendirme mesajını dinle
+      if (event.data && event.data.type === 'NAVIGATE_HOME' && event.data.source === 'mines-game') {
+        console.log('Mayın Tarlası oyunundan ana sayfaya yönlendirme isteği alındı');
+        // Ana sayfaya yönlendir
+        window.location.href = '/home';
+      }
+    };
+    
+    // Mesaj dinleyicisi ekle
+    window.addEventListener('message', messageListener);
+    
+    // Temizleme fonksiyonu
+    return () => {
+      window.removeEventListener('message', messageListener);
+    };
+  }, [lobbyCode, user]);
+
+  if (!lobbyCode) {
+    console.error('LobbyCode bulunamadı!');
+    return (
+      <MainLayout>
+      <Box 
+        sx={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          height: 'calc(100vh - 180px)',
+          bgcolor: '#0B0E17'
+        }}
+      >
+        <Typography variant="h5" color="error">
+          Lobi kodu bulunamadı!
+        </Typography>
+        <Button 
+          variant="contained" 
+          color="primary" 
+          sx={{ mt: 2 }}
+          onClick={() => window.location.href = '/home'}
+        >
+          Ana Sayfaya Dön
+        </Button>
+      </Box>
+      </MainLayout>
+    );
+  }
+
+  // Vite ile build edilmiş Mayın Tarlası uygulamasına doğru path
+  // Kullanıcı parametrelerini URL'ye ekle
+  const playerId = user?.id || localStorage.getItem('mines_playerId') || '';
+  const playerName = user?.username || localStorage.getItem('username') || 'Oyuncu';
+  const lobbyName = localStorage.getItem('mines_lobbyName') || 'Mayın Tarlası Lobisi';
+  
+  // Doğrudan port 3001'deki uygulamaya yönlendir (hostname değişkenini kullanma)
+  const minesUrl = `http://localhost:3001/?lobbyId=${encodeURIComponent(lobbyCode)}&playerId=${encodeURIComponent(playerId)}&playerName=${encodeURIComponent(playerName)}&lobbyName=${encodeURIComponent(lobbyName)}`;
+  
+  console.log('Mayın Tarlası iframe URL:', minesUrl);
+  
+  return (
+    <MainLayout>
+      <Box sx={{ 
+        height: 'calc(100vh - 70px)', 
+        width: '100%', 
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+        flex: 1,
+        position: 'relative'
+      }}>
+        <iframe 
+          src={minesUrl}
+          style={{ 
+            border: 'none', 
+            width: '100%', 
+            height: '100%',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: '#0B0E17' 
+          }}
+          title="Mayın Tarlası Oyunu"
+          allow="fullscreen; autoplay; microphone; camera"
+          id="minesFrame"
+          onLoad={() => {
+            console.log('Mayın Tarlası iframe yüklendi');
+            setIframeLoaded(true);
+          }}
+        />
+      </Box>
+    </MainLayout>
+  );
+}
+
 function App() {
   return (
     <UserProvider>
@@ -248,6 +419,16 @@ function App() {
             element={
               <ProtectedRoute>
                 <GameDetailPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Mayın Tarlası Oyunu */}
+          <Route
+            path="/game/mines/:lobbyCode"
+            element={
+              <ProtectedRoute>
+                <MinesGame />
               </ProtectedRoute>
             }
           />

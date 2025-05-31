@@ -5,11 +5,13 @@
     "packages/*"
   ],
   "scripts": {
-    "start": "concurrently \"lerna run start --scope=@game-center/web --stream\" \"lerna run start --scope=@game-center/tombala --stream\"",
+    "start": "concurrently \"lerna run start --scope=@game-center/web --stream\" \"lerna run start --scope=@game-center/tombala --stream\" \"lerna run start --scope=@game-center/minesweeper --stream\"",
     "dev": "lerna run dev --parallel",
     "build": "lerna run build",
     "tombala": "lerna run start --scope=@game-center/tombala --stream",
-    "web": "lerna run start --scope=@game-center/web --stream"
+    "web": "lerna run start --scope=@game-center/web --stream",
+    "minesweeper": "lerna run start --scope=@game-center/minesweeper --stream -- --port 3001",
+    "mines": "concurrently \"lerna run start --scope=@game-center/web --stream\" \"lerna run start --scope=@game-center/minesweeper --stream -- --port 3001\""
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

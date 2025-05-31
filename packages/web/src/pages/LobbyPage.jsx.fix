@@ -712,6 +712,10 @@ function LobbyPage() {
   const [pendingNotifications, setPendingNotifications] = useState(0);
   const [originalTitle, setOriginalTitle] = useState(document.title);
   
+  // Bildirim yardım modalı için state
+  const [showNotificationHelp, setShowNotificationHelp] = useState(false);
+  const [notificationBrowserInfo, setNotificationBrowserInfo] = useState('');
+  
   // Ses dosyaları için referanslar
   const joinSoundRef = useRef(null);
   const readySoundRef = useRef(null);
@@ -2267,7 +2271,6 @@ function LobbyPage() {
   // Oyunu başlat
   const startGame = () => {
     console.log("Oyun başlatılıyor...");
-    console.log("Lobi verileri:", lobby);
     
     // Sistem mesajı ekle
     addSystemMessage('Oyun başlatılıyor...');
@@ -2335,74 +2338,28 @@ function LobbyPage() {
         console.error("Lobi durumu güncellenirken beklenmeyen hata:", updateError);
       }
       
-      // Oyun tipini belirle
-      console.log("Lobi game:", lobby?.game);
-      console.log("Lobi adı:", lobby?.name);
-      
-      // Lobi game değerini küçük harfe çevir (eğer varsa)
-      const gameTypeLower = lobby?.game?.toLowerCase() || "";
-      const nameLower = lobby?.name?.toLowerCase() || "";
-      
-      // Mayın tarlası kontrolü - kesin eşleşme veya içerik kontrolü yap
-      const isMineSweeper = 
-        gameTypeLower === 'mines' || 
-        gameTypeLower === 'minesweeper' ||
-        gameTypeLower === 'mayın' || 
-        gameTypeLower === 'mayintarlasi' ||
-        nameLower === 'mines' ||
-        nameLower === 'mayın tarlası' ||
-        nameLower.includes('mayın') ||
-        nameLower.includes('mayin') ||
-        nameLower.includes('mines');
-      
-      console.log("İsMineSweeper kontrolü:", {
-        gameType: gameTypeLower,
-        gameTypeChecks: gameTypeLower === 'mines' || gameTypeLower === 'minesweeper' || gameTypeLower === 'mayın' || gameTypeLower === 'mayintarlasi',
-        nameLower: nameLower,
-        nameChecks: nameLower === 'mines' || nameLower === 'mayın tarlası' || nameLower.includes('mayın') || nameLower.includes('mayin') || nameLower.includes('mines'),
-        finalDecision: isMineSweeper
-      });
-      
-      // Oyun tipine göre localStorage'a farklı bilgiler kaydet
+      // LocalStorage'a oyuncu bilgilerini kaydet
       try {
-        if (isMineSweeper) {
-          console.log("Mayın Tarlası için localStorage ayarlanıyor...");
-          localStorage.setItem('mines_playerId', currentUser.id);
-          localStorage.setItem('mines_lobbyId', lobby?._id || "");
-          localStorage.setItem('mines_lobbyCode', lobbyCode);
-          localStorage.setItem('mines_timestamp', Date.now());
-          localStorage.setItem('mines_lobbyName', lobby?.name || "Mayın Tarlası Lobisi");
-        } else {
-          console.log("Tombala için localStorage ayarlanıyor...");
-          localStorage.setItem('tombala_playerId', currentUser.id);
-          localStorage.setItem('tombala_lobbyId', lobby?._id || "");
-          localStorage.setItem('tombala_lobbyCode', lobbyCode);
-          localStorage.setItem('tombala_timestamp', Date.now());
-          localStorage.setItem('tombala_lobbyName', lobby?.name || "Tombala Lobisi");
-        }
+        localStorage.setItem('tombala_playerId', currentUser.id);
+        localStorage.setItem('tombala_lobbyId', lobby?._id || "");
+        localStorage.setItem('tombala_lobbyCode', lobbyCode);
+        localStorage.setItem('tombala_timestamp', Date.now());
+        localStorage.setItem('tombala_lobbyName', lobby?.name || "Tombala Lobisi");
       } catch (e) {
         console.warn('localStorage hatası:', e);
       }
       
       // Oyun başlatılırken socket üzerinden bildirim gönder (eğer socket bağlantısı varsa)
       if (socketRef.current) {
-        console.log("Socket üzerinden oyun başlatma bildirimi gönderiliyor, oyun tipi:", isMineSweeper ? 'mines' : 'tombala');
         socketRef.current.emit('gameStarted', {
           lobbyId: lobby?._id || lobbyCode,
           startedBy: currentUser.id,
-          status: 'playing', // Status bilgisini de ekleyelim
-          gameType: isMineSweeper ? 'mines' : 'tombala'
+          status: 'playing' // Status bilgisini de ekleyelim
         });
       }
       
-      // Oyun tipine göre yönlendirme yap
-      if (isMineSweeper) {
-        console.log("Mayın Tarlası oyununa yönlendiriliyor...");
-        navigate(`/game/mines/${lobbyCode}`);
-      } else {
-        console.log("Tombala oyununa yönlendiriliyor...");
-        navigate(`/game/tombala/${lobbyCode}`);
-      }
+      // Dahili rota yönlendirmesi kullan - ana uygulama içinde kalmak için
+      navigate(`/game/tombala/${lobbyCode}`);
       
     } catch (error) {
       console.error("Oyun başlatılırken hata oluştu:", error);
@@ -3110,7 +3067,7 @@ function LobbyPage() {
       setTimeout(() => fetchLobbyData(false), 250);
     }
   };
-  
+
   // Lobi silindi eventi
   const handleLobbyDeleted = (data) => {
     console.log('Socket: Lobi silindi', data);
@@ -3499,7 +3456,14 @@ function LobbyPage() {
           console.error("localStorage hatası:", e);
         }
         
-        enqueueSnackbar('Bildirim izni reddedildi. Bildirim ayarlarından izin vermeniz gerekiyor.', {
+        // Tarayıcı türünü belirle
+        const browserName = detectBrowser();
+        setNotificationBrowserInfo(browserName);
+        
+        // Yardım modalını göster
+        setShowNotificationHelp(true);
+        
+        enqueueSnackbar('Bildirim izni reddedildi. Lütfen tarayıcı ayarlarından izin verin.', {
           variant: 'warning',
           autoHideDuration: 5000
         });
@@ -3541,7 +3505,7 @@ function LobbyPage() {
       console.error("LocalStorage okuma hatası:", e);
     }
   }, []);
-
+  
   // Yükleme durumu
   if (loading) {
     return (
@@ -3742,47 +3706,43 @@ function LobbyPage() {
   
   // Oyuncuları lobiden atma (kick) fonksiyonu - sadece lobi sahibi kullanabilir
   const kickPlayer = async (playerToKick) => {
-    if (!isUserHost(lobby, user.id)) {
-      console.error("Sadece lobi sahibi oyuncuları atabilir!");
-      enqueueSnackbar('Bu işlemi yapabilmek için lobi sahibi olmanız gerekiyor.', { 
-        variant: 'error',
-        autoHideDuration: 3000
-      });
+    if (!user?.id || !lobby?._id) {
+      console.error('Oyuncu atma işlemi için gerekli veriler eksik', { userId: user?.id, lobbyId: lobby?._id });
       return;
     }
-
-    // Kendini atamaz
-    if (playerToKick.id === user.id) {
-      console.error("Kendinizi atamazsınız!");
-      enqueueSnackbar('Kendinizi lobiden atamazsınız.', { 
-        variant: 'error',
-        autoHideDuration: 3000
-      });
+    
+    const isHost = isUserHost(lobby, user.id);
+    if (!isHost) {
+      console.error('Sadece lobi sahibi oyuncu atabilir');
       return;
     }
-
-    // Başka bir lobi sahibini atamaz
-    if (playerToKick.isOwner) {
-      console.error("Lobi sahibini atamazsınız!");
-      enqueueSnackbar('Lobi sahibini lobiden atamazsınız.', { 
-        variant: 'error',
-        autoHideDuration: 3000
-      });
-      return;
-    }
-
+    
     try {
-      console.log(`${playerToKick.name} adlı oyuncuyu lobiden atmak için istek gönderiliyor...`);
+      // Kicklenecek oyuncunun ID'sini güvenli şekilde kontrol et
+      const playerToKickId = playerToKick.id?.toString() || '';
       
-      // API isteği için parametreler hazırlama
+      if (!playerToKickId) {
+        console.error('Atılacak oyuncu ID\'si bulunamadı');
+        return;
+      }
+      
+      // Kendini atma (güvenlik kontrolü)
+      if (playerToKickId === user.id) {
+        console.error('Kendinizi lobiden atamazsınız');
+        enqueueSnackbar('Kendinizi lobiden atamazsınız.', { 
+          variant: 'warning',
+          autoHideDuration: 3000
+        });
+        return;
+      }
+      
+      // API'ye gönderilecek veri
       const requestData = {
         lobbyId: lobby._id,
-        lobbyCode: lobby.lobbyCode,
-        playerId: playerToKick.id,
-        isBot: playerToKick.isBot || false
+        playerToKickId: playerToKickId
       };
       
-      console.log('Atma isteği verileri:', requestData);
+      console.log('Atma işlemi başlatılıyor:', requestData);
       
       // Atma API'sini çağır
       const response = await axiosInstance.post('/lobbies/kick-player', requestData);
@@ -3817,975 +3777,199 @@ function LobbyPage() {
     }
   };
   
+  // Bildirim reddedildiğinde yardım modalı göstermek için state ekleyelim
+  const [showNotificationHelp, setShowNotificationHelp] = useState(false);
+  const [notificationBrowserInfo, setNotificationBrowserInfo] = useState('');
+
+  // Tarayıcı türünü algılayan yardımcı fonksiyon
+  const detectBrowser = () => {
+    const userAgent = navigator.userAgent.toLowerCase();
+    
+    if (userAgent.indexOf("chrome") > -1) {
+      return "chrome";
+    } else if (userAgent.indexOf("safari") > -1) {
+      return "safari";
+    } else if (userAgent.indexOf("firefox") > -1) {
+      return "firefox";
+    } else if (userAgent.indexOf("edge") > -1 || userAgent.indexOf("edg") > -1) {
+      return "edge";
+    } else if (userAgent.indexOf("opera") > -1 || userAgent.indexOf("opr") > -1) {
+      return "opera";
+    } else {
+      return "unknown";
+    }
+  };
+
+  // Bildirimleri tarayıcı ayarlarından açmak için talimatları içeren yardımcı fonksiyon
+  const getNotificationInstructions = (browser) => {
+    switch (browser) {
+      case 'chrome':
+        return (
+          <Box>
+            <Typography variant="body1" gutterBottom>Chrome'da bildirimleri etkinleştirmek için:</Typography>
+            <ol>
+              <li>Adres çubuğunun sağında bulunan <b>kilit</b> veya <b>bilgi</b> simgesine tıklayın</li>
+              <li>Açılan menüden "Site Ayarları"nı seçin</li>
+              <li>"Bildirimler" kısmında "İzin ver" seçeneğini seçin</li>
+              <li>Sayfayı yenileyin ve tekrar deneyin</li>
+            </ol>
+          </Box>
+        );
+      case 'edge':
+        return (
+          <Box>
+            <Typography variant="body1" gutterBottom>Edge'de bildirimleri etkinleştirmek için:</Typography>
+            <ol>
+              <li>Adres çubuğunun sağında bulunan <b>kilit</b> veya <b>bilgi</b> simgesine tıklayın</li>
+              <li>Açılan menüden "Site izinleri"ni seçin</li>
+              <li>"Bildirimler" kısmında "İzin ver" seçeneğini seçin</li>
+              <li>Sayfayı yenileyin ve tekrar deneyin</li>
+            </ol>
+          </Box>
+        );
+      case 'firefox':
+        return (
+          <Box>
+            <Typography variant="body1" gutterBottom>Firefox'ta bildirimleri etkinleştirmek için:</Typography>
+            <ol>
+              <li>Adres çubuğunun solunda bulunan <b>kilit</b> simgesine tıklayın</li>
+              <li>"İzinleri Düzenle" seçeneğini tıklayın</li>
+              <li>"Bildirim gönder" izinleri kısmında "İzin ver" seçeneğini seçin</li>
+              <li>Sayfayı yenileyin ve tekrar deneyin</li>
+            </ol>
+          </Box>
+        );
+      case 'safari':
+        return (
+          <Box>
+            <Typography variant="body1" gutterBottom>Safari'de bildirimleri etkinleştirmek için:</Typography>
+            <ol>
+              <li>Safari menüsünden "Tercihler"i açın</li>
+              <li>"Web Siteleri" sekmesine tıklayın</li>
+              <li>Sol taraftan "Bildirimler"i seçin</li>
+              <li>Bu web sitesini bulun ve izin ayarını "İzin ver" olarak değiştirin</li>
+              <li>Sayfayı yenileyin ve tekrar deneyin</li>
+            </ol>
+          </Box>
+        );
+      case 'opera':
+        return (
+          <Box>
+            <Typography variant="body1" gutterBottom>Opera'da bildirimleri etkinleştirmek için:</Typography>
+            <ol>
+              <li>Adres çubuğunun solunda bulunan <b>güvenlik</b> simgesine tıklayın</li>
+              <li>"Site ayarları"nı seçin</li>
+              <li>"Bildirimler" kısmında "İzin ver" seçeneğini seçin</li>
+              <li>Sayfayı yenileyin ve tekrar deneyin</li>
+            </ol>
+          </Box>
+        );
+      default:
+        return (
+          <Box>
+            <Typography variant="body1" gutterBottom>Bildirimleri etkinleştirmek için:</Typography>
+            <ol>
+              <li>Tarayıcınızın adres çubuğunda bulunan <b>kilit</b> veya <b>bilgi</b> simgesine tıklayın</li>
+              <li>Açılan menüden site ayarlarını veya izinleri bulun</li>
+              <li>"Bildirimler" izinlerini "İzin ver" olarak değiştirin</li>
+              <li>Sayfayı yenileyin ve tekrar deneyin</li>
+            </ol>
+          </Box>
+        );
+    }
+  };
+
+  // Bildirim Yardım Modalı
   return (
     <MainLayout>
       <ThemeProvider theme={customTheme}>
         <PageContainer>
-          <Zoom in={true} timeout={500}>
-            <LobbyInfoContainer>
-              <Box display="flex" alignItems="center" gap={2}>
-                <Tooltip title="Ana Sayfaya Dön">
-                  <IconButton 
-                    color="primary" 
-                    onClick={() => navigate('/home')}
-                    sx={{ 
-                      background: 'rgba(74, 125, 255, 0.1)', 
-                      transition: 'all 0.3s ease',
-                      border: '1px solid rgba(74, 125, 255, 0.3)',
-                      '&:hover': {
-                        background: 'rgba(74, 125, 255, 0.2)',
-                        transform: 'scale(1.1)',
-                        borderColor: '#4a7dff'
-                      }
-                    }}
-                  >
-                    <BackIcon />
-                  </IconButton>
-                </Tooltip>
-                <Box>
-                  <Typography variant="h5" sx={{ 
-                    fontWeight: 600, 
-                    mb: 0.5,
-                    background: 'linear-gradient(45deg, #4a7dff 0%, #ff53f0 100%)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent'
-                  }}>
-                    {lobby?.name || 'Tombala Lobisi'}
-                  </Typography>
-                  <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
-                    {lobby?.game?.toUpperCase() || 'BINGO'}
-                  </Typography>
-                </Box>
-              </Box>
-              
-              <Box display="flex" gap={2} alignItems="center">
-                {/* Bildirim ayarları için yeni butonlar */}
-                <Tooltip title={notificationsEnabled ? "Bildirimleri Kapat" : "Bildirimleri Aç"}>
-                  <IconButton
-                    onClick={toggleNotifications}
-                    sx={{
-                      background: notificationsEnabled ? 'rgba(76, 175, 80, 0.1)' : 'rgba(244, 67, 54, 0.1)',
-                      transition: 'all 0.3s ease',
-                      border: notificationsEnabled ? 
-                        '1px solid rgba(76, 175, 80, 0.3)' : 
-                        '1px solid rgba(244, 67, 54, 0.3)',
-                      p: 1,
-                      '&:hover': {
-                        background: notificationsEnabled ? 
-                          'rgba(76, 175, 80, 0.2)' : 
-                          'rgba(244, 67, 54, 0.2)',
-                        transform: 'scale(1.1)'
-                      }
-                    }}
-                  >
-                    {notificationsEnabled ? (
-                      <NotificationIcon sx={{ color: '#4CAF50' }} />
-                    ) : (
-                      <NotificationOffIcon sx={{ color: '#F44336' }} />
-                    )}
-                  </IconButton>
-                </Tooltip>
-                
-                <Tooltip title={soundsEnabled ? "Sesleri Kapat" : "Sesleri Aç"}>
-                  <IconButton
-                    onClick={toggleSounds}
-                    sx={{
-                      background: soundsEnabled ? 'rgba(76, 175, 80, 0.1)' : 'rgba(244, 67, 54, 0.1)', 
-                      transition: 'all 0.3s ease',
-                      border: soundsEnabled ? 
-                        '1px solid rgba(76, 175, 80, 0.3)' : 
-                        '1px solid rgba(244, 67, 54, 0.3)',
-                      p: 1,
-                      '&:hover': {
-                        background: soundsEnabled ? 
-                          'rgba(76, 175, 80, 0.2)' : 
-                          'rgba(244, 67, 54, 0.2)',
-                        transform: 'scale(1.1)'
-                      }
-                    }}
-                  >
-                    {soundsEnabled ? (
-                      <MusicNoteIcon sx={{ color: '#4CAF50' }} />
-                    ) : (
-                      <VolumeOffIcon sx={{ color: '#F44336' }} />
-                    )}
-                  </IconButton>
-                </Tooltip>
-                
-                {allPlayersReady && players.length === (lobby?.maxPlayers || 6) && (
-                  <Fade in={true}>
-                    <StartGameButton
-                      onClick={startGame}
-                      startIcon={<PlayIcon />}
-                      variant="contained"
-                    >
-                      Oyunu Başlat
-                    </StartGameButton>
-                  </Fade>
-                )}
-                
-                {/* Mevcut butonlar devam ediyor */}
-                {lobby && user && (isUserHost(lobby, user.id) || players.some(p => p.id === user.id && p.isOwner)) && (
-                  <Tooltip title="Lobi Ayarları">
-                    <IconButton
-                      onClick={handleSettingsDialogOpen}
-                      sx={{
-                        background: 'rgba(74, 125, 255, 0.1)', 
-                        transition: 'all 0.3s ease',
-                        border: '1px solid rgba(74, 125, 255, 0.3)',
-                        p: 1,
-                        '&:hover': {
-                          background: 'rgba(74, 125, 255, 0.2)',
-                          transform: 'scale(1.1)',
-                          borderColor: '#4a7dff'
-                        }
-                      }}
-                    >
-                      <SettingsIcon color="primary" />
-                    </IconButton>
-                  </Tooltip>
-                )}
-                
-                <Tooltip title="Lobi Kodunu Kopyala">
-                  <LobbyCode onClick={handleCopyLobbyCode}>
-                    <Typography variant="body1" sx={{ fontWeight: 500, color: '#fff' }}>
-                      {lobbyCode}
-                    </Typography>
-                    <CopyIcon fontSize="small" color="primary" />
-                  </LobbyCode>
-                </Tooltip>
-                
-                <Tooltip title="Lobi Bağlantısını Paylaş">
-                  <IconButton
-                    onClick={handleShareMenuOpen}
-                    sx={{
-                      background: 'rgba(74, 125, 255, 0.1)', 
-                      transition: 'all 0.3s ease',
-                      border: '1px solid rgba(74, 125, 255, 0.3)',
-                      p: 1,
-                      '&:hover': {
-                        background: 'rgba(74, 125, 255, 0.2)',
-                        transform: 'scale(1.1)',
-                        borderColor: '#4a7dff'
-                      }
-                    }}
-                  >
-                    <ShareIcon color="primary" />
-                  </IconButton>
-                </Tooltip>
-              </Box>
-            </LobbyInfoContainer>
-          </Zoom>
-          
-          {/* Bildirim Ayarları Diyaloğu - daha sonra eklenebilir */}
-          
-          {/* Paylaşım Menüsü */}
-          <Menu
-            anchorEl={shareMenuAnchorEl}
-            open={Boolean(shareMenuAnchorEl)}
-            onClose={handleShareMenuClose}
-            anchorOrigin={{
-              vertical: 'bottom',
-              horizontal: 'right',
-            }}
-            transformOrigin={{
-              vertical: 'top',
-              horizontal: 'right',
-            }}
-            PaperProps={{
-              sx: {
-                mt: 1,
-                background: 'rgba(30, 32, 68, 0.95)',
-                backdropFilter: 'blur(10px)',
-                borderRadius: '12px',
-                boxShadow: '0 5px 15px rgba(0, 0, 0, 0.3)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                padding: 1
-              }
-            }}
-          >
-            <MenuItem onClick={() => handleShare('facebook')} sx={{ gap: 2, borderRadius: '8px', mb: 0.5 }}>
-              <FaFacebook color="#1877F2" size={20} />
-              <Typography>Facebook</Typography>
-            </MenuItem>
-            <MenuItem onClick={() => handleShare('twitter')} sx={{ gap: 2, borderRadius: '8px', mb: 0.5 }}>
-              <FaTwitter color="#1DA1F2" size={20} />
-              <Typography>Twitter</Typography>
-            </MenuItem>
-            <MenuItem onClick={() => handleShare('whatsapp')} sx={{ gap: 2, borderRadius: '8px', mb: 0.5 }}>
-              <FaWhatsapp color="#25D366" size={20} />
-              <Typography>WhatsApp</Typography>
-            </MenuItem>
-            <MenuItem onClick={() => handleShare('telegram')} sx={{ gap: 2, borderRadius: '8px', mb: 0.5 }}>
-              <FaTelegram color="#0088cc" size={20} />
-              <Typography>Telegram</Typography>
-            </MenuItem>
-            <MenuItem onClick={() => handleShare('email')} sx={{ gap: 2, borderRadius: '8px', mb: 0.5 }}>
-              <FaEnvelope color="#FF5722" size={20} />
-              <Typography>E-posta</Typography>
-            </MenuItem>
-            <MenuItem onClick={() => handleShare('copy')} sx={{ gap: 2, borderRadius: '8px' }}>
-              <FaLink color="#4a7dff" size={20} />
-              <Typography>Linki Kopyala</Typography>
-            </MenuItem>
-          </Menu>
-          
-          {/* Paylaşım Diyaloğu */}
-          <Dialog
-            open={shareDialogOpen}
-            onClose={handleShareDialogClose}
-            PaperProps={{
-              sx: {
-                background: 'linear-gradient(135deg, #23244d 0%, #181a2f 100%)',
-                borderRadius: '20px',
-                boxShadow: '0 8px 32px 0 rgba(74,125,255,0.15), 0 1.5px 8px 0 #4a7dff30',
-                border: '1.5px solid rgba(74,125,255,0.15)',
-                width: { xs: '90%', sm: '400px' },
-                maxWidth: '500px',
-                overflow: 'visible',
-                p: 0
-              }
-            }}
-          >
-            <DialogTitle
-              sx={{
-                borderBottom: 'none',
-                pb: 2,
-                background: 'linear-gradient(90deg, #4a7dff, #ff53f0)',
-                borderTopLeftRadius: '20px',
-                borderTopRightRadius: '20px',
-                color: '#fff',
-                textAlign: 'center',
-                fontWeight: 700,
-                fontSize: 22,
-                letterSpacing: 0.5
-              }}
+          {loading ? (
+            <Box 
+              display="flex" 
+              flexDirection="column"
+              justifyContent="center" 
+              alignItems="center" 
+              height="100%"
+              gap={3}
             >
-                Lobi Davetiyesini Paylaş
-            </DialogTitle>
-            <DialogContent sx={{ pt: 3, pb: 2, overflow: 'visible', maxHeight: 'none' }}>
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="body2" sx={{ mb: 1, color: 'rgba(255,255,255,0.8)' }}>
-                  Lobi bağlantısı:
-                </Typography>
-                <Box sx={{ 
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1,
-                  background: 'rgba(74,125,255,0.08)',
-                  padding: '10px 12px',
-                  borderRadius: '10px',
-                  border: '1.5px solid #4a7dff40',
-                  boxShadow: '0 0 8px #4a7dff30',
-                  mb: 2
-                }}>
-                  <Typography 
-                    variant="body2" 
-                    sx={{ 
-                      flex: 1, 
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      color: '#4a7dff',
-                      fontWeight: 600
-                    }}
-                  >
-                    {shareLink}
-                  </Typography>
-                  <IconButton 
-                    size="small" 
-                    onClick={() => {
-                      navigator.clipboard.writeText(shareLink);
-                      setShareSuccessMessage('Link kopyalandı!');
-                      setTimeout(() => setShareSuccessMessage(''), 2000);
-                    }}
-                    sx={{ color: '#4a7dff', transition: 'all 0.2s', '&:hover': { color: '#ff53f0', background: 'rgba(255,255,255,0.08)' } }}
-                  >
-                    <ContentCopy fontSize="small" />
-                  </IconButton>
-                </Box>
-                {/* QR Kod Alanı */}
-                <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
-                  <QRCodeSVG 
-                    value={shareLink} 
-                    size={96} 
-                    bgColor="#23244d" 
-                    fgColor="#4a7dff" 
-                    style={{ borderRadius: 8 }}
-                  />
-              </Box>
-              </Box>
-              <Typography variant="body2" sx={{ mb: 1, color: 'rgba(255,255,255,0.8)' }}>
-                Sosyal medyada paylaş:
+              <CircularProgress color="primary" size={60} thickness={4} />
+              <Typography variant="h6" color="primary.light" sx={{ mt: 2 }}>
+                Lobi yükleniyor...
               </Typography>
-              <Box sx={{ display: 'flex', justifyContent: 'center', gap: 3, mb: 2, flexWrap: 'wrap' }}>
-                <IconButton onClick={() => handleShare('facebook')} sx={{ backgroundColor: 'rgba(24, 119, 242, 0.12)', p: 1.5, transition: 'all 0.3s', '&:hover': { backgroundColor: 'rgba(24, 119, 242, 0.22)', transform: 'scale(1.1)' } }}>
-                  <FaFacebook color="#1877F2" size={24} />
-                </IconButton>
-                <IconButton onClick={() => handleShare('twitter')} sx={{ backgroundColor: 'rgba(29, 161, 242, 0.12)', p: 1.5, transition: 'all 0.3s', '&:hover': { backgroundColor: 'rgba(29, 161, 242, 0.22)', transform: 'scale(1.1)' } }}>
-                  <FaTwitter color="#1DA1F2" size={24} />
-                </IconButton>
-                <IconButton onClick={() => handleShare('whatsapp')} sx={{ backgroundColor: 'rgba(37, 211, 102, 0.12)', p: 1.5, transition: 'all 0.3s', '&:hover': { backgroundColor: 'rgba(37, 211, 102, 0.22)', transform: 'scale(1.1)' } }}>
-                  <FaWhatsapp color="#25D366" size={24} />
-                </IconButton>
-                <IconButton onClick={() => handleShare('telegram')} sx={{ backgroundColor: 'rgba(0, 136, 204, 0.12)', p: 1.5, transition: 'all 0.3s', '&:hover': { backgroundColor: 'rgba(0, 136, 204, 0.22)', transform: 'scale(1.1)' } }}>
-                  <FaTelegram color="#0088cc" size={24} />
-                </IconButton>
-                <IconButton onClick={() => handleShare('email')} sx={{ backgroundColor: 'rgba(255, 87, 34, 0.12)', p: 1.5, transition: 'all 0.3s', '&:hover': { backgroundColor: 'rgba(255, 87, 34, 0.22)', transform: 'scale(1.1)' } }}>
-                  <FaEnvelope color="#FF5722" size={24} />
-                </IconButton>
-              </Box>
-              {shareSuccessMessage && (
-                <Box sx={{ backgroundColor: 'rgba(76, 175, 80, 0.1)', border: '1px solid rgba(76, 175, 80, 0.3)', borderRadius: '8px', padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-                  <CheckIcon fontSize="small" color="success" />
-                  <Typography variant="body2" color="success.main">
-                    {shareSuccessMessage}
-                  </Typography>
-                </Box>
-              )}
-            </DialogContent>
-            <DialogActions sx={{ px: 3, pb: 2, pt: 0 }}>
-              <Button
-                onClick={handleShareDialogClose}
-                variant="outlined"
-                sx={{ borderRadius: '8px', borderColor: 'rgba(255,255,255,0.2)', width: '100%', fontWeight: 600, color: '#fff', background: 'rgba(74,125,255,0.08)', '&:hover': { background: 'rgba(74,125,255,0.15)' } }}
-              >
-                KAPAT
-              </Button>
-            </DialogActions>
-          </Dialog>
-          
-          {/* Ayarlar Diyaloğu */}
-          <Dialog
-            open={settingsDialogOpen}
-            onClose={handleSettingsDialogClose}
-            PaperProps={{
-              sx: {
-                background: 'rgba(30, 32, 68, 0.95)',
-                backdropFilter: 'blur(10px)',
-                borderRadius: '16px',
-                boxShadow: '0 10px 25px rgba(0, 0, 0, 0.3)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                width: { xs: '95%', sm: '500px' },
-                maxWidth: '600px',
-                overflow: 'visible', // scroll'u engelle
-                maxHeight: 'none'   // yükseklik kısıtlamasını kaldır
-              }
-            }}
-          >
-            <DialogTitle sx={{ 
-              borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-              pb: 2
-            }}>
-              <Typography variant="h6" sx={{ 
-                fontWeight: 700, 
-                background: 'linear-gradient(90deg, #4a7dff, #ff53f0)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1
-              }}>
-                <SettingsIcon />
-                Ayarlar
-              </Typography>
-
-              {/* Tab Butonları */}
-              <Box sx={{ 
-                mt: 2, 
-                display: 'flex', 
-                borderBottom: '1px solid rgba(255, 255, 255, 0.1)' 
-              }}>
-                <Button 
-                  onClick={() => setActiveSettingsTab(0)}
-                  sx={{ 
-                    flex: 1, 
-                    pb: 1,
-                    fontWeight: 600,
-                    color: '#4a7dff',
-                    borderBottom: '2px solid #4a7dff'
-                  }}
-                >
-                  Lobi Ayarları
-                </Button>
-              </Box>
-            </DialogTitle>
-            <DialogContent
-                  sx={{ 
-                pt: 3,
-                pb: 2,
-                overflow: 'visible', // scroll'u engelle
-                maxHeight: 'none'    // yükseklik kısıtlamasını kaldır
-                  }}
-                >
-              <Box
-                  sx={{ 
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 4,
-                  background: 'linear-gradient(135deg, #23244d 0%, #181a2f 100%)',
-                  borderRadius: 4,
-                  boxShadow: '0 8px 32px 0 rgba(74,125,255,0.10), 0 1.5px 8px 0 #4a7dff30',
-                  p: 4,
-                  mt: 2,
-                  mb: 2,
-                  border: '1.5px solid rgba(74,125,255,0.15)',
-                  position: 'relative',
-                  overflow: 'visible', // scroll'u engelle
-                  maxHeight: 'none',  // yükseklik kısıtlamasını kaldır
-                  '&::after': {
-                    content: '""',
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    height: 8,
-                    background: 'linear-gradient(90deg, #4a7dff 0%, #ff53f0 100%)',
-                    borderTopLeftRadius: 16,
-                    borderTopRightRadius: 16,
-                    opacity: 0.7
-                    }
-                  }}
-                >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                  <GameIcon color="primary" sx={{ fontSize: 32 }} />
-                  <Typography variant="h6" sx={{ fontWeight: 700, color: '#fff', letterSpacing: 0.5 }}>
-                    Lobi Ayarları
-                  </Typography>
-                </Box>
-
-                {/* Lobi Adı */}
-                <Box>
-                  <Typography variant="body2" sx={{ mb: 1, color: 'rgba(255,255,255,0.8)', fontWeight: 500 }}>
-                    Lobi Adı
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    name="name"
-                    value={lobbySettings.name}
-                    onChange={handleSettingsChange}
-                    variant="outlined"
-                    size="medium"
-                    placeholder="Lobi adını girin"
-                  sx={{ 
-                      '& .MuiOutlinedInput-root': {
-                        background: 'rgba(255,255,255,0.08)',
-                        borderRadius: 3,
-                        color: '#fff',
-                        fontWeight: 600,
-                        fontSize: 18,
-                        boxShadow: '0 0 0 2px #4a7dff20',
-                        transition: 'box-shadow 0.2s',
-                    '&:hover': {
-                          boxShadow: '0 0 0 3px #4a7dff60',
-                        },
-                        '&.Mui-focused': {
-                          boxShadow: '0 0 0 3px #ff53f080',
-                          borderColor: '#ff53f0',
-                        },
-                        '& input': {
-                          color: '#fff',
-                        },
-                        '&::placeholder': {
-                          color: '#fff',
-                          opacity: 1
-                        }
-                      }
-                    }}
-                    inputProps={{ maxLength: 32 }}
-                  />
-                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', mt: 0.5 }}>
-                    Lobi adınız diğer oyuncular tarafından görülecek.
-                  </Typography>
-                </Box>
-
-                {/* Maksimum Oyuncu Sayısı */}
-                <Box>
-                  <Typography variant="body2" sx={{ mb: 1, color: 'rgba(255,255,255,0.8)', fontWeight: 500 }}>
-                    Maksimum Oyuncu Sayısı
-                  </Typography>
-                  <TextField
-                    select
-                    fullWidth
-                    name="maxPlayers"
-                    value={lobbySettings.maxPlayers}
-                    onChange={handleSettingsChange}
-                    variant="outlined"
-                    size="medium"
-                  sx={{ 
-                      '& .MuiOutlinedInput-root': {
-                        background: 'rgba(255,255,255,0.08)',
-                        borderRadius: 3,
-                        color: '#fff',
-                        fontWeight: 600,
-                        fontSize: 18,
-                        boxShadow: '0 0 0 2px #4a7dff20',
-                        transition: 'box-shadow 0.2s',
-                    '&:hover': {
-                          boxShadow: '0 0 0 3px #4a7dff60',
-                        },
-                        '&.Mui-focused': {
-                          boxShadow: '0 0 0 3px #ff53f080',
-                          borderColor: '#ff53f0',
-                        },
-                        '& input': {
-                          color: '#fff',
-                        },
-                        '& .MuiSelect-select': {
-                          color: '#fff',
-                        }
-                      }
-                    }}
-                  >
-                    {[2, 4, 6, 8, 10, 12, 16, 20, 30, 50, 100].map((option) => (
-                      <MenuItem key={option} value={option} sx={{ color: '#4a7dff', fontWeight: 600 }}>
-                        {option} Oyuncu
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', mt: 0.5 }}>
-                    Lobiye katılabilecek maksimum oyuncu sayısı.
-                  </Typography>
-                </Box>
-              </Box>
-            </DialogContent>
-            <DialogActions sx={{ px: 3, pb: 3, pt: 0, display: 'flex', gap: 2 }}>
-              <Button 
-                onClick={handleSettingsDialogClose}
-                variant="outlined" 
-                sx={{ 
-                  flex: 1,
-                  borderRadius: '8px',
-                  borderColor: 'rgba(255, 255, 255, 0.2)'
-                }}
-              >
-                İptal
-              </Button>
-              <Button 
-                onClick={saveSettings}
-                variant="contained"
-                color="primary" 
-                sx={{ 
-                  flex: 2,
-                  borderRadius: '8px',
-                  background: 'linear-gradient(45deg, #4a7dff 0%, #ff53f0 100%)',
-                  '&:hover': {
-                    background: 'linear-gradient(45deg, #5a8dff 0%, #ff65f0 100%)',
-                    boxShadow: '0 5px 15px rgba(74, 125, 255, 0.3)'
-                  }
-                }}
-              >
-                Kaydet
-              </Button>
-            </DialogActions>
-          </Dialog>
-          
-          <LobbyContainer>
-            <Slide direction="right" in={true} timeout={500}>
-              <PlayerListContainer>
-                <SectionHeader>
-                  <PeopleIcon />
-                  <Typography variant="h6" sx={{ 
-                    fontWeight: 700, 
-                    flex: 1, 
-                    background: 'linear-gradient(90deg, #4a7dff, #ff53f0)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    letterSpacing: '0.5px'
-                  }}>
-                    Oyuncular ({players.length}/{lobby?.maxPlayers || 6})
-                  </Typography>
-                  {allPlayersReady && players.length === (lobby?.maxPlayers || 6) && (
-                    <AnimatedChip 
-                      label={startCountdown ? `Oyun Başlıyor... ${startCountdown}` : "Hazır"} 
-                      color="success" 
-                      variant="outlined" 
-                      icon={<CelebrationIcon />} 
-                      size="small"
-                    />
-                  )}
-                </SectionHeader>
-                
-                <PlayerListContent>
-                  <List sx={{ p: 1 }}>
-                    {players.map((player) => {
-                      const isCurrentUser = player.id === user.id;
-                      
-                      return (
-                        <Grow 
-                          in={true} 
-                          key={player.id || `player-${Date.now()}-${Math.random()}`} 
-                          timeout={500} 
-                          style={{ transformOrigin: '0 0 0' }}
-                        >
-                          <StyledListItem
-                            $isReady={player.isReady}
-                            $isCurrentUser={isCurrentUser}
-                            $isOwner={player.isOwner}
-                          >
-                            <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-                              <ListItemAvatar>
-                                <Badge
-                                  overlap="circular"
-                                  anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                                  badgeContent={
-                                    player.isBot ? 
-                                      <BotIcon color="info" sx={{ background: '#121228', borderRadius: '50%', p: 0.2 }} /> : 
-                                      null
-                                  }
-                                >
-                                  <PlayerAvatar 
-                                    player={player}
-                                    isOwner={player.isOwner}
-                                    isReady={player.isReady}
-                                    isCurrentUser={player.id === user.id}
-                                    isHostViewing={isUserHost(lobby, user.id)}
-                                    onKickPlayer={kickPlayer}
-                                  />
-                                </Badge>
-                              </ListItemAvatar>
-                              
-                              <Box sx={{ ml: 2, flex: 1 }}>
-                                <Typography variant="body1" sx={{ 
-                                  fontWeight: 600,
-                                  color: player.isBot 
-                                    ? 'rgba(255, 255, 255, 0.7)' 
-                                    : 'white' 
-                                }}>
-                                  {player.name}
-                                  {player.id === user.id && (
-                                    <Typography 
-                                      component="span" 
-                                      variant="body2" 
-                                      sx={{ 
-                                        ml: 1,
-                                        color: '#4a7dff'
-                                      }}
-                                    >
-                                      (Sen)
-                                    </Typography>
-                                  )}
-                                </Typography>
-                                <Typography variant="body2" color="rgba(255, 255, 255, 0.7)">
-                                  {player.isBot 
-                                    ? 'Bot Oyuncu' 
-                                    : player.isOwner
-                                      ? <Box component="span" sx={{ 
-                                          color: '#FFD700',
-                                          fontWeight: 600,
-                                          display: 'flex',
-                                          alignItems: 'center',
-                                          gap: 0.5
-                                        }}>
-                                          <CelebrationIcon fontSize="small" />
-                                          Host
-                                        </Box>
-                                    : player.username || player.name
-                                  }
-                                </Typography>
-                              </Box>
-                              
-                              <Box>
-                                {player.isReady ? (
-                                  <Tooltip title="Hazır">
-                                    <Chip 
-                                      icon={<ReadyIcon />} 
-                                      label="Hazır" 
-                                      color="success" 
-                                      size="small" 
-                                      variant="outlined"
-                                      sx={{ 
-                                        fontWeight: 500, 
-                                        boxShadow: '0 0 10px rgba(76, 175, 80, 0.3)',
-                                        borderColor: 'rgba(76, 175, 80, 0.5)',
-                                        background: 'rgba(76, 175, 80, 0.1)',
-                                        animation: 'pulse 2s infinite'
-                                      }}
-                                    />
-                                  </Tooltip>
-                                ) : (
-                                  <Tooltip title="Hazır Değil">
-                                    <Chip 
-                                      icon={<NotReadyIcon />} 
-                                      label="Hazır Değil" 
-                                      color="error" 
-                                      size="small" 
-                                      variant="outlined"
-                                      sx={{ 
-                                        fontWeight: 500,
-                                        borderColor: 'rgba(244, 67, 54, 0.5)',
-                                        background: 'rgba(244, 67, 54, 0.05)'
-                                      }}
-                                    />
-                                  </Tooltip>
-                                )}
-                              </Box>
-                            </Box>
-                          </StyledListItem>
-                        </Grow>
-                      );
-                    })}
-                  </List>
-                </PlayerListContent>
-                
-                <PlayerActions>
-                  <Box display="flex" gap={2}>
-                    <ReadyButton 
-                      variant="contained"
-                      $isReady={isReady}
-                      onClick={toggleReadyStatus}
-                      startIcon={isReady ? <CheckCircleOutlined /> : <CancelOutlined />}
-                      sx={{
-                        animation: isReady ? 'pulse 2s infinite' : 'none',
-                        boxShadow: isReady 
-                          ? '0 0 10px rgba(76, 175, 80, 0.3)' 
-                          : 'none',
-                        fontWeight: 600,
-                        minWidth: 130
-                      }}
-                    >
-                      {isReady ? 'Hazırım' : 'Hazır Değilim'}
-                    </ReadyButton>
-                    
-                    <LeaveButton
-                      variant="contained"
-                      onClick={leaveLobby}
-                      startIcon={<ExitIcon />}
-                    >
-                      Çık
-                    </LeaveButton>
-                  </Box>
-                  
-                  {players.length < (lobby?.maxPlayers || 6) && (
-                    <Tooltip title="Bot oyuncu ekleyin">
-                      <Button
-                        variant="contained"
-                        color="secondary"
-                        startIcon={<BotIcon />}
-                        onClick={addBot}
-                        sx={{ 
-                          flex: isMobile ? '1 1 48%' : 'initial',
-                          borderRadius: 8,
-                          background: 'rgba(255, 255, 255, 0.08)',
-                          '&:hover': {
-                            background: 'rgba(255, 255, 255, 0.12)',
-                            transform: 'translateY(-2px)'
-                          }
-                        }}
-                      >
-                        Bot Ekle
-                      </Button>
-                    </Tooltip>
-                  )}
-                </PlayerActions>
-              </PlayerListContainer>
-            </Slide>
-            
-            <Slide direction="left" in={true} timeout={700}>
-              <ChatContainer>
-                <SectionHeader>
-                  <ChatIcon />
-                  <Typography variant="h6" sx={{ 
-                    fontWeight: 700, 
-                    background: 'linear-gradient(90deg, #4a7dff, #ff53f0)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    letterSpacing: '0.5px'
-                  }}>
-                    Lobi Sohbeti
-                  </Typography>
-                </SectionHeader>
-                
-                <ChatMessages>
-                  {messages.map((message) => (
-                    <Message 
-                      key={message.id} 
-                      $isCurrentUser={message.sender.id === user.id}
-                      $isSystem={message.sender.id === 'system'}
-                    >
-                      <Typography 
-                        variant="caption" 
-                        color="rgba(255, 255, 255, 0.7)"
-                        sx={{ 
-                          fontWeight: message.sender.id === 'system' ? 600 : 400,
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 0.5
-                        }}
-                      >
-                        {message.sender.id === 'system' ? (
-                          <>
-                            <InfoIcon fontSize="inherit" color="primary" /> 
-                            {message.sender.name}
-                          </>
-                        ) : (
-                          message.sender.name
-                        )}
-                      </Typography>
-                      <Typography 
-                        variant="body2" 
-                        sx={{ 
-                          my: 0.5,
-                          color: message.sender.id === 'system' 
-                            ? '#4a7dff'
-                            : 'white'
-                        }}
-                      >
-                        {message.text}
-                      </Typography>
-                      <Typography 
-                        variant="caption" 
-                        color="rgba(255, 255, 255, 0.6)" 
-                        align="right" 
-                        display="block"
-                        sx={{ opacity: 0.7 }}
-                      >
-                        {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </Typography>
-                    </Message>
-                  ))}
-                  <div ref={messagesEndRef} />
-                </ChatMessages>
-                
-                <MessageInputContainer>
-                  <TextField
-                    fullWidth
-                    variant="outlined"
-                    placeholder="Mesajınızı yazın..."
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                    InputProps={{
-                      sx: { 
-                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                        color: 'white',
-                        '& .MuiInputBase-input': {
-                          color: 'white',
-                        },
-                        '& .MuiInputBase-input::placeholder': {
-                          color: 'rgba(255, 255, 255, 0.6)',
-                          opacity: 1
-                        },
-                        borderRadius: 8,
-                        border: '1px solid rgba(255, 255, 255, 0.1)',
-                        '&:hover .MuiOutlinedInput-notchedOutline': {
-                          borderColor: 'rgba(74, 125, 255, 0.5)'
-                        },
-                        '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                          borderColor: '#4a7dff'
-                        }
-                      }
-                    }}
-                    size="small"
-                  />
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    endIcon={<SendIcon />}
-                    onClick={handleSendMessage}
-                    sx={{ 
-                      borderRadius: 8,
-                      height: 40,
-                      px: 2,
-                      background: 'linear-gradient(45deg, #4a7dff 0%, #ff53f0 100%)',
-                      '&:hover': {
-                        background: 'linear-gradient(45deg, #5a8dff 0%, #ff65f0 100%)',
-                        transform: 'translateY(-2px)',
-                        boxShadow: '0 5px 15px rgba(74, 125, 255, 0.3)'
-                      }
-                    }}
-                  >
-                    {isMobile ? '' : 'Gönder'}
-                  </Button>
-                </MessageInputContainer>
-              </ChatContainer>
-            </Slide>
-          </LobbyContainer>
-          
-          <Snackbar 
-            open={copySuccess} 
-            autoHideDuration={2000} 
-            onClose={() => setCopySuccess(false)}
-            anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-          >
-            <Alert 
-              severity="success"
-              variant="filled"
-              sx={{ 
-                width: '100%',
-                borderRadius: 3,
-                fontWeight: 500
-              }}
+            </Box>
+          ) : error ? (
+            <Box 
+              display="flex" 
+              flexDirection="column" 
+              justifyContent="center" 
+              alignItems="center" 
+              height="100%"
+              gap={3}
             >
-              Lobi kodu kopyalandı!
-            </Alert>
-          </Snackbar>
-          
-          {/* Kullanıcı atıldığında gösterilecek diyalog */}
-          <Dialog
-            open={kickedDialogOpen}
-            onClose={() => {}}
-            PaperProps={{
-              sx: {
-                background: 'rgba(30, 32, 68, 0.95)',
-                backdropFilter: 'blur(10px)',
-                borderRadius: '16px',
-                boxShadow: '0 10px 25px rgba(0, 0, 0, 0.3)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                width: { xs: '95%', sm: '500px' },
-                maxWidth: '600px',
-              }
-            }}
-          >
-            <DialogTitle sx={{ 
-              borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-              pb: 2
-            }}>
-              <Typography variant="h6" sx={{ 
-                fontWeight: 700, 
-                color: '#F44336',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1
-              }}>
-                <InfoIcon />
-                Lobiden Atıldınız
+              <Typography variant="h5" color="error" gutterBottom>
+                {error}
               </Typography>
-            </DialogTitle>
-            <DialogContent sx={{ pt: 3, pb: 2 }}>
-              <Box
-                sx={{ 
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 3,
-                  alignItems: 'center'
-                }}
-              >
-                <CloseIcon sx={{ color: '#F44336', fontSize: 80 }} />
-                <Typography variant="body1" sx={{ textAlign: 'center' }}>
-                  Lobi sahibi tarafından lobiden atıldınız. Ana sayfaya yönlendiriliyorsunuz.
-                </Typography>
-              </Box>
-            </DialogContent>
-            <DialogActions sx={{ px: 3, pb: 3, pt: 0 }}>
               <Button
-                onClick={() => navigate('/home')}
                 variant="contained"
                 color="primary"
-                fullWidth
-                sx={{ 
-                  borderRadius: '8px',
-                  background: 'linear-gradient(45deg, #4a7dff 0%, #ff53f0 100%)',
-                  '&:hover': {
-                    background: 'linear-gradient(45deg, #5a8dff 0%, #ff65f0 100%)',
-                    boxShadow: '0 5px 15px rgba(74, 125, 255, 0.3)'
-                  }
-                }}
+                startIcon={<BackIcon />}
+                onClick={() => navigate('/home')}
               >
                 Ana Sayfaya Dön
               </Button>
-            </DialogActions>
-          </Dialog>
+            </Box>
+          ) : (
+            <>
+              {/* Ana lobi içeriği */}
+              {/* ... Mevcut lobi içeriği ... */}
+              
+              {/* Bildirim Yardım Modalı */}
+              <Dialog 
+                open={showNotificationHelp} 
+                onClose={() => setShowNotificationHelp(false)}
+                maxWidth="sm"
+                fullWidth
+              >
+                <DialogTitle sx={{ display: 'flex', alignItems: 'center' }}>
+                  <NotificationIcon sx={{ mr: 1, color: 'primary.main' }} />
+                  Bildirim İzni Gerekiyor
+                </DialogTitle>
+                <DialogContent>
+                  <DialogContentText paragraph>
+                    Bildirimleri gösterebilmemiz için tarayıcınızdan izin vermeniz gerekiyor. Şu anda bildirimlere izin verilmiyor.
+                  </DialogContentText>
+                  
+                  {getNotificationInstructions(notificationBrowserInfo)}
+                  
+                  <Box sx={{ mt: 2, bgcolor: 'info.main', color: 'info.contrastText', p: 2, borderRadius: 1 }}>
+                    <Typography variant="body2">
+                      Bildirimleri etkinleştirdikten sonra lütfen sayfayı yenileyin ve tekrar deneyin.
+                    </Typography>
+                  </Box>
+                </DialogContent>
+                <DialogActions>
+                  <Button onClick={() => setShowNotificationHelp(false)} color="primary" variant="outlined">
+                    Anladım
+                  </Button>
+                  <Button 
+                    onClick={() => {
+                      setShowNotificationHelp(false);
+                      // Alternatif olarak ekran içi bildirimleri aktifleştir
+                      enqueueSnackbar('Bildirimler yerine ekran içi uyarılar kullanılacak', { 
+                        variant: 'info',
+                        autoHideDuration: 5000
+                      });
+                    }} 
+                    color="primary" 
+                    variant="contained"
+                  >
+                    Bildirimler Yerine Uyarı Kullan
+                  </Button>
+                </DialogActions>
+              </Dialog>
+            </>
+          )}
         </PageContainer>
       </ThemeProvider>
     </MainLayout>
