@@ -42,6 +42,7 @@ password: toyota
   * [Settings Page](#settings-page)
   * [Lobby System](#lobby-system)
   * [Tombala Game](#tombala-game)
+  * [Minesweeper Game](#minesweeper-game)
 - [Features](#-features)
   * [Authentication System](#authentication-system)
   * [Lobby Management](#lobby-management)
@@ -68,7 +69,8 @@ Game-Center-Frontend/
 │   │   │   ├── context/
 │   │   │   ├── api/
 │   │   │   └── styles/
-│   ├── tombala/           # Tombala game
+│   ├── tombala/           # Tombala game (https://github.com/amil1105/tombala)
+│   ├── minesweeper/       # Minesweeper game (https://github.com/amil1105/minesweeper)
 │   ├── common/            # Common components
 │   └── core/              # Core functionality
 ├── server/                # Express backend
@@ -101,24 +103,37 @@ git clone https://github.com/amil1105/Game-Center-Frontend.git
 # Navigate to project directory
 cd Game-Center-Frontend
 
-# Install dependencies
+# Install dependencies for the main project
 npm install
 
-# Clone the Tombala game repository into the packages directory
+# Clone the game repositories into the packages directory
 cd packages
 git clone https://github.com/amil1105/tombala.git tombala
+git clone https://github.com/amil1105/minesweeper.git minesweeper
 cd ..
 
-# Start development server
+# Install dependencies for each game
+cd packages/tombala
+npm install
+cd ../minesweeper
+npm install
+cd ../..
+
+# Start frontend projects (Web app, Tombola, Minesweeper)
+npm start
+
+# Start backend server (in a new terminal)
+cd server
 npm run dev
 ```
 
-This command will start both frontend and backend services simultaneously:
+This command will start frontend and backend services simultaneously:
 - Web application: http://localhost:3000
-- Tombala game: http://localhost:3001
+- Tombala game: http://localhost:3100
+- Minesweeper game: http://localhost:3001
 - Backend API: http://localhost:5000
 
-> **Important**: You need to clone the Tombala game repository from https://github.com/amil1105/tombala into the packages directory for the game functionality to work properly.
+> **Important**: You need to clone the Tombala game repository from https://github.com/amil1105/tombala and the Minesweeper game repository from https://github.com/amil1105/minesweeper into the packages directory for the game functionality to work properly. Also, ensure you run `npm install` in each game's directory.
 
 <p align="right">(<a href="#readme-top">🔝</a>)</p>
 
@@ -130,14 +145,16 @@ This command will start both frontend and backend services simultaneously:
 - Responsive design with validation support
 - Internationalization features
 
-![Login Page](https://github.com/user-attachments/assets/2b1420fc-d54a-4ff3-b50e-7fb6322d410a)
+![image](https://github.com/user-attachments/assets/7f3103fd-7171-4ae1-85a4-a06760a0acbc)
+
 
 ### Main Dashboard
 - Grid/list view of available games
 - Chat system integration
 - Welcome banner and statistics display
 
-![Main Dashboard](https://github.com/user-attachments/assets/9c2fd235-25a3-4b7f-aea7-0f400f5115ff)
+![image](https://github.com/user-attachments/assets/c33d522f-ede0-49ff-8a02-4a379229198e)
+
 
 ### Game Detail Page
 - Game information and description
@@ -145,7 +162,8 @@ This command will start both frontend and backend services simultaneously:
 - Statistics and active lobbies
 - Banner and visual integration
 
-![Game Detail](https://github.com/user-attachments/assets/b7c9cf20-1757-4491-8113-79063baea47f)
+![image](https://github.com/user-attachments/assets/73c5972e-d0f7-4155-b53e-a28fe0ba2fd0)
+
 
 ### Profile Page
 - User statistics and achievements display
@@ -153,7 +171,8 @@ This command will start both frontend and backend services simultaneously:
 - Animated user avatar with status indicator
 - Responsive card layout design
 
-![Profile Page](https://github.com/user-attachments/assets/5450948c-5f58-4a9e-941c-cc84a7f5ab1e)
+![image](https://github.com/user-attachments/assets/5fdf47bf-9a7f-4c99-a849-88d8882d3096)
+
 
 ### Leaderboard Page
 - Global player rankings across different games
@@ -161,7 +180,8 @@ This command will start both frontend and backend services simultaneously:
 - Top player highlights with animated effects
 - Player search functionality
 
-![Leaderboard Page](https://github.com/user-attachments/assets/612713e6-8e6e-4228-8513-b76400ed24bf)
+![image](https://github.com/user-attachments/assets/3dab0f3b-b0b2-4289-b611-3fea10e15a91)
+
 
 ### Settings Page
 - User profile customization
@@ -169,7 +189,8 @@ This command will start both frontend and backend services simultaneously:
 - Account security settings
 - Theme and language preferences
 
-![Settings Page](https://github.com/user-attachments/assets/1031fe37-8d98-4e64-a77c-18b8e590bffe)
+![image](https://github.com/user-attachments/assets/9116641d-a8d0-479c-8aef-7885085839de)
+
 
 ### Lobby System
 - Create lobbies with custom settings
@@ -177,7 +198,8 @@ This command will start both frontend and backend services simultaneously:
 - Event-based and normal lobby types
 - Automatic lobby management features
 
-![Lobby System](https://github.com/user-attachments/assets/52dd5a9f-31de-4c9c-b04c-d607bca4d5c5)
+![image](https://github.com/user-attachments/assets/c26f00ef-5fb5-40ff-b733-7d531f1641fe)
+
 
 ### Tombala Game
 - Real-time multiplayer gameplay
@@ -185,7 +207,17 @@ This command will start both frontend and backend services simultaneously:
 - Automatic number drawing
 - Win condition tracking
 
-![Tombala Game](https://github.com/user-attachments/assets/7b1d74b7-9348-459d-9452-286d4b7cdf7c)
+![image](https://github.com/user-attachments/assets/bc157554-e62f-4b6b-9944-87aba8b6ca33)
+
+
+### Minesweeper Game
+- Classic Minesweeper gameplay
+- Customizable grid size and mine count
+- Flagging and timer functionalities
+- Playable at http://localhost:3001
+
+![image](https://github.com/user-attachments/assets/aa04815f-f51d-4762-964e-f7ddb144100f)
+
 
 <p align="right">(<a href="#readme-top">🔝</a>)</p>
 
@@ -265,6 +297,7 @@ During development, several challenges were encountered:
 - Amil Shikhiyev - amilworks@gmail.com - amil.shikhiyev@ogr.sakarya.edu.tr
 - Project Link: [https://github.com/amil1105/Game-Center-Frontend](https://github.com/Metecode/TOYOTA-32bit-project.git)
 - Tombala Game: [https://github.com/amil1105/tombala]
+- Minesweeper Game: [https://github.com/amil1105/minesweeper]
 <p align="right">(<a href="#readme-top">🔝</a>)</p>
 
 ## 💎 Acknowledgements
