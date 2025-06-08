@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
-import { FaArrowLeft, FaUsers, FaTrophy, FaInfoCircle, FaComments, FaChartLine, FaCoins, FaClock, FaLock, FaCalendarAlt, FaCopy, FaCheck, FaPaperPlane } from 'react-icons/fa';
-import { Box, Typography, Button, List, ListItem, TextField, FormControl, FormLabel, InputLabel, IconButton, InputAdornment } from '@mui/material';
+import { FaArrowLeft, FaUsers, FaTrophy, FaInfoCircle, FaComments, FaChartLine, FaCoins, FaClock, FaLock, FaCalendarAlt, FaCopy, FaCheck, FaPaperPlane, FaSyncAlt } from 'react-icons/fa';
+import { Box, Typography, Button, List, ListItem, TextField, FormControl, FormLabel, InputLabel, IconButton, InputAdornment, CircularProgress } from '@mui/material';
 import axiosInstance, { API_BASE_URL } from '../api/axios';
 import { UserContext } from '../context/UserContext';
 import MainLayout from '../components/Layout/MainLayout';
@@ -779,6 +779,7 @@ function GameDetailPage() {
   const [gameHistory, setGameHistory] = useState([]);
   const [activeLobbies, setActiveLobbies] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingError, setLoadingError] = useState(false);
   const [showCreateLobbyModal, setShowCreateLobbyModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [lobbyType, setLobbyType] = useState('normal'); // 'normal' veya 'event'
@@ -792,6 +793,12 @@ function GameDetailPage() {
   const [createdLobby, setCreatedLobby] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
+  
+  // Şifreli lobi için yeni state'ler
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [selectedLobby, setSelectedLobby] = useState(null);
+  const [lobbyPassword, setLobbyPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
 
   // Örnek oyun verileri
   const gameData = {
@@ -1063,38 +1070,130 @@ function GameDetailPage() {
   };
 
   // Lobileri yükle
-  const loadActiveLobbies = async () => {
+  const loadActiveLobbies = useCallback(async () => {
+    if (!gameId) return;
+    
+    let isActive = true; // İstek hala aktif mi kontrolü için bayrak
+    
     try {
       setLoading(true);
+      setLoadingError(false);
+      
+      console.log(`API isteği başlatılıyor: /lobbies?game=${gameId}`);
+      const startTime = performance.now();
+      
       const response = await axiosInstance.get(`/lobbies?game=${gameId}`);
-      console.log('Gelen lobi yanıtı:', response.data);
+      
+      const endTime = performance.now();
+      console.log(`API yanıtı alındı (${Math.round(endTime - startTime)}ms):`, response.data);
+      
+      // Eğer bileşen artık monte edilmemişse veya başka bir istek başlatıldıysa, state'i güncelleme
+      if (!isActive) {
+        console.log('Bileşen unmount edildi, durum güncellenmeyecek');
+        return;
+      }
+      
       // API yanıtı { lobbies: [...], total, hasMore } formatında
-      const lobbiesData = response.data.lobbies || [];
-      setActiveLobbies(lobbiesData);
+      const lobbiesData = response.data?.lobbies || [];
+      
+      // Yanıt verisinin doğru formatta olup olmadığını kontrol et
+      if (!Array.isArray(lobbiesData)) {
+        console.warn('API lobbies verisi dizi değil:', lobbiesData);
+        setActiveLobbies([]);
+      } else {
+        console.log(`${lobbiesData.length} lobi yüklendi`);
+        setActiveLobbies(lobbiesData);
+      }
     } catch (error) {
       console.error('Lobileri yüklerken hata:', error);
+      
+      // Hata mesajını daha detaylı logla
+      if (error.response) {
+        console.error('Sunucu yanıtı:', error.response.status, error.response.data);
+      } else if (error.request) {
+        console.error('Yanıt alınamadı:', error.request);
+      } else {
+        console.error('İstek hatası:', error.message);
+      }
+      
+      // Eğer bileşen artık monte edilmemişse veya başka bir istek başlatıldıysa, state'i güncelleme
+      if (!isActive) {
+        console.log('Bileşen unmount edildi, durum güncellenmeyecek');
+        return;
+      }
+      
       setActiveLobbies([]); // Hata durumunda boş array
+      setLoadingError(true);
     } finally {
+      // Eğer bileşen artık monte edilmemişse veya başka bir istek başlatıldıysa, state'i güncelleme
+      if (!isActive) {
+        console.log('Bileşen unmount edildi, durum güncellenmeyecek');
+        return;
+      }
+      
       setLoading(false);
     }
-  };
+    
+    // Temizlik fonksiyonu
+    return () => {
+      isActive = false;
+    };
+  }, [gameId]);
+
+  // Oyun verilerini yükle
+  const loadGameData = useCallback(() => {
+    if (!gameId) return;
+    
+    try {
+      // gameData'da gameId varsa oyun verilerini ayarla
+      if (gameData[gameId]) {
+        setGame(gameData[gameId]);
+        
+        // Örnek oyun geçmişi
+        setGameHistory([
+          { id: 1, result: 'Kazandı', amount: '+500', date: '2 dk önce' },
+          { id: 2, result: 'Kaybetti', amount: '-200', date: '5 dk önce' },
+          { id: 3, result: 'Kazandı', amount: '+1000', date: '10 dk önce' }
+        ]);
+      } else {
+        // Eğer gameId geçerli değilse null olarak ayarla
+        setGame(null);
+      }
+    } catch (error) {
+      console.error('Oyun verilerini yüklerken hata:', error);
+      setGame(null);
+    }
+  }, [gameId]);
 
   useEffect(() => {
-    // Oyun verilerini yükle
-    if (gameId && gameData[gameId]) {
-      setGame(gameData[gameId]);
-      
-      // Gerçek lobileri API'den yükle
+    // Sayfa yüklendiğinde veya gameId değiştiğinde hem oyun verilerini hem de lobileri yükle
+    loadGameData();
+    
+    // Lobileri yükle
+    const loaderPromise = loadActiveLobbies();
+    
+    // Component unmount olduğunda ya da gameId değiştiğinde temizlik yap
+    return () => {
+      setGame(null);
+      setGameHistory([]);
+      setActiveLobbies([]);
+      setLoadingError(false);
+    };
+  }, [gameId, loadGameData, loadActiveLobbies]);
+
+  // Lobileri yeniden yükleme fonksiyonu
+  const refreshLobbies = () => {
+    console.log('Lobiler yeniden yükleniyor...');
+    
+    // Mevcut durumu yüklenme olarak ayarla ve hatayı temizle
+    setLoading(true);
+    setLoadingError(false);
+    
+    // Kısa bir gecikme ekle (UI'da yükleme göstergesi için)
+    setTimeout(() => {
       loadActiveLobbies();
-      
-      // Örnek oyun geçmişi
-      setGameHistory([
-        { id: 1, result: 'Kazandı', amount: '+500', date: '2 dk önce' },
-        { id: 2, result: 'Kaybetti', amount: '-200', date: '5 dk önce' },
-        { id: 3, result: 'Kazandı', amount: '+1000', date: '10 dk önce' }
-      ]);
-    }
-  }, [gameId]); // gameId değiştiğinde yeniden yükle
+    }, 300);
+  };
 
   const handleCreateLobby = async (e) => {
     e.preventDefault();
@@ -1131,7 +1230,7 @@ function GameDetailPage() {
       setShowSuccessModal(true);
       
       // Lobi listesini güncelle
-      loadActiveLobbies();
+      refreshLobbies();
       
     } catch (error) {
       console.error('Lobi oluşturma hatası:', error);
@@ -1161,6 +1260,51 @@ function GameDetailPage() {
       maxPlayers: 6,
     });
     setLobbyType('normal');
+  };
+
+  // Lobiye katılma işlemi
+  const handleJoinLobby = (lobby) => {
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+    
+    if (lobby.isPrivate) {
+      setSelectedLobby(lobby);
+      setLobbyPassword('');
+      setPasswordError('');
+      setShowPasswordModal(true);
+    } else {
+      // Şifresiz lobi, doğrudan yönlendir
+      navigate(`/lobby/${lobby.lobbyCode}`);
+    }
+  };
+  
+  // Şifre kontrolü yapıp lobiye katılma
+  const handleSubmitPassword = async (e) => {
+    e.preventDefault();
+    
+    if (!selectedLobby) return;
+    
+    setIsSubmitting(true);
+    setPasswordError('');
+    
+    try {
+      // Şifre doğrulama API çağrısı
+      const response = await axiosInstance.post(`/lobbies/${selectedLobby.lobbyCode}/verify-password`, {
+        password: lobbyPassword
+      });
+      
+      // Şifre doğruysa, lobiye yönlendir
+      setShowPasswordModal(false);
+      navigate(`/lobby/${selectedLobby.lobbyCode}`);
+      
+    } catch (error) {
+      console.error('Şifre doğrulama hatası:', error);
+      setPasswordError(error.response?.data?.error || 'Şifre hatalı. Lütfen tekrar deneyin.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (!game) {
@@ -1312,6 +1456,23 @@ function GameDetailPage() {
                   <FaUsers style={{ marginRight: 5 }} />
                   Aktif Lobiler
                 </SidebarTitle>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.5)' }}>
+                    {loading ? 'Yükleniyor...' : `${activeLobbies.length} lobi bulundu`}
+                  </Typography>
+                  <IconButton 
+                    onClick={refreshLobbies} 
+                    disabled={loading}
+                    sx={{ 
+                      color: 'rgba(124, 77, 255, 0.7)',
+                      '&:hover': { color: '#7C4DFF' },
+                      transform: loading ? 'rotate(360deg)' : 'rotate(0)',
+                      transition: 'transform 0.5s',
+                    }}
+                  >
+                    {loading ? <CircularProgress size={16} color="inherit" /> : <FaSyncAlt size={16} />}
+                  </IconButton>
+                </Box>
                 <LobbyList>
                   {loading ? (
                     <Box sx={{ 
@@ -1319,7 +1480,35 @@ function GameDetailPage() {
                       padding: '20px', 
                       color: 'rgba(255, 255, 255, 0.7)' 
                     }}>
+                      <CircularProgress size={24} sx={{ color: '#7C4DFF', mb: 2 }} />
                       <Typography variant="body1">Lobiler yükleniyor...</Typography>
+                    </Box>
+                  ) : loadingError ? (
+                    <Box sx={{ 
+                      textAlign: 'center', 
+                      padding: '20px', 
+                      color: 'rgba(255, 255, 255, 0.7)',
+                      bgcolor: 'rgba(255, 82, 82, 0.05)',
+                      border: '1px solid rgba(255, 82, 82, 0.2)',
+                      borderRadius: '12px'
+                    }}>
+                      <Typography variant="body1" sx={{ mb: 2 }}>Lobiler yüklenirken bir hata oluştu.</Typography>
+                      <Button 
+                        onClick={refreshLobbies}
+                        sx={{ 
+                          mt: 1, 
+                          color: '#7C4DFF', 
+                          borderColor: '#7C4DFF',
+                          '&:hover': {
+                            backgroundColor: 'rgba(124, 77, 255, 0.08)',
+                            borderColor: '#7C4DFF'
+                          }
+                        }}
+                        variant="outlined"
+                        startIcon={<FaSyncAlt />}
+                      >
+                        Yeniden Dene
+                      </Button>
                     </Box>
                   ) : Array.isArray(activeLobbies) && activeLobbies.length > 0 ? (
                     activeLobbies.map((lobby) => (
@@ -1329,11 +1518,11 @@ function GameDetailPage() {
                           <Typography variant="body2">
                             {Array.isArray(lobby.players)
                               ? `${lobby.players.length} / ${lobby.maxPlayers} Oyuncu`
-                              : '0 Oyuncu'} 
+                              : '0 / ' + (lobby.maxPlayers || 6) + ' Oyuncu'} 
                             {lobby.isPrivate && ` • Özel`}
                           </Typography>
                         </Box>
-                        <JoinButton onClick={() => navigate(`/lobby/${lobby.lobbyCode}`)}>
+                        <JoinButton onClick={() => handleJoinLobby(lobby)}>
                           Katıl
                         </JoinButton>
                       </LobbyItem>
@@ -1609,6 +1798,73 @@ function GameDetailPage() {
               </SubmitButton>
             </SuccessContent>
           </SuccessModal>
+        )}
+
+        {/* Şifre Modalı */}
+        {showPasswordModal && selectedLobby && (
+          <Modal>
+            <ModalContent>
+              <ModalHeader>
+                <ModalTitle variant="h2">Şifre Gerekli</ModalTitle>
+                <IconButton 
+                  onClick={() => setShowPasswordModal(false)}
+                  sx={{
+                    background: 'rgba(255, 255, 255, 0.08)',
+                    color: 'rgba(255, 255, 255, 0.6)',
+                    fontSize: '1.8rem',
+                    height: '40px',
+                    width: '40px',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.3s',
+                    '&:hover': {
+                      background: 'rgba(255, 255, 255, 0.15)',
+                      color: 'white',
+                      transform: 'rotate(90deg)'
+                    }
+                  }}
+                >
+                  &times;
+                </IconButton>
+              </ModalHeader>
+              
+              <Typography variant="body1" sx={{ marginBottom: '20px' }}>
+                "{selectedLobby.name}" lobisi şifre korumalıdır. Lobiye katılmak için şifreyi girin.
+              </Typography>
+              
+              <Box component="form" onSubmit={handleSubmitPassword}>
+                <FormGroup fullWidth>
+                  <FormLabel component="label">Lobi Şifresi</FormLabel>
+                  <TextField
+                    type="password"
+                    placeholder="Şifreyi girin"
+                    value={lobbyPassword}
+                    onChange={(e) => setLobbyPassword(e.target.value)}
+                    required
+                    fullWidth
+                    variant="outlined"
+                    inputProps={{ style: { color: 'white' } }}
+                    error={!!passwordError}
+                    helperText={passwordError}
+                    FormHelperTextProps={{
+                      sx: { color: '#ff5252' }
+                    }}
+                  />
+                </FormGroup>
+                
+                <SubmitButton 
+                  type="submit" 
+                  disabled={isSubmitting || !lobbyPassword}
+                  variant="contained"
+                  sx={{ marginTop: '20px' }}
+                >
+                  {isSubmitting ? 'Kontrol Ediliyor...' : 'Lobiye Katıl'}
+                </SubmitButton>
+              </Box>
+            </ModalContent>
+          </Modal>
         )}
       </PageContainer>
     </MainLayout>

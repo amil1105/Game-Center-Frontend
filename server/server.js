@@ -826,6 +826,15 @@ const handleTombalaClaim = async (data, socketIo) => {
     await lobby.save();
     console.log(`Oyun sonlandı. Kazanan: ${playerName}, Bot mu: ${isBot}`);
     
+    // Oyun bittiğinde lobi bilgilerini veritabanından sil
+    try {
+      console.log(`Lobi siliniyor: ${lobbyId}`);
+      await Lobby.deleteOne({ _id: lobby._id });
+      console.log(`Lobi başarıyla silindi: ${lobbyId}`);
+    } catch (deleteError) {
+      console.error(`Lobi silinirken hata oluştu: ${deleteError.message}`);
+    }
+    
     // Socket.io ile diğer oyunculara bildir
     if (socketIo) {
       socketIo.to(lobbyId).emit('tombala_claimed', {
@@ -1009,15 +1018,30 @@ io.on('connection', async (socket) => {
       
       // Duraklatma ve otomatik çekme durumları
       const newPausedState = !keepPausedState ? isManualDraw : lobby.isPaused || false;
-      const autoDrawEnabled = keepAutoDrawState ? (lobby.autoDrawEnabled !== undefined ? lobby.autoDrawEnabled : true) : !isManualDraw;
+      // Otomatik çekme durumunu belirleme
+      let autoDrawEnabled = !newPausedState;
       
-      // Manuel çekme ve otomatik çekme durumunu koruma isteği var, autoDrawEnabled durumu değiştirilmiyor
-      if (isManualDraw && keepAutoDrawState) {
-        console.log('Manuel çekme ve otomatik çekme durumunu koruma isteği var, autoDrawEnabled durumu değiştirilmiyor');
+      // Otomatik çekme durumunu koruma isteği varsa
+      if (isManualDraw && keepAutoDrawState !== undefined) {
+        console.log('Manuel çekme ve otomatik çekme durumu kontrol ediliyor', { keepAutoDrawState, newPausedState });
+        
+        // Eğer oyun duraklatılmışsa ve keepAutoDrawState değeri false ise
+        if (newPausedState && !keepAutoDrawState) {
+          autoDrawEnabled = false;
+          console.log('Oyun duraklatıldı ve otomatik çekme kapatıldı');
+        } else if (!newPausedState) {
+          // Oyun devam ediyorsa otomatik çekme açık olabilir
+          autoDrawEnabled = keepAutoDrawState; 
+          console.log('Oyun devam ediyor, otomatik çekme durumu:', autoDrawEnabled);
+        }
       } else {
-        // Aksi halde otomatik çekme durumu tam tersine çevrilir (manuel çekme için false yapılır)
-        lobby.autoDrawEnabled = autoDrawEnabled;
+        // Manuel çekme değilse, otomatik çekme durumu duraklatma durumunun tersine eşit
+        autoDrawEnabled = !newPausedState;
+        console.log('Otomatik çekme durumu duraklatma durumuna göre ayarlandı:', autoDrawEnabled);
       }
+      
+      // Otomatik çekme durumunu lobby nesnesine ata
+      lobby.autoDrawEnabled = autoDrawEnabled;
       
       // Duraklatma durumunu güncelle
       lobby.isPaused = newPausedState;
@@ -1149,351 +1173,11 @@ io.on('connection', async (socket) => {
   });
   
   // Socket eventleri
-  socket.on('draw_number', async (data) => {
-    try {
-      console.log(`Sayı çekme isteği alındı: ${JSON.stringify(data)}`);
-      const { lobbyId, playerId, isManualDraw, keepPausedState, keepAutoDrawState, manualDrawPermission } = data;
-      
-      if (!lobbyId) {
-        socket.emit('error', { message: 'Lobi ID gerekli' });
-        console.error('Sayı çekme isteğinde Lobi ID eksik');
-        return;
-      }
-      
-      // Lobi bilgilerini al
-      const lobby = await Lobby.findOne({ 
-        $or: [
-          { lobbyCode: lobbyId }, 
-          { _id: mongoose.Types.ObjectId.isValid(lobbyId) ? new mongoose.Types.ObjectId(lobbyId) : null }
-        ]
-      });
-      
-      if (!lobby) {
-        socket.emit('error', { message: 'Lobi bulunamadı' });
-        console.error(`Lobi bulunamadı: ${lobbyId}`);
-        return;
-      }
-      
-      // Oyun başlamış mı kontrol et
-      if (lobby.status !== 'playing') {
-        socket.emit('error', { message: 'Oyun başlamadı, sayı çekilemez' });
-        console.error(`Oyun başlamadı, sayı çekilemez. Mevcut durum: ${lobby.status}`);
-        return;
-      }
-      
-      // Manuel sayı çekme yetkisi kontrolü
-      if (isManualDraw) {
-        // Lobideki ayarlara göre izin kontrolü yap
-        const lobbyManualDrawPermission = lobby.settings?.manualNumberDrawPermission || lobby.manualNumberDrawPermission || 'host-only';
-        
-        // Oyuncunun host olup olmadığını kontrol et
-        const isPlayerHost = lobby.creator.toString() === playerId || 
-                            (Array.isArray(lobby.playersDetail) && 
-                             lobby.playersDetail.find(p => p.id === playerId && p.isHost === true));
-
-        console.log(`Manuel sayı çekme kontrolü - Client ayarı: ${manualDrawPermission}, Lobi ayarı: ${lobbyManualDrawPermission}, IsHost: ${isPlayerHost}`);
-        
-        // Eğer 'host-only' ise ve kullanıcı host değilse, engelle
-        if (lobbyManualDrawPermission === 'host-only' && !isPlayerHost) {
-          socket.emit('error', { message: 'Sadece lobi sahibi manuel olarak sayı çekebilir' });
-          console.error(`Manuel sayı çekme yetkisi yok. Player: ${playerId}, Host: ${lobby.creator}`);
-          return;
-        }
-        
-        console.log(`Manuel sayı çekme yetkisi onaylandı. İzin ayarı: ${lobbyManualDrawPermission}, IsHost: ${isPlayerHost}`);
-      }
-      
-      // drawnNumbers dizisinin durumunu kontrol et ve logla
-      console.log(`Sayı çekme öncesi - Lobi: ${lobbyId}, Mevcut çekilen sayılar:`, 
-        Array.isArray(lobby.drawnNumbers) ? `${lobby.drawnNumbers.length} sayı çekilmiş: [${lobby.drawnNumbers.join(', ')}]` : 'dizi değil');
-    
-      // Eğer drawnNumbers tanımlı değilse, boş dizi olarak başlat
-      if (!lobby.drawnNumbers || !Array.isArray(lobby.drawnNumbers)) {
-        console.log('drawnNumbers dizisi tanımlı değil veya dizi değil, yeni dizi oluşturuluyor');
-        lobby.drawnNumbers = [];
-      }
-      
-      // drawnNumbers dizisini kontrol et, eğer nesneyse diziye çevir
-      if (typeof lobby.drawnNumbers === 'object' && !Array.isArray(lobby.drawnNumbers)) {
-        console.log('drawnNumbers bir nesne olarak saklanmış, diziye çevriliyor');
-        const tempArray = [];
-        for (const key in lobby.drawnNumbers) {
-          if (Object.prototype.hasOwnProperty.call(lobby.drawnNumbers, key)) {
-            tempArray.push(parseInt(lobby.drawnNumbers[key]));
-    }
-        }
-        lobby.drawnNumbers = tempArray;
-    }
-    
-      // Önceki çekilen sayıların sayısını logla
-      console.log(`Çekilen sayı sayısı (çekim öncesi): ${lobby.drawnNumbers.length}/90`);
-      
-      // Yeni sayı çek
-      const nextNumber = getRandomNumber(lobby.drawnNumbers);
-      
-      if (nextNumber === null) {
-        console.log('Çekilecek yeni sayı kalmadı!');
-        socket.emit('error', { message: 'Çekilecek sayı kalmadı' });
-        return;
-      }
-      
-      // Sayıyı ekle
-      lobby.drawnNumbers.push(nextNumber);
-      lobby.currentNumber = nextNumber;
-        
-      // drawnNumbers dizisini kontrol et ve logla
-      console.log(`Sayı eklendikten sonra - drawnNumbers: [${lobby.drawnNumbers.join(', ')}]`);
-      console.log(`Toplam çekilen sayı adedi: ${lobby.drawnNumbers.length}/90`);
-          
-      // Mongo için güncellemeyi işaretle
-      lobby.markModified('drawnNumbers');
-          
-      // Veritabanına kaydet
-      try {
-        await lobby.save();
-        console.log(`Lobby başarıyla kaydedildi. Güncel çekilen sayı adedi: ${lobby.drawnNumbers.length}/90`);
-        
-        // Manuel sayı çekme durumunu kontrol et
-        const isManualDrawRequest = isManualDraw === true;
-        const shouldKeepPausedState = keepPausedState === true;
-        
-        console.log(`Manuel çekme: ${isManualDrawRequest}, Duraklatma durumunu koru: ${shouldKeepPausedState}`);
-        
-        // Sayacı yeniden başlat - manuel sayı çekme durumunda
-        const countdownDuration = getCountdownDuration(lobby.gameSpeed || 'normal');
-        
-        // Mevcut sayaç bilgilerini al
-        const countdownInfo = lobbyCountdowns.get(lobbyId);
-        
-        // Duraklatma durumunu belirle
-        let newPausedState = lobby.isPaused;
-        
-        // Manuel çekme ve duraklatma durumunu koruma isteği varsa, isPaused durumunu değiştirme
-        if (isManualDrawRequest && shouldKeepPausedState) {
-          console.log('Manuel çekme ve duraklatma durumunu koruma isteği var, isPaused durumu değiştirilmiyor');
-          // Duraklatma durumunu koru
-        } else {
-          // Normal davranış - sayı çekildiğinde duraklatma kaldırılır
-          newPausedState = false;
-          lobby.isPaused = false;
-          await lobby.save();
-        }
-        
-        if (countdownInfo) {
-          // Sayacı yeniden başlat
-          clearInterval(countdownInfo.interval);
-          
-          // Yeni sayaç başlat (eğer oyun duraklatılmamışsa veya manuel çekme değilse)
-          if (!newPausedState) {
-            startCountdown(lobbyId, lobby.gameSpeed || 'normal', false);
-          } else {
-            // Oyun duraklatılmışsa, sadece sayaç değerini güncelle
-            lobbyCountdowns.set(lobbyId, {
-              ...countdownInfo,
-              countdown: countdownDuration,
-              isPaused: true
-            });
-          }
-        } else {
-          // Sayaç yoksa yeni sayaç başlat
-          startCountdown(lobbyId, lobby.gameSpeed || 'normal', newPausedState);
-        }
-              
-        // Otomatik çekme durumunu belirleme
-        let autoDrawEnabled = !newPausedState;
-        
-        // Otomatik çekme durumunu koruma isteği varsa
-        if (isManualDrawRequest && keepAutoDrawState) {
-          console.log('Manuel çekme ve otomatik çekme durumunu koruma isteği var, autoDrawEnabled durumu değiştirilmiyor');
-          // Eğer duraklatılmışsa otomatik çekme de kapalı olmalı
-          autoDrawEnabled = !newPausedState;
-        }
-              
-        // Tüm oyunculara yeni sayıyı bildir - kaydettikten sonra bildir
-        io.to(lobbyId).emit('number_drawn', {
-          number: nextNumber,
-          drawnNumbers: lobby.drawnNumbers,
-          isPaused: newPausedState,
-          autoDrawEnabled: autoDrawEnabled,
-          countdown: countdownDuration,
-          timestamp: Date.now()
-        });
-        
-        console.log(`Yeni sayı çekildi: ${nextNumber} - Toplam: ${lobby.drawnNumbers.length}/90`);
-        
-        // Sayı çekildi, herkese bildir
-        io.to(lobbyId).emit('number_drawn', {
-          number: nextNumber,
-          drawnNumbers: lobby.drawnNumbers,
-          isPaused: newPausedState,
-          autoDrawEnabled: autoDrawEnabled,
-          countdown: countdownDuration,
-          timestamp: Date.now()
-        });
-        
-        // Sayı çekildikten sonra botların hamlelerini kontrol et
-        if (lobby) {
-          setTimeout(async () => {
-            try {
-              await processBotMoves(lobby);
-            } catch (botError) {
-              console.error('Bot hamleleri kontrol edilirken hata:', botError);
-            }
-          }, 1000); // 1 saniye sonra bot hareketlerini kontrol et
-        }
-        
-        console.log(`Yeni sayı çekildi: ${nextNumber} - Toplam: ${lobby.drawnNumbers.length}/90`);
-        
-        // Bot hareketlerini işle - Sayı çekildikten sonra
-        setTimeout(async () => {
-          try {
-            // Lobi bilgilerini tekrar al (güncel durumu almak için)
-            const updatedLobby = await Lobby.findOne({ 
-              $or: [
-                { lobbyCode: lobbyId }, 
-                { _id: mongoose.Types.ObjectId.isValid(lobbyId) ? new mongoose.Types.ObjectId(lobbyId) : null }
-              ]
-            });
-            
-            if (updatedLobby && updatedLobby.status === 'playing') {
-              console.log(`Bot hareketleri işleniyor... Lobi=${lobbyId}, Son çekilen sayı=${nextNumber}`);
-              await processBotMoves(updatedLobby);
-            } else {
-              console.log(`Bot hareketleri işlenmiyor, oyun durumu: ${updatedLobby?.status || 'bilinmiyor'}`);
-            }
-          } catch (botError) {
-            console.error('Bot hareketleri işlenirken hata:', botError);
-          }
-        }, 2000); // Botlar için gerçekçi görünmesi için 2 saniye bekle
-        
-        // Tüm sayılar çekildiyse durumu güncelle
-        if (lobby.drawnNumbers.length >= 90) {
-          lobby.status = 'finished';
-          await lobby.save();
-          
-          // Sayacı durdur
-          stopCountdown(lobbyId);
-          
-          io.to(lobbyId).emit('game_end', { 
-            message: 'Tüm sayılar çekildi, oyun bitti!',
-            allNumbersDrawn: true
-          });
-          return;
-        }
-      } catch (saveError) {
-        console.error('Lobi kaydedilirken hata:', saveError);
-        socket.emit('error', { message: 'Lobi kaydedilirken hata oluştu' });
-        return;
-      }
-      
-      // Tüm sayılar çekildiyse durumu güncelle
-      if (lobby.drawnNumbers.length >= 90) {
-        lobby.status = 'finished';
-                await lobby.save();
-        
-        // Sayacı durdur
-        stopCountdown(lobbyId);
-        
-        io.to(lobbyId).emit('game_end', { 
-          message: 'Tüm sayılar çekildi, oyun bitti!',
-          allNumbersDrawn: true
-        });
-        return;
-        }
-        
-      // Tüm oyuncuların kartlarını kontrol et - 15 işaretli sayı kontrolü
-      if (lobby.playersDetail && Array.isArray(lobby.playersDetail)) {
-        for (const player of lobby.playersDetail) {
-          if (player.card) {
-            const tombalaCheck = checkForTombalaByMarkedCount(player.card, lobby.drawnNumbers);
-
-            // Eğer oyuncunun kartında 15 işaretli sayı varsa, otomatik tombala!
-            if (tombalaCheck.isTombala) {
-              console.log(`Otomatik tombala tespit edildi! Oyuncu: ${player.name || player.id}, İşaretli: ${tombalaCheck.markedCount}/15`);
-    
-              // Kullanıcı adını users tablosundan al
-              let realPlayerName = player.name;
-              try {
-                if (mongoose.Types.ObjectId.isValid(player.id)) {
-                  const user = await User.findById(player.id);
-                  if (user && user.username) {
-                    realPlayerName = user.username;
-                    console.log(`Kullanıcı adı Users tablosundan alındı: ${realPlayerName}`);
-                  } else {
-                    console.log(`Kullanıcı bulunamadı veya username alanı yok: ${player.id}`);
-                    
-                    // Kullanıcı bilgisi player.user'dan gelebilir
-                    if (player.user && typeof player.user === 'object') {
-                      // Zaten Mongoose tarafından populate edilmiş olabilir
-                      if (player.user.username) {
-                        realPlayerName = player.user.username;
-                        console.log(`Kullanıcı adı player.user nesnesinden alındı: ${realPlayerName}`);
-                      }
-                    } else if (player.user) {
-                      // Lobi içinde detaylı bilgilerine bak
-                      const playerDetail = lobby.playersDetail.find(p => 
-                        p.user && p.user.toString() === player.user.toString()
-                      );
-                      
-                      if (playerDetail && playerDetail.name) {
-                        realPlayerName = playerDetail.name;
-                        console.log(`Oyuncu adı playersDetail'dan alındı: ${realPlayerName}`);
-                      }
-                    }
-                  }
-                }
-              } catch (error) {
-                console.error('Kullanıcı bilgisi alınamadı:', error);
-              }
-    
-              // Kazananı güncelle
-              if (!lobby.winners) lobby.winners = [];
-              lobby.winners.push({
-                playerId: player.id,
-                playerName: realPlayerName || player.name || 'Bilinmeyen Oyuncu',
-                type: 'tombala',
-                timestamp: new Date()
-              });
-              lobby.markModified('winners');
-              
-              // Oyunu bitir
-              lobby.status = 'finished';
-              lobby.finishedAt = new Date();
-              await lobby.save();
-              
-              // Tüm oyunculara bildirimi gönder
-              io.to(lobbyId).emit('game_end', {
-                message: `${realPlayerName || player.name || 'Bir oyuncu'} tüm sayıları işaretledi (15/15)! Oyun bitti!`,
-                winner: {
-                  playerId: player.id,
-                  playerName: realPlayerName || player.name || 'Bilinmeyen Oyuncu',
-                  totalMarked: tombalaCheck.markedCount,
-                  type: 'tombala'
-                },
-                tombalaCompleted: true
-              });
-              
-              io.to(lobbyId).emit('tombala_claimed', {
-                playerId: player.id,
-                playerName: realPlayerName || player.name || 'Bilinmeyen Oyuncu',
-                type: 'tombala',
-                automatic: true,
-                totalMarked: 15
-              });
-              
-              return; // Oyunu bitir, diğer oyuncuları kontrol etme
-            }
-          }
-        }
-      }
-      
-    } catch (error) {
-      console.error('Sayı çekme hatası:', error);
-      socket.emit('error', { message: 'Sayı çekilirken bir hata oluştu' });
-    }
-  });
-
-  // Odaya katılma
+  // İkinci draw_number handler'ı kaldırıldı - sayı çekme senkronizasyon sorununu çözmek için
+  // Bu handler önceki handler'ın bir kopyası olduğundan, duplikasyona ve host oyuncusunun 
+  // manuel sayı çektiğinde 2 sayı birden çekmesine neden oluyordu.
+  
+  // Diğer socket olayları  
   socket.on('join_lobby', async (data) => {
     try {
     const { lobbyId, playerId, playerName } = data;

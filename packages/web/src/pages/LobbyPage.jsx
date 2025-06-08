@@ -79,7 +79,10 @@ import {
   VideogameAsset as GameIcon,
   Close as CloseIcon,
   NotificationsActive as NotificationIcon,
-  Notifications as NotificationOffIcon
+  Notifications as NotificationOffIcon,
+  Error as ErrorIcon,
+  Home as HomeIcon,
+  Refresh as RefreshIcon
 } from '@mui/icons-material';
 import { 
   FaFacebook, 
@@ -685,30 +688,40 @@ const PlayerAvatar = ({ player, isOwner, isReady, isCurrentUser, isHostViewing, 
 };
 
 function LobbyPage() {
-  const { lobbyCode: codeParam } = useParams();
-  const [lobbyCode, setLobbyCode] = useState(codeParam);
+  const { lobbyCode } = useParams();
+  const [lobby, setLobby] = useState(null);
+  const [players, setPlayers] = useState([]);
+  const [isReady, setIsReady] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [startCountdown, setStartCountdown] = useState(null);
+  const [allPlayersReady, setAllPlayersReady] = useState(false);
+  const [hasJoinedLobby, setHasJoinedLobby] = useState(false);
+  const [isLoadingJoin, setIsLoadingJoin] = useState(false);
   const { user } = useContext(UserContext);
   const navigate = useNavigate();
   const { enqueueSnackbar } = useSnackbar();
-  const [loading, setLoading] = useState(true);
-  const [lobby, setLobby] = useState(null);
-  const [players, setPlayers] = useState([]);
-  const [messages, setMessages] = useState([]);
-  const [newMessage, setNewMessage] = useState('');
-  const [isConnected, setIsConnected] = useState(false);
-  const [isReady, setIsReady] = useState(false);
-  const [socketConnected, setSocketConnected] = useState(false);
-  const [hasJoinedLobby, setHasJoinedLobby] = useState(false);
-  const [allPlayersReady, setAllPlayersReady] = useState(false);
-  const [startCountdown, setStartCountdown] = useState(null);
-  const [copySuccess, setCopySuccess] = useState(false);
-  const [error, setError] = useState(null);
+  const messagesEndRef = useRef(null);
+  const [settings, setSettings] = useState({
+    notificationsEnabled: true,
+    soundsEnabled: true
+  });
+  const [openSettingsDialog, setOpenSettingsDialog] = useState(false);
+  const [audioLoaded, setAudioLoaded] = useState(false);
+  const [sounds, setSounds] = useState({});
+  const [notifications, setNotifications] = useState([]);
+  const [lobbyNotFound, setLobbyNotFound] = useState(false); // Lobi bulunamadı durumu
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true); // Bildirim ayarı
+  const [soundsEnabled, setSoundsEnabled] = useState(true); // Ses ayarı
+  const [error, setError] = useState(null); // Hata mesajı
+  const [copySuccess, setCopySuccess] = useState(false); // Kopyalama başarılı durumu
+  
+  // Diğer state'ler...
   
   // Bildirim sistemi için eklenen state'ler
   const [isTabActive, setIsTabActive] = useState(true);
   const [notificationPermission, setNotificationPermission] = useState('default');
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [soundsEnabled, setSoundsEnabled] = useState(true);
   const [pendingNotifications, setPendingNotifications] = useState(0);
   const [originalTitle, setOriginalTitle] = useState(document.title);
   
@@ -745,7 +758,6 @@ function LobbyPage() {
   // Atılma durumu için state tanımı
   const [kickedDialogOpen, setKickedDialogOpen] = useState(false);
   
-  const messagesEndRef = useRef(null);
   const socketRef = useRef(null);
   const pollingRef = useRef(null);
   const theme = useTheme();
@@ -1910,19 +1922,16 @@ function LobbyPage() {
           updateMessages(apiMessages);
         }
       } catch (apiError) {
-        // API 404 hatası (lobi bulunamadı) - kullanıcıya yönlendirme yap
+        // API 404 hatası (lobi bulunamadı) - kullanıcıya bildirim yap
         if (apiError.response && apiError.response.status === 404) {
           console.error('Lobi bulunamadı (404):', lobbyCode);
+          setLobbyNotFound(true); // Lobi bulunamadı durumu için state kullan
           enqueueSnackbar('Lobi artık mevcut değil veya silinmiş.', {
             variant: 'error',
-            autoHideDuration: 3000
+            autoHideDuration: 5000
           });
           
-          // Ana sayfaya yönlendir (5 saniye bekle)
-          setTimeout(() => {
-            navigate('/home');
-          }, 5000);
-          
+          // Otomatik yönlendirme yapma - kullanıcı kendisi aksiyona geçsin
           return;
         }
         
@@ -1949,10 +1958,9 @@ function LobbyPage() {
             autoHideDuration: 5000
           });
           
-          // Ana sayfaya yönlendir
-          setTimeout(() => {
-            navigate('/home');
-          }, 3000);
+          // Kullanıcıya izinsiz erişim bilgisi veriyoruz, otomatik yönlendirme yapmıyoruz
+          setError('Bu lobiye erişim izniniz yok. Lobi şifreli olabilir veya girişiniz lobi sahibi tarafından engellenmiş olabilir.');
+          return;
         }
       } else if (error.request) {
         // İstek yapıldı ama yanıt alınamadı
@@ -3114,11 +3122,13 @@ function LobbyPage() {
   // Lobi silindi eventi
   const handleLobbyDeleted = (data) => {
     console.log('Socket: Lobi silindi', data);
-    enqueueSnackbar('Lobi silindi, ana sayfaya yönlendiriliyorsunuz', { 
+    enqueueSnackbar('Lobi silindi veya kapatıldı.', { 
       variant: 'info', 
-      autoHideDuration: 3000 
+      autoHideDuration: 5000 
     });
-    navigate('/home');
+    
+    // Ana sayfaya otomatik yönlendirme yerine lobbyNotFound göster
+    setLobbyNotFound(true);
   };
 
   // Bildirimleri sıfırlama fonksiyonu
@@ -3236,6 +3246,13 @@ function LobbyPage() {
       if (!('Notification' in window)) {
         console.log('Bu tarayıcı bildirimleri desteklemiyor.');
         setNotificationsEnabled(false);
+        
+        // settings state'ini de güncelle
+        setSettings(prev => ({
+          ...prev,
+          notificationsEnabled: false
+        }));
+        
         return;
       }
 
@@ -3245,24 +3262,27 @@ function LobbyPage() {
       // İzin granted ise bildirimleri etkinleştir
       if (Notification.permission === 'granted') {
         setNotificationsEnabled(true);
+        
+        // settings state'ini de güncelle
+        setSettings(prev => ({
+          ...prev,
+          notificationsEnabled: true
+        }));
       } else {
         // Kullanıcı daha önce denied demiş olabilir
         setNotificationsEnabled(false);
+        
+        // settings state'ini de güncelle
+        setSettings(prev => ({
+          ...prev,
+          notificationsEnabled: false
+        }));
       }
     };
     
     checkNotificationPermission();
     
-    // Tarayıcı için  bildirim testi yap (bir kerelik)
-    if ('Notification' in window && Notification.permission === 'granted') {
-      setTimeout(() => {
-        new Notification('Bildirim Sistemi Test', {
-          body: 'Bildirimler çalışıyor!',
-          icon: '/logo.png'
-        });
-        console.log('Test bildirimi gönderildi');
-      }, 3000);
-    }
+   
   }, []);
   
   // Bildirim gönderme fonksiyonu - hata yönetimini güçlendirelim
@@ -3311,6 +3331,13 @@ function LobbyPage() {
         
         // Bildirimleri default kapalı yap
         setNotificationsEnabled(false);
+        
+        // settings state'ini de güncelle
+        setSettings(prevSettings => ({
+          ...prevSettings,
+          notificationsEnabled: false
+        }));
+        
         enqueueSnackbar('Bildirimler gösterilemiyor, lütfen tarayıcı izinlerini kontrol edin', { 
           variant: 'warning',
           autoHideDuration: 5000
@@ -3384,10 +3411,22 @@ function LobbyPage() {
       } else {
         console.error(`Ses dosyası bulunamadı: ${soundType}`);
         setSoundsEnabled(false);
+        
+        // settings state'ini de güncelle
+        setSettings(prevSettings => ({
+          ...prevSettings,
+          soundsEnabled: false
+        }));
       }
     } catch (error) {
       console.error(`Ses çalma hatası (${soundType}):`, error);
       setSoundsEnabled(false);
+      
+      // settings state'ini de güncelle
+      setSettings(prevSettings => ({
+        ...prevSettings,
+        soundsEnabled: false
+      }));
     }
   };
 
@@ -3406,6 +3445,12 @@ function LobbyPage() {
     } else {
       const newState = !notificationsEnabled;
       setNotificationsEnabled(newState);
+      
+      // settings state'ini de güncelle
+      setSettings(prev => ({
+        ...prev,
+        notificationsEnabled: newState
+      }));
       
       // Durumu kaydet (localStorage veya başka bir yöntemle kalıcı hale getirilebilir)
       try {
@@ -3431,6 +3476,12 @@ function LobbyPage() {
   const toggleSounds = () => {
     const newState = !soundsEnabled;
     setSoundsEnabled(newState);
+    
+    // settings state'ini de güncelle
+    setSettings(prev => ({
+      ...prev,
+      soundsEnabled: newState
+    }));
     
     // Durumu kaydet (localStorage veya başka bir yöntemle kalıcı hale getirilebilir)
     try {
@@ -3473,6 +3524,12 @@ function LobbyPage() {
       if (permission === 'granted') {
         setNotificationsEnabled(true);
         
+        // settings state'ini de güncelle
+        setSettings(prev => ({
+          ...prev,
+          notificationsEnabled: true
+        }));
+        
         // Durumu kaydet
         try {
           localStorage.setItem('notificationsEnabled', 'true');
@@ -3492,6 +3549,12 @@ function LobbyPage() {
       } else if (permission === 'denied') {
         setNotificationsEnabled(false);
         
+        // settings state'ini de güncelle
+        setSettings(prev => ({
+          ...prev,
+          notificationsEnabled: false
+        }));
+        
         // Durumu kaydet
         try {
           localStorage.setItem('notificationsEnabled', 'false');
@@ -3506,10 +3569,22 @@ function LobbyPage() {
       } else {
         // default veya başka bir durum - default olarak kapalı
         setNotificationsEnabled(false);
+        
+        // settings state'ini de güncelle
+        setSettings(prev => ({
+          ...prev,
+          notificationsEnabled: false
+        }));
       }
     } catch (error) {
       console.error('Bildirim izni isteme hatası:', error);
       setNotificationsEnabled(false);
+      
+      // settings state'ini de güncelle
+      setSettings(prev => ({
+        ...prev,
+        notificationsEnabled: false
+      }));
       
       enqueueSnackbar('Bildirim izni alınamadı, bir hata oluştu', {
         variant: 'error',
@@ -3526,11 +3601,25 @@ function LobbyPage() {
       const storedSounds = localStorage.getItem('soundsEnabled');
       
       if (storedNotifications !== null) {
-        setNotificationsEnabled(JSON.parse(storedNotifications));
+        const notificationValue = JSON.parse(storedNotifications);
+        setNotificationsEnabled(notificationValue);
+        
+        // settings state'ini de güncelle
+        setSettings(prev => ({
+          ...prev,
+          notificationsEnabled: notificationValue
+        }));
       }
       
       if (storedSounds !== null) {
-        setSoundsEnabled(JSON.parse(storedSounds));
+        const soundValue = JSON.parse(storedSounds);
+        setSoundsEnabled(soundValue);
+        
+        // settings state'ini de güncelle
+        setSettings(prev => ({
+          ...prev,
+          soundsEnabled: soundValue
+        }));
       }
       
       console.log('LocalStorage ayarları yüklendi:', { 
@@ -3592,6 +3681,66 @@ function LobbyPage() {
               >
                 Ana Sayfaya Dön
               </Button>
+            </Box>
+          </PageContainer>
+        </ThemeProvider>
+      </MainLayout>
+    );
+  }
+  
+  // Lobi bulunamadı durumu
+  if (lobbyNotFound) {
+    return (
+      <MainLayout>
+        <ThemeProvider theme={customTheme}>
+          <PageContainer>
+            <Box 
+              display="flex" 
+              flexDirection="column"
+              justifyContent="center" 
+              alignItems="center" 
+              height="100%"
+              gap={3}
+              p={4}
+              textAlign="center"
+            >
+              <ErrorIcon sx={{ fontSize: 60, color: 'error.main', mb: 2 }} />
+              <Typography variant="h4" gutterBottom fontWeight="bold">
+                Lobi Bulunamadı
+              </Typography>
+              <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 600, mb: 3 }}>
+                Aradığınız lobi artık mevcut değil veya silinmiş olabilir. Lobinin sahibi lobiyi kapatmış ya da sistem tarafından otomatik temizlenmiş olabilir.
+              </Typography>
+              
+              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', justifyContent: 'center' }}>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  startIcon={<HomeIcon />}
+                  onClick={() => navigate('/home')}
+                  sx={{
+                    px: 3,
+                    py: 1.5,
+                    borderRadius: '50px',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  Ana Sayfaya Dön
+                </Button>
+                <Button
+                  variant="outlined"
+                  color="primary"
+                  startIcon={<RefreshIcon />}
+                  onClick={() => window.location.reload()}
+                  sx={{
+                    px: 3,
+                    py: 1.5,
+                    borderRadius: '50px',
+                  }}
+                >
+                  Yeniden Dene
+                </Button>
+              </Box>
             </Box>
           </PageContainer>
         </ThemeProvider>

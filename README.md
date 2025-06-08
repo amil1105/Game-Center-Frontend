@@ -219,6 +219,12 @@ This command will start frontend and backend services simultaneously:
 ![image](https://github.com/user-attachments/assets/aa04815f-f51d-4762-964e-f7ddb144100f)
 
 
+### Minesweeper Game
+- Classic Minesweeper gameplay
+- Customizable grid size and mine count
+- Flagging and timer functionalities
+- Playable at http://localhost:3001
+
 <p align="right">(<a href="#readme-top">🔝</a>)</p>
 
 ## 🤖 Features

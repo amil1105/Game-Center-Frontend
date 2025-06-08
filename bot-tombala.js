@@ -1,8 +1,3 @@
-// Bu dosya, server.js'de yapılması gereken düzeltmeleri gösterir
-
-// =====================================================================
-// 1. handleTombalaClaim fonksiyonunu düzeltin
-// =====================================================================
 
 // Tombala talebi işleme fonksiyonu
 const handleTombalaClaim = async (data, socketIo) => {

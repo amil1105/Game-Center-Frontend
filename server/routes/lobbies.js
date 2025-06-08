@@ -142,6 +142,40 @@ router.get('/code/:code', auth, async (req, res) => {
   }
 });
 
+// Şifre doğrulama endpoint'i
+router.post('/:lobbyCode/verify-password', auth, async (req, res) => {
+  try {
+    const { password } = req.body;
+    const { lobbyCode } = req.params;
+    
+    if (!password) {
+      return res.status(400).json({ error: 'Şifre gereklidir' });
+    }
+    
+    const lobby = await Lobby.findOne({ lobbyCode });
+    
+    if (!lobby) {
+      return res.status(404).json({ error: 'Lobi bulunamadı' });
+    }
+    
+    if (!lobby.isPrivate || !lobby.password) {
+      return res.status(400).json({ error: 'Bu lobi için şifre gerekmemektedir' });
+    }
+    
+    // Şifre kontrolü
+    if (lobby.password !== password) {
+      return res.status(400).json({ error: 'Şifre hatalı' });
+    }
+    
+    // Şifre doğru
+    res.json({ success: true });
+    
+  } catch (error) {
+    console.error('Şifre doğrulama hatası:', error);
+    res.status(500).json({ error: 'Şifre doğrulanırken bir hata oluştu' });
+  }
+});
+
 // Yeni lobi oluştur
 router.post('/', auth, async (req, res) => {
   try {
